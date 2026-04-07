@@ -1,0 +1,15 @@
+{
+  "name": "pi-rust-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pi workspace for Rust development",
+  "scripts": {
+    "validate-env": "powershell -ExecutionPolicy Bypass -File ./scripts/Invoke-RustWorkspace.ps1 validate-env",
+    "show-config": "powershell -ExecutionPolicy Bypass -File ./scripts/Invoke-RustWorkspace.ps1 show-config",
+    "scaffold-feature-plan": "powershell -ExecutionPolicy Bypass -File ./scripts/Scaffold-FeaturePlan.ps1",
+    "format-project": "powershell -ExecutionPolicy Bypass -File ./scripts/Invoke-RustWorkspace.ps1 format-project",
+    "lint-project": "powershell -ExecutionPolicy Bypass -File ./scripts/Invoke-RustWorkspace.ps1 lint-project",
+    "test-project": "powershell -ExecutionPolicy Bypass -File ./scripts/Invoke-RustWorkspace.ps1 test-project",
+    "compile-project": "powershell -ExecutionPolicy Bypass -File ./scripts/Invoke-RustWorkspace.ps1 compile-project"
+  }
+}

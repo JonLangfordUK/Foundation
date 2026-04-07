@@ -1,0 +1,6 @@
+{
+  "enableSkillCommands": true,
+  "packages": [
+    "npm:@ifi/oh-pi"
+  ]
+}

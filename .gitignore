@@ -1,0 +1,43 @@
+# Rust build output
+/target/
+**/target/
+
+# Generated artifacts and logs
+/artifacts/
+/logs/
+
+# Local environment/editor files
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Pi workspace files should be tracked
+!.pi/
+!.pi/**
+
+# Rust files commonly tracked
+!Cargo.toml
+!Cargo.lock
+!src/**
+!crates/**
+!tests/**
+!benches/**
+!examples/**
+!build.rs
+
+# Docs/scripts/templates should be tracked
+!docs/**
+!scripts/**
+!AGENTS.md
+!README.md
+!package.json
