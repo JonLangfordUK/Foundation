@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `engine`
 - Branch: `feature/documentation-workflow`
-- Overall status: `Awaiting commit`
+- Overall status: `Complete`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation in progress with gpt-5.4`
+- Current handoff state: `Ready for gpt-5.5 sanity review`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -45,7 +45,7 @@
 - This phase was started before plan/tracker documents existed. The process issue is corrected by this retrospective plan/tracker and the follow-up consistency pass.
 
 ## Phase 2: Pipeline consistency hardening
-**Status:** Awaiting commit  
+**Status:** Complete  
 **Goal:** Ensure every workflow entry point matches the updated rules and provide a one-command full validation wrapper.
 
 ### Tasks
@@ -67,9 +67,9 @@
 - [x] Run full validation and record results.
   - Status: Complete
   - Notes: `scripts/validate-project.cmd` passed on 2026-06-19.
-- [ ] Commit and push consistency hardening changes.
-  - Status: Awaiting commit
-  - Notes: Must include updated plan/tracker documents.
+- [x] Commit and push consistency hardening changes.
+  - Status: Complete
+  - Notes: Commit `b4e8fe7 Harden documentation workflow` pushed to `origin/feature/documentation-workflow`.
 
 ### Validation
 - Format: Passed via `scripts/validate-project.cmd` on 2026-06-19
@@ -96,3 +96,5 @@
 - `2026-06-19`: User approved full workflow consistency review and hardening.
 - `2026-06-19`: Retrospective plan/tracker created to bring the branch into compliance with the feature workflow.
 - `2026-06-19`: Full validation passed with `scripts/validate-project.cmd`.
+- `2026-06-19`: Consistency hardening committed as `b4e8fe7` and pushed to `origin/feature/documentation-workflow`.
+- `2026-06-19`: Final full validation passed with `scripts/validate-project.cmd` after tracker/plan completion updates.
