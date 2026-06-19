@@ -5,11 +5,11 @@
 - Feature area: `editor`
 - Primary area: `editor`
 - Branch: `feature/jackdaw-editor-integration`
-- Overall status: `Awaiting commit/push checkpoint`
+- Overall status: `Implemented`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation complete with gpt-5.4; commit/push checkpoint pending`
+- Current handoff state: `Ready for final user review or optional gpt-5.5 sanity review`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning commit `ae3fcb3` pushed to `origin/feature/jackdaw-editor-integration`; implementation commit pending.
+- Push status: Planning commit `ae3fcb3` and implementation commit `dc0828f` pushed to `origin/feature/jackdaw-editor-integration`; final tracker push-state update pending.
 
 ## Phase 1: Rename Editor Subproject To PillarEditor
 **Status:** Complete  
@@ -97,7 +97,7 @@
 - The editor uses `ctrlc::set_handler`; Bevy logs that it skips installing its own handler because one already exists. This matches the Jackdaw migration advice to install Ctrl+C handling before wgpu/gilrs.
 
 ## Phase 3: Documentation, Validation, And Checkpoints
-**Status:** Awaiting commit/push checkpoint  
+**Status:** Complete  
 **Goal:** Document the Jackdaw/PillarEditor workflow and complete validation/commit/push checkpoints.
 
 ### Tasks
@@ -110,9 +110,9 @@
 - [x] Generate documentation.
   - Status: Complete
   - Notes: `cargo doc --workspace --all-features --no-deps` passed and generated documentation under `target/doc/`.
-- [ ] Commit completed tasks/phases and push to `origin`.
-  - Status: Awaiting commit/push
-  - Notes: Implementation changes are ready to commit and push after this tracker update.
+- [x] Commit completed tasks/phases and push to `origin`.
+  - Status: Complete
+  - Notes: Implementation commit `dc0828f` was pushed to `origin/feature/jackdaw-editor-integration`; this tracker update records the checkpoint.
 
 ### Validation
 - Format: Passed
@@ -121,8 +121,8 @@
 - Build: Passed
 - Documentation generation: Passed
 - Full validation wrapper: Passed
-- Push state: Implementation push pending
-- User confirmation: Pending final user review after commit/push checkpoint.
+- Push state: Implementation commit `dc0828f` pushed; final tracker push-state update pending.
+- User confirmation: Pending final user review.
 
 ### Notes
 - Phase completion requires validation evidence or documented user-approved waivers.
@@ -135,7 +135,7 @@
 - User-facing editor name: `PillarEditor`.
 - Cargo package/run command: `pillar-editor` / `cargo run -p pillar-editor`.
 - Jackdaw integration is static/minimal and does not enable Jackdaw `dylib`.
-- Ready for optional `gpt-5.5` sanity review after implementation commit/push checkpoint.
+- Ready for optional `gpt-5.5` sanity review or final user review.
 
 ## Postponed Work
 - Dynamic Jackdaw extension/dylib loading is postponed unless the user explicitly asks for hot-reloadable editor extensions.
@@ -153,3 +153,4 @@
 - `2026-06-19`: Renamed editor crate to `crates/pillar-editor` / `pillar-editor`, added Jackdaw dependencies, added `PiGamePlugin`, implemented PillarEditor startup, and updated README.
 - `2026-06-19`: Validation passed: format, clippy, tests, build, docs, and full PowerShell validation wrapper.
 - `2026-06-19`: Manual launch checks confirmed `PiGame` and `PillarEditor` windows are created; PillarEditor also loaded Jackdaw built-in extensions.
+- `2026-06-19`: Implementation commit `dc0828f` was created and pushed to `origin/feature/jackdaw-editor-integration`.
