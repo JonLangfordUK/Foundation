@@ -134,6 +134,21 @@
 ### Notes
 - Scaffold script smoke checks were run for invalid slug rejection and valid scaffold creation/removal.
 
+## Review Findings
+- `2026-06-19` - gpt-5.5 sanity review
+  - Overall result: Pass with concerns; improved substantially, but still not rock-solid.
+  - Validation evidence: `scripts/validate-project.cmd` passed during review on 2026-06-19.
+  - Must-fix before calling the pipeline rock-solid:
+    - `feature-plan-docs` suggested plan metadata still omits a separate `Primary area` field even though the actual template and tracker use one. This is a documentation/template drift risk.
+    - `feature-plan-docs` scaffold helper usage is confusing: it shows required `<feature-area> <primary-area>` after optional `[feature-name] [branch-name]`. Positional command usage cannot cleanly require later arguments after optional earlier ones without making users provide all earlier arguments.
+    - `scripts/Scaffold-FeaturePlan.ps1` accepts `hotfix/*` branch names, but `feature-plan-docs` says every feature must use `feature/*`. This is a direct policy/script mismatch.
+    - `AGENTS.md` has an ambiguous implementation entry point: the “plan a new feature or begin implementing one” section says read `feature-plan-docs` first, while the later implementation section says read `feature-tracker-update` first. The enforcement rule says both are mandatory, but the workflow order is muddy.
+  - Optional improvements:
+    - Add `scripts/validate-project.cmd` to `feature-plan-docs` default validation list, not only the suggested testing methodology.
+    - Add explicit branch base verification guidance before implementation, e.g. verify branch was created from current `dev` or record if that cannot be proven.
+    - Add CI/branch protection later; current enforcement is agent-process-only.
+  - User decision: Pending
+
 ## Postponed Work
 - Public Rust API missing-doc enforcement using crate attributes such as `#![warn(missing_docs)]` is postponed until the Bevy workspace crates are created.
 
