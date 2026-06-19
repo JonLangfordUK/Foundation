@@ -5,11 +5,11 @@
 - Feature area: `multi-area` (`engine`, `game`, `editor`)
 - Primary area: `engine`
 - Branch: `feature/workspace-app-launchers`
-- Overall status: `Awaiting commit/push checkpoint`
+- Overall status: `Implemented`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation complete with gpt-5.4; commit/push checkpoint pending`
+- Current handoff state: `Ready for final user review or optional gpt-5.5 sanity review`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Plan commit `2edb36a` pushed to `origin/feature/workspace-app-launchers`; implementation commit pending.
+- Push status: Plan commit `2edb36a` and implementation commit `28fd9f8` pushed to `origin/feature/workspace-app-launchers`; tracker checkpoint update in progress.
 - Pre-existing working tree note: an untracked `NUL` file existed before planning and is not part of this feature unless the user later approves touching it.
 
 ## Phase 1: Workspace Structure And Shared Linking
@@ -97,7 +97,7 @@
 - Bevy logs reported Vulkan on `NVIDIA GeForce RTX 2080` and a connected gamepad warning; these did not block launch.
 
 ## Phase 3: Documentation, Validation, And Checkpoints
-**Status:** Awaiting commit/push checkpoint  
+**Status:** Complete  
 **Goal:** Document the new workspace and complete required validation/commit/push checkpoints.
 
 ### Tasks
@@ -110,9 +110,9 @@
 - [x] Generate documentation.
   - Status: Complete
   - Notes: `cargo doc --workspace --all-features --no-deps` passed and generated documentation under `target/doc/`.
-- [ ] Commit completed tasks/phases and push to `origin`.
-  - Status: Awaiting commit/push
-  - Notes: Implementation changes are ready to commit and push after this tracker update.
+- [x] Commit completed tasks/phases and push to `origin`.
+  - Status: Complete
+  - Notes: Implementation commit `28fd9f8` was pushed to `origin/feature/workspace-app-launchers`; this tracker update records the checkpoint.
 
 ### Validation
 - Format: Passed
@@ -121,8 +121,8 @@
 - Build: Passed
 - Documentation generation: Passed
 - Full validation wrapper: Passed
-- Push state: Implementation push pending
-- User confirmation: Pending final user review after commit/push checkpoint.
+- Push state: Implementation commit `28fd9f8` pushed; tracker checkpoint update in progress.
+- User confirmation: Pending final user review.
 
 ### Notes
 - Phase completion requires validation evidence or documented user-approved waivers.
@@ -133,7 +133,7 @@
 - Active branch confirmed as `feature/workspace-app-launchers`.
 - Proposed package names were used: `pigame-engine`, `pigame-game`, `pigame-editor`.
 - Proposed run commands were used: `cargo run -p pigame-game` and `cargo run -p pigame-editor`.
-- Ready for optional `gpt-5.5` sanity review after implementation commit/push checkpoint.
+- Ready for optional `gpt-5.5` sanity review or final user review.
 
 ## Postponed Work
 - Full editor UI, scene editing, asset browser, inspector, and hot-reload/dynamic game library loading are postponed. This feature only needs a minimal editor window and project linking.
@@ -150,3 +150,4 @@
 - `2026-06-19`: Converted root manifest to a workspace, added `pigame-engine`, `pigame-game`, and `pigame-editor`, removed root placeholder source, and updated README.
 - `2026-06-19`: Validation passed: format, clippy, tests, build, docs, and full PowerShell validation wrapper.
 - `2026-06-19`: Manual launch checks confirmed Bevy creates `PiGame` and `PiGame Editor` windows; both direct `cargo run` commands were stopped by timeout after successful window creation logs.
+- `2026-06-19`: Implementation commit `28fd9f8` was created and pushed to `origin/feature/workspace-app-launchers`.
