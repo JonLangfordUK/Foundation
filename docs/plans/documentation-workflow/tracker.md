@@ -88,6 +88,22 @@
 - Use `scripts/validate-project.cmd` as the preferred final validation command.
 - Optional final review should focus on contradictions or stale workflow entry points.
 
+## Review Findings
+- `2026-06-19` - gpt-5.5 sanity review
+  - Overall result: Pass with concerns; the workflow is usable, but not yet rock-solid.
+  - Validation evidence: `scripts/validate-project.cmd` passed during review on 2026-06-19.
+  - Must-fix before calling the pipeline rock-solid:
+    - `feature-plan-docs` still has weaker completion wording than `feature-tracker-update`: its validation rules say tasks/phases complete after required validation or waiver, but do not explicitly repeat that documentation generation is part of task/phase completion. This is likely intended through the validation list, but the language is less explicit than the tracker skill and template.
+    - `scripts/Scaffold-FeaturePlan.ps1` allows default placeholder feature areas (`<Feature Area>` / `<Primary Area>`), so manual use can generate non-compliant planning documents even though the workflow says the area must be confirmed.
+    - `feature-plan-docs` documents the scaffold helper as `scripts/scaffold-feature-plan.cmd <feature-slug> [feature-name] [branch-name]`, but the script now accepts feature area and primary area arguments too. The usage docs are stale.
+    - The current branch tracker marks phase completion based on approval to make fixes, not a distinct post-validation user confirmation that the phase is suitable. That technically violates the stated phase completion rule.
+  - Optional improvements:
+    - Add `scripts/validate-project.cmd` to template testing methodology so new plans prefer the one-command full gate as well as individual wrappers.
+    - Add validation in `Scaffold-FeaturePlan.ps1` for feature slug format, branch name format, and feature area/primary area consistency.
+    - Consider a `workflow` or `infrastructure` feature area, or explicitly document that workflow-only changes use `multi-area` with a primary area rationale.
+    - Add CI/branch protection later; skills guide the agent but do not enforce the pipeline outside Pi.
+  - User decision: Pending
+
 ## Postponed Work
 - Public Rust API missing-doc enforcement using crate attributes such as `#![warn(missing_docs)]` is postponed until the Bevy workspace crates are created.
 
