@@ -1,32 +1,32 @@
-# Pi Rust Project Template
+# PiGame
 
-This repository is a blank Rust project template configured for Pi-assisted development.
+PiGame is a Rust workspace for a Bevy-based game and editor.
 
-It starts as a minimal Rust library crate so `cargo build`, `cargo test`, `cargo fmt`, and `cargo clippy` work immediately. Rename the crate and replace `src/lib.rs` when creating a real project from the template.
-
-## Template contents
-- `Cargo.toml` - minimal Rust crate manifest
-- `src/lib.rs` - tiny placeholder library and test
+## Workspace layout
+- `Cargo.toml` - workspace manifest and shared dependency configuration
+- `crates/engine` - shared Bevy launcher/window setup used by workspace applications
+- `crates/game` - standalone game crate and executable
+- `crates/editor` - standalone editor executable linked to shared engine and game metadata
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
 - `.pi/prompts/` - prompt templates for planning, implementation, review, and validation
-- `docs/plans/_templates/` - feature plan and tracker templates
+- `docs/plans/` - feature plans, trackers, and templates
 - `scripts/` - Windows wrappers for Cargo validation commands and optional feature-plan scaffolding
 
-## Model policy
-- Planning: `gpt-5.5`
-- Implementation: `gpt-5.4`
-- Review: `gpt-5.5`
-- Anthropic models must not be used.
+## Running the applications
+Open the game window:
 
-## Using this as a template
-1. Copy or clone this repository for a new Rust project.
-2. Remove or replace any existing `origin` remote as needed.
-3. Rename the crate in `Cargo.toml`.
-4. Update `description`, `license`, and package metadata in `Cargo.toml`.
-5. Replace `src/lib.rs` with project-specific code.
-6. If the project should be a binary instead of a library, add `src/main.rs` or adjust the Cargo targets.
-7. If the project should be a Cargo workspace, convert the root `Cargo.toml` to a `[workspace]` manifest and move crates under `crates/`.
+```cmd
+cargo run -p pigame-game
+```
+
+Open the editor window:
+
+```cmd
+cargo run -p pigame-editor
+```
+
+Both launchers use shared setup from `pigame-engine`. The editor also links to the game crate for shared game metadata.
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
@@ -50,6 +50,8 @@ npm run validate-env
 - `scripts/lint-project.cmd`
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
+- `scripts/doc-project.cmd`
+- `scripts/validate-project.cmd`
 
 ### npm scripts
 - `npm run validate-env`
@@ -86,4 +88,5 @@ scripts\format-project.cmd
 scripts\lint-project.cmd
 scripts\test-project.cmd
 scripts\compile-project.cmd
+scripts\doc-project.cmd
 ```
