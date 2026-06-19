@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 after merging Jackdaw editor integration into `dev`.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before planning docs were created.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `73dfe2d`, implementation commit `9992cbf`, and tracker checkpoint `1be0191` pushed to `origin/feature/foundation-library`; jackdaw_runtime support commit pending.
+- Push status: Planning docs commit `73dfe2d`, implementation commit `9992cbf`, tracker checkpoint `1be0191`, and `jackdaw_runtime` support commit `32976ec` pushed to `origin/feature/foundation-library`; final tracker/merge checkpoint pending.
 - Prior branch cleanup: Local `feature/jackdaw-editor-integration` was deleted after merge to `dev`; remote branch was intentionally left intact per user preference.
 
 ## Phase 1: FoundationLibrary Crate Baseline
@@ -76,13 +76,13 @@
   - Notes: `TemplateGamePlugin` and `SpinningCube` remain in TemplateGame; FoundationLibrary only provides the reusable baseline plugin/resource.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- User confirmation: Pending / Not required yet
+- Format: Passed (`cargo fmt --all -- --check`; also via `scripts/validate-project.cmd`)
+- Lint: Passed (`cargo clippy --workspace --all-targets --all-features -- -D warnings`; also via `scripts/validate-project.cmd`)
+- Tests: Passed (`cargo test --workspace --all-features`; also via `scripts/validate-project.cmd`)
+- Build: Passed (`cargo build --workspace --all-features`; also via `scripts/validate-project.cmd`)
+- Documentation generation: Passed (`cargo doc --workspace --all-features --no-deps`; also via `scripts/validate-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Not required for this phase.
 
 ### Notes
 - TemplateGame should remain runnable from the root with `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor`.
@@ -103,7 +103,7 @@
   - Notes: `cargo doc --workspace --all-features --no-deps` passed and generated `target/doc/foundation_library/index.html`.
 - [x] Commit and push implementation checkpoints.
   - Status: Complete
-  - Notes: Implementation commit `9992cbf` pushed to `origin/feature/foundation-library`; final tracker checkpoint pending.
+  - Notes: Implementation commit `9992cbf`, tracker checkpoint `1be0191`, and `jackdaw_runtime` support commit `32976ec` pushed to `origin/feature/foundation-library`; final tracker checkpoint pending.
 
 ### Validation
 - Format: Passed
@@ -112,7 +112,7 @@
 - Build: Passed
 - Documentation generation: Passed
 - Full validation wrapper: Passed
-- User confirmation: Pending final user review or optional sanity review.
+- User confirmation: User accepted and requested merge back to `dev` on 2026-06-19.
 
 ### Notes
 - This phase cannot be marked complete until validation and documentation generation are recorded.
@@ -146,3 +146,4 @@
 - `2026-06-19`: User approved adding `jackdaw_runtime` to FoundationLibrary so reusable components/plugins can expose Jackdaw-compatible editor metadata.
 - `2026-06-19`: Added root workspace dependency `jackdaw_runtime = "0.4.1"`, added `jackdaw_runtime.workspace = true` to `foundation-library`, added documented `FoundationActor` with `#[reflect(Component, @EditorCategory::new("Foundation"))]`, registered it from `FoundationPlugin`, and exported it from the prelude.
 - `2026-06-19`: Validation passed after `jackdaw_runtime` support: `cargo fmt --all -- --check`, `cargo check -p foundation-library`, `cargo check -p template-game --bin editor --features editor`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo doc --workspace --all-features --no-deps`, and `scripts/validate-project.cmd`.
+- `2026-06-19`: User accepted the feature and requested finishing up, committing, merging back to `dev`, and deleting only the local feature branch while keeping the remote branch.
