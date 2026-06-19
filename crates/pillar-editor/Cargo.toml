@@ -1,11 +1,14 @@
 [package]
-name = "pigame-editor"
+name = "pillar-editor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "PiGame editor launcher"
+description = "PillarEditor Jackdaw editor host"
 
 [dependencies]
+bevy.workspace = true
+ctrlc.workspace = true
+jackdaw.workspace = true
 pigame-engine.workspace = true
 pigame-game.workspace = true

@@ -7,4 +7,5 @@ publish.workspace = true
 description = "PiGame standalone game launcher"
 
 [dependencies]
+bevy.workspace = true
 pigame-engine.workspace = true

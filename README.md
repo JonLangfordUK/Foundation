@@ -1,12 +1,12 @@
 # PiGame
 
-PiGame is a Rust workspace for a Bevy-based game and editor.
+PiGame is a Rust workspace for a Bevy-based game and Jackdaw-powered editor.
 
 ## Workspace layout
 - `Cargo.toml` - workspace manifest and shared dependency configuration
 - `crates/engine` - shared Bevy launcher/window setup used by workspace applications
 - `crates/game` - standalone game crate and executable
-- `crates/editor` - standalone editor executable linked to shared engine and game metadata
+- `crates/pillar-editor` - PillarEditor executable, a Jackdaw editor host linked to shared engine and game code
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
 - `.pi/prompts/` - prompt templates for planning, implementation, review, and validation
@@ -20,13 +20,13 @@ Open the game window:
 cargo run -p pigame-game
 ```
 
-Open the editor window:
+Open PillarEditor:
 
 ```cmd
-cargo run -p pigame-editor
+cargo run -p pillar-editor
 ```
 
-Both launchers use shared setup from `pigame-engine`. The editor also links to the game crate for shared game metadata.
+Both applications use shared setup from `pigame-engine`. PillarEditor uses Jackdaw and links to the game crate so editor-hosted functionality can share game plugin code.
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:

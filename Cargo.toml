@@ -2,7 +2,7 @@
 members = [
     "crates/engine",
     "crates/game",
-    "crates/editor",
+    "crates/pillar-editor",
 ]
 resolver = "2"
 
@@ -13,6 +13,13 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [workspace.dependencies]
-bevy = "0.18.1"
+bevy = { version = "0.18.1", features = [
+    "file_watcher",
+    "reflect_documentation",
+    "serialize",
+    "experimental_bevy_feathers",
+] }
+ctrlc = "3"
+jackdaw = { version = "0.4.1", default-features = false }
 pigame-engine = { path = "crates/engine" }
 pigame-game = { path = "crates/game" }
