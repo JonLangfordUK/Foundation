@@ -1,7 +1,7 @@
 //! TemplateGame gameplay shared between the standalone binary (`cargo run`) and
 //! the editor binary (`cargo editor`).
 //!
-//! Scene content lives in `.jsn` files authored in PillarEditor. Game behavior
+//! Scene content lives in `.jsn` files authored in Jackdaw Editor. Game behavior
 //! lives in [`TemplateGamePlugin`].
 
 use bevy::prelude::*;

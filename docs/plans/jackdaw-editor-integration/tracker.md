@@ -5,11 +5,11 @@
 - Feature area: `editor`
 - Primary area: `editor`
 - Branch: `feature/jackdaw-editor-integration`
-- Overall status: `Jackdaw Editor rename awaiting commit/push checkpoint`
+- Overall status: `Cleanup awaiting commit/push checkpoint`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Corrective refactor implemented with gpt-5.4; validation partially blocked by disk space`
+- Current handoff state: `Jackdaw Editor cleanup implemented and fully validated with gpt-5.4`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning commit `ae3fcb3`, implementation commit `dc0828f`, tracker checkpoint `1d19323`, and corrective refactor commit `f6945e3` pushed to `origin/feature/jackdaw-editor-integration`; Jackdaw Editor rename commit pending.
+- Push status: Planning commit `ae3fcb3`, implementation commit `dc0828f`, tracker checkpoint `1d19323`, corrective refactor commit `f6945e3`, and Jackdaw Editor rename commit `bf89b5e` pushed to `origin/feature/jackdaw-editor-integration`; cleanup commit pending.
 
 ## Phase 1: Rename Editor Subproject To Jackdaw Editor
 **Status:** Complete  
@@ -57,7 +57,7 @@
 - Cargo package/executable naming does not use `Jackdaw Editor` capitalization; `Jackdaw Editor` is used as the user-facing window/product title and `jackdaw-editor` as the package/run target.
 
 ## Phase 2: Jackdaw Editor Host Integration
-**Status:** Corrective refactor awaiting commit/push  
+**Status:** Cleanup awaiting commit/push  
 **Goal:** Replace the plain Bevy editor window with a Jackdaw-backed editor host.
 
 ### Tasks
@@ -68,14 +68,14 @@
   - Status: Complete
   - Notes: Updated workspace Bevy dependency to enable `file_watcher`, `reflect_documentation`, `serialize`, and `experimental_bevy_feathers`, matching Jackdaw integration needs.
 - [x] Add a minimal game plugin if needed for editor hosting.
-  - Status: Complete
-  - Notes: Added public `PiGamePlugin` in `crates/game/src/lib.rs`. It is currently empty but documented as the place for future gameplay systems/resources/reflected components. Ambient plugins remain in host binaries.
+  - Status: Superseded by corrected architecture
+  - Notes: Root `crates/game` was removed. Game-specific behavior now lives in the nested Jackdaw-style `games/template-game` project, primarily `games/template-game/src/lib.rs` as `TemplateGamePlugin`.
 - [x] Implement Jackdaw Editor app startup with Jackdaw plugins.
   - Status: Complete after corrective refactor
   - Notes: `jackdaw-editor` is now a Jackdaw launcher/editor subproject, not a game-host-specific static editor. It uses Jackdaw launcher-style startup with `EditorPlugins::default()` and `DylibLoaderPlugin::default()`. Game-specific static editors live inside game subprojects.
 - [x] Preserve the game launcher.
-  - Status: Complete
-  - Notes: `cargo run -p pigame-game` still creates a `PiGame` Bevy window.
+  - Status: Superseded by corrected architecture
+  - Notes: The root `pigame-game` launcher was removed. `TemplateGame` is now launched from `games/template-game` with `cargo run` or `cargo play`, matching Jackdaw's generated project shape.
 - [x] Add non-interactive tests where practical.
   - Status: Complete
   - Notes: Existing title/config tests were preserved and updated for `Jackdaw Editor`; tests do not open a GPU window.
@@ -86,13 +86,13 @@
 - Tests: Passed (`cargo test --workspace --all-features`; 4 unit tests passed plus doc-tests)
 - Build: Passed (`cargo build --workspace --all-features`)
 - Documentation generation: Passed (`cargo doc --workspace --all-features --no-deps`)
-- Manual game window check: Passed by running `cargo run -p pigame-game`; Bevy logged `Creating new window PiGame (0v0)`. Command was allowed to time out because the app remains open until the window closes.
+- Manual game window check: Superseded by corrected architecture; TemplateGame should be launched from `games/template-game` with `cargo run` or `cargo play`.
 - Manual Jackdaw Editor Jackdaw launch check: Passed by running `cargo run -p jackdaw-editor`; Bevy logged `Creating new window Jackdaw Editor (0v0)` and Jackdaw logged loading built-in extensions such as `jackdaw.asset_browser`, `jackdaw.core`, `jackdaw.inspector`, and `jackdaw.viewport_panel`. Command was allowed to time out because the editor remains open.
 - Full validation wrapper: Passed via `powershell -ExecutionPolicy Bypass -File scripts/Invoke-RustWorkspace.ps1 validate-project`
 - User confirmation: Not required until implementation review.
 
 ### Notes
-- Added empty tracked `assets/.gitkeep` directories for `crates/game` and `crates/jackdaw-editor` after manual runs showed Bevy file-watcher warnings for missing package-local assets directories.
+- Added an empty tracked `assets/.gitkeep` directory for `crates/jackdaw-editor`. The old root `crates/game` project and its assets directory were removed during the corrected architecture refactor.
 - Jackdaw Editor uses static Jackdaw `EditorPlugins::default()` and does not enable Jackdaw dylib loading.
 - The editor uses `ctrlc::set_handler`; Bevy logs that it skips installing its own handler because one already exists. This matches the Jackdaw migration advice to install Ctrl+C handling before wgpu/gilrs.
 
@@ -135,7 +135,7 @@
 - User-facing editor name: `Jackdaw Editor`.
 - Cargo package/run command: `jackdaw-editor` / `cargo run -p jackdaw-editor`.
 - Jackdaw integration is static/minimal and does not enable Jackdaw `dylib`.
-- Ready for optional `gpt-5.5` sanity review or final user review.
+- Awaiting cleanup validation and commit/push checkpoint, then ready for optional `gpt-5.5` sanity review or final user review.
 
 ## Postponed Work
 - Full custom game content beyond the generated TemplateGame-style `SpinningCube` example is postponed.
@@ -158,3 +158,6 @@
 - `2026-06-19`: Root Jackdaw Editor validation passed: format, clippy, tests, build, and docs. TemplateGame validation passed format and clippy, then test/build/doc validation was blocked by disk space (`os error 112`, no space on device) while compiling dependencies. Removed `games/template-game/target` to recover space; root `target` remains large (~46G).
 - `2026-06-19`: User chose to keep the wrapper identity as Jackdaw rather than PillarEditor because it is just Jackdaw functionality. Renamed `crates/pillar-editor` to `crates/jackdaw-editor`, package `pillar-editor` to `jackdaw-editor`, and window title to `Jackdaw Editor`. Confirmed Jackdaw is supplied through Cargo dependencies, not a cloned Git submodule.
 - `2026-06-19`: Root validation after rename passed: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
+- `2026-06-19`: Cleaned lingering old references after the Jackdaw Editor rename: restored root workspace member to `crates/jackdaw-editor`, updated TemplateGame source comments to say Jackdaw Editor, removed the untracked `ref/` screenshot directory, and removed stale build artifacts where possible. Root `target/` was reduced from ~46G before cleanup and regenerated during validation.
+- `2026-06-19`: Full validation after cleanup passed for root Jackdaw Editor workspace: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
+- `2026-06-19`: Full validation after cleanup passed for nested TemplateGame: `cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`, `cargo build --all-features`, and `cargo doc --all-features --no-deps`.
