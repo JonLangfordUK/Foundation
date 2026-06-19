@@ -21,7 +21,7 @@ Rules:
 - `main` and `dev` must only receive changes through merges.
 
 ## Allowed working branches
-All work must be done on a short-lived branch created from the appropriate base branch.
+All work must be done on a short-lived branch created from the appropriate base branch. Feature branches must be created from `dev`.
 
 Allowed branch types:
 - `feature/`
@@ -29,6 +29,7 @@ Allowed branch types:
 
 Rules:
 - Every non-merge code change must be made on either a `feature/*` branch or a `hotfix/*` branch.
+- Create `feature/*` branches from `dev` and verify or record the branch base before implementation starts.
 - Do not create work directly on `main` or `dev`.
 - Do not use version numbers, ticket numbers, iteration numbers, or commit counters in branch names unless the user explicitly requires them for a separate process.
 

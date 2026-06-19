@@ -45,11 +45,11 @@ When the user asks about Git workflow, branch strategy, merges, or commit messag
 2. Treat that skill as the source of truth for this project's Git rules.
 3. If another Git workflow conflicts with that skill, follow the project skill instead.
 
-When the user asks to plan a new feature or begin implementing one:
+When the user asks to plan a new feature:
 1. Read `.pi/skills/feature-plan-docs/SKILL.md` first.
 2. Use `gpt-5.5` for planning. Never use Anthropic models.
 3. Do not start implementation until both planning documents exist under `docs/plans/<new-feature>/` and the user has approved proceeding.
-4. Ensure the feature is associated with a dedicated branch from `dev`, following `.pi/skills/gitflow-workflow/SKILL.md`.
+4. Ensure the feature is associated with a dedicated `feature/*` branch from `dev`, following `.pi/skills/gitflow-workflow/SKILL.md`.
 5. Record that branch in both the plan and tracker documents.
 6. The plan and tracker must persist enough detail that implementation can continue with `gpt-5.4` later.
 7. Planning must stop after the plan and tracker are created or updated. Do not automatically begin implementation in the same turn.
@@ -57,16 +57,17 @@ When the user asks to plan a new feature or begin implementing one:
 9. Treat natural approval phrasing such as `continue`, `carry on`, `go ahead`, `implement`, `proceed`, or equivalent affirmative review feedback as approval to begin implementation.
 10. Treat negative or revision-seeking feedback such as `no`, `not yet`, `needs more work`, `revise this`, or equivalent responses as planning iteration requests rather than implementation approval.
 
-When the user asks to continue or update in-progress feature work:
-1. Read `.pi/skills/feature-tracker-update/SKILL.md` first.
-2. Use `gpt-5.4` for implementation. Never use Anthropic models.
-3. Before making implementation edits, read the relevant `plan.md` and `tracker.md`, then update the tracker to record that implementation is starting or resuming.
-4. Keep the tracker updated with progress, validation state, issues found, postponements, and model handoff state.
-5. Do not mark tasks or phases complete until required Rust validation and documentation generation pass or a documented waiver exists.
-6. Commit each completed task and each completed phase, including the final phase.
-7. Push each commit/merge checkpoint to `origin` when available.
-8. If `origin` is not configured, record push status as `N/A (local-only repository)`.
-9. Include relevant `plan.md`/`tracker.md` updates in regular feature commits.
+When the user asks to begin, continue, or update feature implementation:
+1. If approved planning documents do not exist yet, stop and follow `.pi/skills/feature-plan-docs/SKILL.md` first.
+2. If approved planning documents exist, read `.pi/skills/feature-tracker-update/SKILL.md` first, then read `.pi/skills/feature-plan-docs/SKILL.md`, `.pi/skills/rust-workspace-dev/SKILL.md`, and `.pi/skills/gitflow-workflow/SKILL.md` as required context.
+3. Use `gpt-5.4` for implementation. Never use Anthropic models.
+4. Before making implementation edits, read the relevant `plan.md` and `tracker.md`, confirm the active branch matches the planned `feature/*` branch, verify the branch was created from `dev` when possible, record any uncertainty in the tracker, and update the tracker to record that implementation is starting or resuming.
+5. Keep the tracker updated with progress, validation state, issues found, postponements, and model handoff state.
+6. Do not mark tasks or phases complete until required Rust validation and documentation generation pass or a documented waiver exists.
+7. Commit each completed task and each completed phase, including the final phase.
+8. Push each commit/merge checkpoint to `origin` when available.
+9. If `origin` is not configured, record push status as `N/A (local-only repository)`.
+10. Include relevant `plan.md`/`tracker.md` updates in regular feature commits.
 
 When the user asks for a final sanity review of implemented feature work:
 1. Read `.pi/skills/feature-review-handoff/SKILL.md` first.

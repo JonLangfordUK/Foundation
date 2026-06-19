@@ -49,9 +49,9 @@ Start from these templates when helpful:
 - `docs/plans/_templates/tracker.template.md`
 
 Optional helper:
-- `scripts/scaffold-feature-plan.cmd <feature-slug> [feature-name] [branch-name] <feature-area> <primary-area>`
+- `scripts/scaffold-feature-plan.cmd <feature-slug> <feature-name> <branch-name> <feature-area> <primary-area>`
 
-The feature slug should usually match the feature branch suffix. The helper requires a concrete feature area (`game`, `engine`, `editor`, or `multi-area`) and primary area (`game`, `engine`, or `editor`); do not leave placeholders in generated plans.
+The feature slug should usually match the feature branch suffix. The helper requires a concrete feature area (`game`, `engine`, `editor`, or `multi-area`) and primary area (`game`, `engine`, or `editor`); do not leave placeholders in generated plans. Use a `feature/*` branch name for feature planning documents, and create or verify that branch from `dev` before implementation.
 
 ## Plan document requirements
 `plan.md` must include:
@@ -94,6 +94,7 @@ Default Rust validation, unless the plan states a justified alternative:
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
 - documentation generation via `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
+- `scripts/validate-project.cmd` when present for the full validation sequence
 
 A task may only be marked complete when required validation for that task has passed and documentation generation has been recorded, unless a user-approved waiver is recorded.
 
@@ -128,7 +129,8 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 
 ## Metadata
 - Feature slug: `<new-feature>`
-- Feature area: `<game | engine | editor | multi-area; primary: ...>`
+- Feature area: `<game | engine | editor | multi-area>`
+- Primary area: `<game | engine | editor>`
 - Branch: `feature/<work-being-done>`
 - Status: `Planned`
 - Planning model: `gpt-5.5`
@@ -202,7 +204,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 
 ## Metadata
 - Feature slug: `<new-feature>`
-- Feature area: `<game | engine | editor | multi-area; primary: ...>`
+- Feature area: `<game | engine | editor | multi-area>`
 - Primary area: `<game | engine | editor>`
 - Branch: `feature/<work-being-done>`
 - Overall status: `Planned`
@@ -232,6 +234,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 - Tests: Pending
 - Build: Pending
 - Documentation generation: Pending
+- Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ## Implementation / Review Handoff Notes

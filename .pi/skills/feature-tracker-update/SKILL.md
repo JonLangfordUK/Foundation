@@ -20,8 +20,9 @@ The tracker is the continuity layer between `gpt-5.5` planning, `gpt-5.4` implem
 2. Read `docs/plans/<new-feature>/tracker.md`.
 3. Read `.pi/skills/rust-workspace-dev/SKILL.md`.
 4. Read `.pi/skills/gitflow-workflow/SKILL.md` if branch, commit, or history updates are involved.
-5. Confirm the active branch matches the branch recorded in the docs.
-6. Before the first implementation edit in a session, update the tracker to show implementation is starting or resuming with `gpt-5.4`.
+5. Confirm the active branch matches the `feature/*` branch recorded in the docs.
+6. Verify the branch was created from current `dev` when possible; if it cannot be proven, record that limitation in the tracker before implementation edits.
+7. Before the first implementation edit in a session, update the tracker to show implementation is starting or resuming with `gpt-5.4`.
 
 ## What to update
 Update the tracker as work progresses, including:
@@ -51,6 +52,7 @@ Default validation:
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
 - documentation generation via `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
+- `scripts/validate-project.cmd` when present for the full validation sequence
 
 If implementation is done but validation has not passed yet, use a non-final status such as `In progress`, `Awaiting validation`, `Blocked`, or `Postponed`.
 
@@ -74,7 +76,7 @@ Do not silently apply a review loop without telling the user.
 Use the gitflow skill as the source of truth.
 
 Requirements:
-- The feature must remain on a dedicated `feature/*` branch created from `dev`.
+- The feature must remain on a dedicated `feature/*` branch created from `dev`; record branch-base verification or the reason it cannot be proven.
 - Every completed task must be committed on the feature branch.
 - Every completed phase must be committed on the feature branch, including the final phase.
 - When remote `origin` exists, every commit/merge checkpoint must also be pushed to `origin`.

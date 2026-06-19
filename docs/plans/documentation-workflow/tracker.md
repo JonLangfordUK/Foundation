@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `engine`
 - Branch: `feature/documentation-workflow`
-- Overall status: `Complete`
+- Overall status: `Awaiting user confirmation`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Accepted without further review changes`
+- Current handoff state: `Awaiting user confirmation after follow-up review fixes`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -147,7 +147,43 @@
     - Add `scripts/validate-project.cmd` to `feature-plan-docs` default validation list, not only the suggested testing methodology.
     - Add explicit branch base verification guidance before implementation, e.g. verify branch was created from current `dev` or record if that cannot be proven.
     - Add CI/branch protection later; current enforcement is agent-process-only.
-  - User decision: Pending
+  - User decision: `Send to gpt-5.4 for fixes` on 2026-06-19
+
+## Phase 4: Follow-up review fix pass
+**Status:** Awaiting user confirmation  
+**Goal:** Fix the remaining policy/script/documentation mismatches found in the follow-up review.
+
+### Tasks
+- [x] Align suggested plan metadata with the real templates.
+  - Status: Complete
+  - Notes: `feature-plan-docs` suggested plan metadata now includes a separate primary area field.
+- [x] Clarify scaffold helper usage and make positional arguments concrete.
+  - Status: Complete
+  - Notes: The helper documentation now requires all positional arguments, and the PowerShell script marks feature name, branch name, feature area, and primary area as mandatory.
+- [x] Remove `hotfix/*` acceptance from feature planning scaffold validation.
+  - Status: Complete
+  - Notes: `scripts/Scaffold-FeaturePlan.ps1` now requires `feature/*` branches for feature planning docs.
+- [x] Clarify implementation entry point ordering.
+  - Status: Complete
+  - Notes: `AGENTS.md` now separates planning from implementation and states what to do when approved planning docs do or do not exist.
+- [x] Add optional improvement fixes.
+  - Status: Complete
+  - Notes: Added full validation wrapper guidance to `feature-plan-docs`, branch-base verification guidance to implementation workflow, and explicit workflow/tooling area guidance to the planning prompt.
+- [x] Smoke test scaffold validation.
+  - Status: Complete
+  - Notes: Valid feature scaffold succeeded and was removed; hotfix branch and missing-argument invocations were rejected.
+
+### Validation
+- Format: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Full validation wrapper: Passed on 2026-06-19
+- User confirmation: Pending; user must confirm the fixed phase is suitable before this tracker returns to `Complete`.
+
+### Notes
+- CI/branch protection remains postponed because this branch is focused on Pi workflow files and local validation scripts.
 
 ## Postponed Work
 - Public Rust API missing-doc enforcement using crate attributes such as `#![warn(missing_docs)]` is postponed until the Bevy workspace crates are created.
@@ -162,3 +198,4 @@
 - `2026-06-19`: User accepted review findings and requested fixes.
 - `2026-06-19`: Review fix pass validation passed with `scripts/validate-project.cmd`; awaiting user confirmation that the phase is suitable.
 - `2026-06-19`: User confirmed the review fix phase is suitable; workflow marked complete.
+- `2026-06-19`: Follow-up review findings accepted and fixed; validation and scaffold smoke checks passed. A post-fix pass found and corrected one remaining suggested-template wording drift. Awaiting user confirmation.

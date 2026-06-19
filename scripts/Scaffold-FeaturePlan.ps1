@@ -2,48 +2,29 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$FeatureSlug,
 
+    [Parameter(Mandatory = $true)]
     [string]$FeatureName,
 
+    [Parameter(Mandatory = $true)]
     [string]$BranchName,
 
-    [ValidateSet('game', 'engine', 'editor', 'multi-area', '<Feature Area>')]
-    [string]$FeatureArea = '<Feature Area>',
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('game', 'engine', 'editor', 'multi-area')]
+    [string]$FeatureArea,
 
-    [ValidateSet('game', 'engine', 'editor', '<Primary Area>')]
-    [string]$PrimaryArea = '<Primary Area>'
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('game', 'engine', 'editor')]
+    [string]$PrimaryArea
 )
 
 $ErrorActionPreference = 'Stop'
-
-if (-not $FeatureName) {
-    $featureNameParts = ($FeatureSlug -split '[-_]') | Where-Object { $_ -ne '' } | ForEach-Object {
-        if ($_.Length -gt 1) {
-            $_.Substring(0,1).ToUpper() + $_.Substring(1)
-        } else {
-            $_.ToUpper()
-        }
-    }
-    $FeatureName = $featureNameParts -join ' '
-}
-
-if (-not $BranchName) {
-    $BranchName = "feature/$FeatureSlug"
-}
 
 if ($FeatureSlug -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
     throw "FeatureSlug must be lowercase kebab-case using only letters, numbers, and hyphens: $FeatureSlug"
 }
 
-if ($BranchName -notmatch '^(feature|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$') {
-    throw "BranchName must match feature/<work-being-done> or hotfix/<work-being-done>: $BranchName"
-}
-
-if ($FeatureArea -eq '<Feature Area>') {
-    throw "FeatureArea is required. Use one of: game, engine, editor, multi-area. Example: scripts/scaffold-feature-plan.cmd $FeatureSlug `"$FeatureName`" $BranchName engine engine"
-}
-
-if ($PrimaryArea -eq '<Primary Area>') {
-    throw "PrimaryArea is required. Use one of: game, engine, editor. Example: scripts/scaffold-feature-plan.cmd $FeatureSlug `"$FeatureName`" $BranchName $FeatureArea engine"
+if ($BranchName -notmatch '^feature/[a-z0-9]+(-[a-z0-9]+)*$') {
+    throw "BranchName must match feature/<work-being-done> for feature planning: $BranchName"
 }
 
 if (($FeatureArea -ne 'multi-area') -and ($PrimaryArea -ne $FeatureArea)) {
@@ -98,4 +79,5 @@ Write-Host "Feature planning scaffold ready for '$FeatureSlug'."
 Write-Host "Branch: $BranchName"
 Write-Host "Feature area: $FeatureArea"
 Write-Host "Primary area: $PrimaryArea"
+Write-Host 'Reminder: Create or verify this feature branch from dev before implementation.'
 Write-Host 'Reminder: Use the feature-plan-docs skill before implementation and keep the tracker updated with the feature-tracker-update skill during implementation.'
