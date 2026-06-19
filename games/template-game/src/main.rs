@@ -4,6 +4,7 @@ use bevy::{
     image::{ImageAddressMode, ImagePlugin, ImageSamplerDescriptor},
     prelude::*,
 };
+use foundation_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 fn main() -> AppExit {
@@ -20,6 +21,7 @@ fn main() -> AppExit {
             },
         }))
         .add_plugins(JackdawPlugin)
+        .add_plugins(FoundationPlugin)
         .add_plugins(template_game::TemplateGamePlugin)
         .add_systems(Startup, (spawn_initial_scene, spawn_default_camera))
         .run()

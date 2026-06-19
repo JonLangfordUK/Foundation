@@ -1,16 +1,23 @@
 # PiGame
 
-PiGame is a multi-project Rust repository for Jackdaw Editor and Jackdaw-style games.
+PiGame is a multi-project Rust repository for Jackdaw Editor, reusable FoundationLibrary code, and Jackdaw-style games.
 
 ## Repository layout
 - `Cargo.toml` - root workspace manifest for tooling/editor crates
 - `crates/jackdaw-editor` - Jackdaw Editor, a Jackdaw launcher/editor subproject
+- `crates/foundation-library` - FoundationLibrary, reusable shared Bevy/Jackdaw-compatible game code
 - `games/template-game` - a Jackdaw static-game subproject shaped like Jackdaw's generated game template
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
 - `.pi/prompts/` - prompt templates for planning, implementation, review, and validation
 - `docs/plans/` - feature plans, trackers, and templates
 - `scripts/` - Windows wrappers for root Cargo validation commands and optional feature-plan scaffolding
+
+The current architecture is **Editor / Game / Library**:
+
+- **Editor**: `crates/jackdaw-editor` launches Jackdaw.
+- **Game**: `games/template-game` is a concrete Jackdaw-style game project.
+- **Library**: `crates/foundation-library` contains reusable code shared by games and their game-specific editor binaries.
 
 `games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
 
@@ -63,7 +70,7 @@ cargo run --bin editor --features editor
 ## Jackdaw static-game shape
 TemplateGame follows Jackdaw's generated static template:
 
-- `src/lib.rs` contains shared game behavior in `TemplateGamePlugin`
+- `src/lib.rs` contains game-specific behavior in `TemplateGamePlugin`
 - `src/main.rs` is the standalone game runner
 - `src/bin/editor.rs` is the feature-gated editor + game runner
 - `assets/scene.jsn` is the authored scene
@@ -71,6 +78,7 @@ TemplateGame follows Jackdaw's generated static template:
 - `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
 - root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
+- `foundation-library` is added to both the standalone game and game-specific editor binary before `TemplateGamePlugin`
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
@@ -101,6 +109,14 @@ scripts\lint-project.cmd
 scripts\test-project.cmd
 scripts\compile-project.cmd
 scripts\doc-project.cmd
+```
+
+### FoundationLibrary validation
+From the repository root:
+
+```cmd
+cargo test -p foundation-library
+cargo doc -p foundation-library --no-deps
 ```
 
 ### TemplateGame validation

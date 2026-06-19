@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/foundation-library",
     "crates/jackdaw-editor",
     "games/template-game",
 ]

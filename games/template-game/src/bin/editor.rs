@@ -7,6 +7,7 @@ use bevy::{
     image::{ImageAddressMode, ImagePlugin, ImageSamplerDescriptor},
     prelude::*,
 };
+use foundation_library::prelude::*;
 use jackdaw::prelude::*;
 use jackdaw::project_select::PendingAutoOpen;
 
@@ -41,6 +42,7 @@ fn main() -> AppExit {
         )
         .add_plugins((PhysicsPlugins::default(), EnhancedInputPlugin))
         .add_plugins(EditorPlugins::default())
+        .add_plugins(FoundationPlugin)
         .add_plugins(template_game::TemplateGamePlugin);
 
     if let Some(root) = project_root.filter(|p| p.is_dir()) {

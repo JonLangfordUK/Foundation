@@ -15,6 +15,7 @@ editor = ["dep:jackdaw"]
 
 [dependencies]
 bevy = { version = "0.18", features = ["file_watcher"] }
+foundation-library = { path = "../../crates/foundation-library" }
 jackdaw = { version = "0.4", default-features = false, optional = true }
 jackdaw_runtime = "0.4"
 ctrlc = "3"
