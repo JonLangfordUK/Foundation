@@ -8,3 +8,4 @@ description = "Reusable shared Bevy and Jackdaw-compatible game library"
 
 [dependencies]
 bevy.workspace = true
+jackdaw_runtime.workspace = true

@@ -9,7 +9,7 @@
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation complete with gpt-5.4; ready for optional gpt-5.5 sanity review or user acceptance`
+- Current handoff state: `jackdaw_runtime support implemented and validated with gpt-5.4`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 after merging Jackdaw editor integration into `dev`.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before planning docs were created.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `73dfe2d` and implementation commit `9992cbf` pushed to `origin/feature/foundation-library`; final tracker checkpoint pending.
+- Push status: Planning docs commit `73dfe2d`, implementation commit `9992cbf`, and tracker checkpoint `1be0191` pushed to `origin/feature/foundation-library`; jackdaw_runtime support commit pending.
 - Prior branch cleanup: Local `feature/jackdaw-editor-integration` was deleted after merge to `dev`; remote branch was intentionally left intact per user preference.
 
 ## Phase 1: FoundationLibrary Crate Baseline
@@ -37,13 +37,13 @@
   - Notes: Package name is `foundation-library`; Rust import path is `foundation_library`.
 - [x] Create the FoundationLibrary manifest and source.
   - Status: Complete
-  - Notes: Uses minimal dependency surface with `bevy.workspace = true` for plugin support.
+  - Notes: Uses `bevy.workspace = true` for plugin support and `jackdaw_runtime.workspace = true` for reusable editor-visible component metadata.
 - [x] Implement documented baseline API.
   - Status: Complete
-  - Notes: Added documented `FoundationPlugin`, `FoundationSettings`, and `prelude` re-exports.
+  - Notes: Added documented `FoundationPlugin`, `FoundationSettings`, `FoundationActor`, and `prelude` re-exports.
 - [x] Add a non-window test proving the plugin can be added to a Bevy `App`.
   - Status: Complete
-  - Notes: `foundation_plugin_registers_settings_resource` uses `MinimalPlugins` and does not open a GPU window.
+  - Notes: `foundation_plugin_registers_settings_resource_and_actor_type` uses `MinimalPlugins`, confirms `FoundationSettings`, and verifies `FoundationActor` is registered without opening a GPU window.
 
 ### Validation
 - Format: Passed (`cargo fmt --all -- --check`; also via `scripts/validate-project.cmd`)
@@ -123,12 +123,12 @@
 - Active branch must be `feature/foundation-library` before implementation edits.
 - Verify `dev` ancestry again before implementation edits.
 - FoundationLibrary baseline should be minimal: crate, documented plugin, prelude, tests, TemplateGame dependency, TemplateGame plugin wiring, README update.
-- Avoid adding Jackdaw-specific APIs to FoundationLibrary in this first baseline unless implementation reveals a clear need.
+- `jackdaw_runtime` is now in scope for reusable editor-visible components; avoid adding the full `jackdaw` editor dependency unless a concrete editor-host feature requires it.
 - Leave Jackdaw dynamic/dylib loading out of scope.
 
 ## Postponed Work
 - Moving reusable components out of TemplateGame is postponed until there is a second real use case or explicit user request.
-- Jackdaw-specific editor extension APIs in FoundationLibrary are postponed until a concrete editor feature needs them.
+- Full `jackdaw` editor extension APIs in FoundationLibrary are postponed until a concrete editor feature needs them. Lightweight `jackdaw_runtime` metadata for reusable components is now in scope.
 - Additional packages such as `foundation-editor` or `foundation-tools` are postponed; one library crate is sufficient for the baseline.
 
 ## Progress Log
@@ -143,3 +143,6 @@
 - `2026-06-19`: Updated README with the Editor / Game / Library architecture.
 - `2026-06-19`: Validation passed: `cargo fmt --all -- --check`, `cargo check -p foundation-library`, `cargo check -p template-game`, `cargo check -p template-game --bin editor --features editor`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, `cargo doc --workspace --all-features --no-deps`, and `scripts/validate-project.cmd`.
 - `2026-06-19`: Implementation commit `9992cbf` created and pushed to `origin/feature/foundation-library`.
+- `2026-06-19`: User approved adding `jackdaw_runtime` to FoundationLibrary so reusable components/plugins can expose Jackdaw-compatible editor metadata.
+- `2026-06-19`: Added root workspace dependency `jackdaw_runtime = "0.4.1"`, added `jackdaw_runtime.workspace = true` to `foundation-library`, added documented `FoundationActor` with `#[reflect(Component, @EditorCategory::new("Foundation"))]`, registered it from `FoundationPlugin`, and exported it from the prelude.
+- `2026-06-19`: Validation passed after `jackdaw_runtime` support: `cargo fmt --all -- --check`, `cargo check -p foundation-library`, `cargo check -p template-game --bin editor --features editor`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo doc --workspace --all-features --no-deps`, and `scripts/validate-project.cmd`.

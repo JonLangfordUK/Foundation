@@ -17,7 +17,7 @@ The current architecture is **Editor / Game / Library**:
 
 - **Editor**: `crates/jackdaw-editor` launches Jackdaw.
 - **Game**: `games/template-game` is a concrete Jackdaw-style game project.
-- **Library**: `crates/foundation-library` contains reusable code shared by games and their game-specific editor binaries.
+- **Library**: `crates/foundation-library` contains reusable code shared by games and their game-specific editor binaries. It depends on `jackdaw_runtime` so shared components can expose Jackdaw-compatible editor metadata without depending on the full Jackdaw editor app.
 
 `games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
 
@@ -79,6 +79,24 @@ TemplateGame follows Jackdaw's generated static template:
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
 - root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
 - `foundation-library` is added to both the standalone game and game-specific editor binary before `TemplateGamePlugin`
+
+## FoundationLibrary shared components
+Reusable components can live in `crates/foundation-library` when they should be available to multiple games and their Jackdaw editor binaries. Components intended for editor authoring should derive Bevy reflection traits, include Jackdaw editor metadata, and be registered by `FoundationPlugin`.
+
+Example pattern:
+
+```rust
+use bevy::prelude::*;
+use jackdaw_runtime::prelude::*;
+
+#[derive(Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation"))]
+pub struct MySharedComponent {
+    pub value: f32,
+}
+```
+
+Register shared types from `FoundationPlugin` so both `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` see the same reusable API.
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:

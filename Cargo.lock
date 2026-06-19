@@ -3157,6 +3157,7 @@ name = "foundation-library"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "jackdaw_runtime",
 ]
 
 [[package]]

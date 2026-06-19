@@ -8,6 +8,7 @@
 //! so shared resources, systems, and reflected types are available first.
 
 use bevy::prelude::*;
+use jackdaw_runtime::prelude::*;
 
 /// Shared baseline plugin for Foundation games.
 ///
@@ -20,6 +21,7 @@ pub struct FoundationPlugin;
 impl Plugin for FoundationPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<FoundationSettings>()
+            .register_type::<FoundationActor>()
             .init_resource::<FoundationSettings>();
     }
 }
@@ -44,9 +46,22 @@ impl Default for FoundationSettings {
     }
 }
 
+/// Baseline shared component for Foundation-authored actors.
+///
+/// This component demonstrates the pattern reusable FoundationLibrary components
+/// should follow to be available to both games and Jackdaw editor binaries:
+/// derive [`Component`] and [`Reflect`], add Jackdaw editor metadata, and
+/// register the type from [`FoundationPlugin`].
+#[derive(Clone, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation"))]
+pub struct FoundationActor {
+    /// Optional human-readable actor label for diagnostics and editor display.
+    pub label: String,
+}
+
 /// Common imports for games using FoundationLibrary.
 pub mod prelude {
-    pub use crate::{FoundationPlugin, FoundationSettings};
+    pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }
 
 #[cfg(test)]
@@ -54,12 +69,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn foundation_plugin_registers_settings_resource() {
+    fn foundation_plugin_registers_settings_resource_and_actor_type() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_plugins(FoundationPlugin);
 
         let settings = app.world().resource::<FoundationSettings>();
         assert_eq!(settings.display_name, "FoundationLibrary");
+
+        let registry = app
+            .world()
+            .resource::<bevy::ecs::reflect::AppTypeRegistry>()
+            .read();
+        assert!(registry.contains(std::any::TypeId::of::<FoundationActor>()));
     }
 }
