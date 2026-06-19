@@ -25,7 +25,7 @@ The plan and tracker are the persistence layer between models. Record enough det
 ## Required pre-work
 1. Read `.pi/skills/rust-workspace-dev/SKILL.md` for Rust workflow.
 2. Read `.pi/skills/gitflow-workflow/SKILL.md` for branch and commit rules.
-3. Ask or confirm whether the feature is a `game`, `engine`, or `editor` feature before finalizing the plan. If it spans multiple areas, record all applicable areas and the primary area.
+3. Ask or confirm whether the feature is a `game`, `engine`, or `editor` feature before finalizing the plan. If it spans multiple areas, record all applicable areas and the primary area. Workflow/tooling-only changes should be recorded as `multi-area` with a primary area rationale unless the taxonomy is expanded later.
 4. Inspect `Cargo.toml` and relevant Rust source/config/test files before writing the plan.
 5. If online research tools are available and useful, perform external research relevant to the feature.
 6. If online research tools are not available or not needed, explicitly note that in the plan.
@@ -49,9 +49,9 @@ Start from these templates when helpful:
 - `docs/plans/_templates/tracker.template.md`
 
 Optional helper:
-- `scripts/scaffold-feature-plan.cmd <feature-slug> [feature-name] [branch-name]`
+- `scripts/scaffold-feature-plan.cmd <feature-slug> [feature-name] [branch-name] <feature-area> <primary-area>`
 
-The feature slug should usually match the feature branch suffix.
+The feature slug should usually match the feature branch suffix. The helper requires a concrete feature area (`game`, `engine`, `editor`, or `multi-area`) and primary area (`game`, `engine`, or `editor`); do not leave placeholders in generated plans.
 
 ## Plan document requirements
 `plan.md` must include:
@@ -95,10 +95,11 @@ Default Rust validation, unless the plan states a justified alternative:
 - `scripts/compile-project.cmd`
 - documentation generation via `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
 
-A task may only be marked complete when required validation for that task has passed or a user-approved waiver is recorded.
+A task may only be marked complete when required validation for that task has passed and documentation generation has been recorded, unless a user-approved waiver is recorded.
 
 A phase may only be marked complete when:
-- required validation has passed or a waiver is recorded, and
+- required validation has passed or a waiver is recorded,
+- documentation generation has been recorded or waived, and
 - the user has confirmed the phase is suitable when user confirmation is required.
 
 ## Commit and history expectations
@@ -192,6 +193,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
 - `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
+- `scripts/validate-project.cmd` for the full validation sequence when present
 ```
 
 ## Suggested `tracker.md` template
@@ -201,6 +203,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 ## Metadata
 - Feature slug: `<new-feature>`
 - Feature area: `<game | engine | editor | multi-area; primary: ...>`
+- Primary area: `<game | engine | editor>`
 - Branch: `feature/<work-being-done>`
 - Overall status: `Planned`
 - Planning model: `gpt-5.5`
@@ -211,7 +214,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 - Last updated: `<YYYY-MM-DD>`
 
 ## Validation Rules
-- Task complete only after required Rust validation passes or a waiver is recorded.
+- Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
 - Phase complete only after required validation passes, documentation generation is recorded, and required user confirmation is recorded.
 
 ## Phase 1: <Phase name>

@@ -72,3 +72,4 @@
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
 - `scripts/doc-project.cmd`
+- `scripts/validate-project.cmd`

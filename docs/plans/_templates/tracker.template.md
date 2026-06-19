@@ -36,6 +36,7 @@
 - Tests: Pending
 - Build: Pending
 - Documentation generation: Pending
+- Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes
@@ -56,6 +57,7 @@
 - Tests: Pending
 - Build: Pending
 - Documentation generation: Pending
+- Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes

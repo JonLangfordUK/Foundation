@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `engine`
 - Branch: `feature/documentation-workflow`
-- Overall status: `Complete`
+- Overall status: `Awaiting user confirmation`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.5 sanity review`
+- Current handoff state: `Awaiting user confirmation after review fixes`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -102,7 +102,37 @@
     - Add validation in `Scaffold-FeaturePlan.ps1` for feature slug format, branch name format, and feature area/primary area consistency.
     - Consider a `workflow` or `infrastructure` feature area, or explicitly document that workflow-only changes use `multi-area` with a primary area rationale.
     - Add CI/branch protection later; skills guide the agent but do not enforce the pipeline outside Pi.
-  - User decision: Pending
+  - User decision: `Send to gpt-5.4 for fixes` on 2026-06-19
+
+## Phase 3: Review fix pass
+**Status:** Awaiting user confirmation  
+**Goal:** Fix review findings that prevented the workflow from being considered rock-solid.
+
+### Tasks
+- [x] Strengthen `feature-plan-docs` completion wording for documentation generation.
+  - Status: Complete
+  - Notes: Task and phase completion now explicitly mention documentation generation.
+- [x] Require concrete feature area metadata in the scaffold script.
+  - Status: Complete
+  - Notes: The scaffold script now rejects placeholder feature areas and validates slug, branch, and primary-area consistency.
+- [x] Update scaffold usage documentation.
+  - Status: Complete
+  - Notes: The helper signature now documents feature area and primary area arguments.
+- [x] Add full validation wrapper expectations to templates.
+  - Status: Complete
+  - Notes: Plan/tracker templates now reference `scripts/validate-project.cmd` where appropriate.
+
+### Validation
+- Format: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-19
+- Full validation wrapper: Passed on 2026-06-19
+- User confirmation: Pending; user must confirm the fixed phase is suitable before this tracker returns to `Complete`.
+
+### Notes
+- Scaffold script smoke checks were run for invalid slug rejection and valid scaffold creation/removal.
 
 ## Postponed Work
 - Public Rust API missing-doc enforcement using crate attributes such as `#![warn(missing_docs)]` is postponed until the Bevy workspace crates are created.
@@ -114,3 +144,5 @@
 - `2026-06-19`: Full validation passed with `scripts/validate-project.cmd`.
 - `2026-06-19`: Consistency hardening committed as `b4e8fe7` and pushed to `origin/feature/documentation-workflow`.
 - `2026-06-19`: Final full validation passed with `scripts/validate-project.cmd` after tracker/plan completion updates.
+- `2026-06-19`: User accepted review findings and requested fixes.
+- `2026-06-19`: Review fix pass validation passed with `scripts/validate-project.cmd`; awaiting user confirmation that the phase is suitable.

@@ -12,7 +12,7 @@ Requirements:
 - Do not implement the feature yet.
 - Create `docs/plans/<new-feature>/plan.md` and `docs/plans/<new-feature>/tracker.md`.
 - Use `docs/plans/_templates/plan.template.md` and `docs/plans/_templates/tracker.template.md` as the starting point when helpful.
-- Ask or confirm whether this is a `game`, `engine`, `editor`, or multi-area feature, then record the feature area and primary area in both documents.
+- Ask or confirm whether this is a `game`, `engine`, `editor`, or multi-area feature, then record the feature area and primary area in both documents. Workflow/tooling-only changes should use `multi-area` with a primary area rationale unless the taxonomy is expanded later.
 - Record the dedicated `feature/*` branch created from `dev` in both documents.
 - Include codebase research, external research if useful, success criteria, testing methodology, planning model, preferred implementation model, and durable handoff notes.
-- If testing was not specified, default to format, lint, test, build, and documentation generation validation.
+- If testing was not specified, default to format, lint, test, build, documentation generation, and full validation wrapper validation.

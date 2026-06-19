@@ -30,6 +30,26 @@ if (-not $BranchName) {
     $BranchName = "feature/$FeatureSlug"
 }
 
+if ($FeatureSlug -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
+    throw "FeatureSlug must be lowercase kebab-case using only letters, numbers, and hyphens: $FeatureSlug"
+}
+
+if ($BranchName -notmatch '^(feature|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$') {
+    throw "BranchName must match feature/<work-being-done> or hotfix/<work-being-done>: $BranchName"
+}
+
+if ($FeatureArea -eq '<Feature Area>') {
+    throw "FeatureArea is required. Use one of: game, engine, editor, multi-area. Example: scripts/scaffold-feature-plan.cmd $FeatureSlug `"$FeatureName`" $BranchName engine engine"
+}
+
+if ($PrimaryArea -eq '<Primary Area>') {
+    throw "PrimaryArea is required. Use one of: game, engine, editor. Example: scripts/scaffold-feature-plan.cmd $FeatureSlug `"$FeatureName`" $BranchName $FeatureArea engine"
+}
+
+if (($FeatureArea -ne 'multi-area') -and ($PrimaryArea -ne $FeatureArea)) {
+    throw "PrimaryArea must match FeatureArea for single-area features. FeatureArea: $FeatureArea; PrimaryArea: $PrimaryArea"
+}
+
 $root = Split-Path -Parent $PSScriptRoot
 $templatesDir = Join-Path $root 'docs/plans/_templates'
 $targetDir = Join-Path $root "docs/plans/$FeatureSlug"
