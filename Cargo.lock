@@ -6427,6 +6427,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "template-game"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ctrlc",
+ "jackdaw",
+ "jackdaw_runtime",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

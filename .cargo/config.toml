@@ -1,3 +1,0 @@
-[alias]
-template-game = "run --manifest-path games/template-game/Cargo.toml"
-template-game-editor = "run --manifest-path games/template-game/Cargo.toml --bin editor --features editor"

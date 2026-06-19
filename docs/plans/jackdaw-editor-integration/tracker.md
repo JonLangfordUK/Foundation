@@ -5,11 +5,11 @@
 - Feature area: `editor`
 - Primary area: `editor`
 - Branch: `feature/jackdaw-editor-integration`
-- Overall status: `Root TemplateGame aliases awaiting commit/push`
+- Overall status: `Root workspace TemplateGame commands awaiting commit/push`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Root Cargo aliases added and validated with gpt-5.4`
+- Current handoff state: `Root workspace package commands implemented and validated with gpt-5.4`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning commit `ae3fcb3`, implementation commit `dc0828f`, tracker checkpoint `1d19323`, corrective refactor commit `f6945e3`, Jackdaw Editor rename commit `bf89b5e`, and cleanup commit `0f062b7` pushed to `origin/feature/jackdaw-editor-integration`; root alias commit pending.
+- Push status: Planning commit `ae3fcb3`, implementation commit `dc0828f`, tracker checkpoint `1d19323`, corrective refactor commit `f6945e3`, Jackdaw Editor rename commit `bf89b5e`, cleanup commit `0f062b7`, and root alias commit `64f0716` pushed to `origin/feature/jackdaw-editor-integration`; workspace command replacement commit pending.
 
 ## Phase 1: Rename Editor Subproject To Jackdaw Editor
 **Status:** Complete  
@@ -163,3 +163,5 @@
 - `2026-06-19`: Full validation after cleanup passed for nested TemplateGame: `cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`, `cargo build --all-features`, and `cargo doc --all-features --no-deps`.
 - `2026-06-19`: Added root Cargo aliases in `.cargo/config.toml`: `cargo template-game` runs `games/template-game`, and `cargo template-game-editor` runs the TemplateGame editor binary with the `editor` feature. Updated README command examples.
 - `2026-06-19`: Alias validation passed: `cargo template-game --help`, `cargo template-game-editor --help`, `cargo fmt --all -- --check`, and root `cargo clippy --workspace --all-targets --all-features -- -D warnings`.
+- `2026-06-19`: User preferred package-style root commands instead of aliases. Removed root `.cargo/config.toml`, made `games/template-game` a root workspace member, renamed its package to `template-game`, removed its nested `[workspace]`, moved dev profile settings to the root manifest, and updated README examples for `cargo run -p template-game` and `cargo run -p jackdaw-editor`.
+- `2026-06-19`: Root workspace command validation passed: `cargo fmt --all -- --check`, `cargo check -p jackdaw-editor`, `cargo check -p template-game`, `cargo check -p template-game --bin editor --features editor`, and `cargo clippy --workspace --all-targets --all-features -- -D warnings`.

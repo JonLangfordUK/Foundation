@@ -12,7 +12,7 @@ PiGame is a multi-project Rust repository for Jackdaw Editor and Jackdaw-style g
 - `docs/plans/` - feature plans, trackers, and templates
 - `scripts/` - Windows wrappers for root Cargo validation commands and optional feature-plan scaffolding
 
-`games/template-game` is intentionally its own nested Cargo workspace, matching Jackdaw's generated game structure so it is not accidentally absorbed into the root workspace.
+`games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
 
 ## Running Jackdaw Editor
 From the repository root:
@@ -27,13 +27,13 @@ Jackdaw Editor can create/open Jackdaw projects. For static game projects, Jackd
 From the repository root:
 
 ```cmd
-cargo template-game
+cargo run -p template-game
 ```
 
 Open TemplateGame's Jackdaw editor binary from the repository root:
 
 ```cmd
-cargo template-game-editor
+cargo run -p template-game --bin editor --features editor
 ```
 
 From `games/template-game`:
@@ -70,7 +70,7 @@ TemplateGame follows Jackdaw's generated static template:
 - `.jsn/project.jsn` is Jackdaw project metadata/layout
 - `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
-- root `.cargo/config.toml` defines `cargo template-game` and `cargo template-game-editor` convenience aliases
+- root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
