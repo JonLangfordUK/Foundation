@@ -24,6 +24,18 @@ cargo run -p jackdaw-editor
 Jackdaw Editor can create/open Jackdaw projects. For static game projects, Jackdaw builds the project's own editor binary and hands off to it.
 
 ## Running TemplateGame
+From the repository root:
+
+```cmd
+cargo template-game
+```
+
+Open TemplateGame's Jackdaw editor binary from the repository root:
+
+```cmd
+cargo template-game-editor
+```
+
 From `games/template-game`:
 
 ```cmd
@@ -36,7 +48,7 @@ or:
 cargo play
 ```
 
-Open TemplateGame's Jackdaw editor binary:
+Open TemplateGame's Jackdaw editor binary from `games/template-game`:
 
 ```cmd
 cargo editor
@@ -58,6 +70,7 @@ TemplateGame follows Jackdaw's generated static template:
 - `.jsn/project.jsn` is Jackdaw project metadata/layout
 - `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
+- root `.cargo/config.toml` defines `cargo template-game` and `cargo template-game-editor` convenience aliases
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
