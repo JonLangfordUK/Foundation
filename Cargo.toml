@@ -1,9 +1,18 @@
-[package]
-name = "pi-rust-template"
+[workspace]
+members = [
+    "crates/engine",
+    "crates/game",
+    "crates/editor",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
-description = "Blank Rust project template configured for Pi-assisted development"
 license = "MIT OR Apache-2.0"
 publish = false
 
-[dependencies]
+[workspace.dependencies]
+bevy = "0.18.1"
+pigame-engine = { path = "crates/engine" }
+pigame-game = { path = "crates/game" }

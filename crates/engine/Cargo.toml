@@ -1,0 +1,10 @@
+[package]
+name = "pigame-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Shared Bevy app setup for PiGame game and editor launchers"
+
+[dependencies]
+bevy.workspace = true
