@@ -5,11 +5,11 @@
 - Feature area: `editor`
 - Primary area: `editor`
 - Branch: `feature/jackdaw-editor-integration`
-- Overall status: `Implemented`
+- Overall status: `Corrective refactor awaiting commit/push checkpoint`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for final user review or optional gpt-5.5 sanity review`
+- Current handoff state: `Corrective refactor implemented with gpt-5.4; validation partially blocked by disk space`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning commit `ae3fcb3` and implementation commit `dc0828f` pushed to `origin/feature/jackdaw-editor-integration`; final tracker push-state update pending.
+- Push status: Planning commit `ae3fcb3`, implementation commit `dc0828f`, and tracker checkpoint `1d19323` pushed to `origin/feature/jackdaw-editor-integration`; corrective refactor commit pending.
 
 ## Phase 1: Rename Editor Subproject To PillarEditor
 **Status:** Complete  
@@ -57,7 +57,7 @@
 - Cargo package/executable naming does not use `PillarEditor` capitalization; `PillarEditor` is used as the user-facing window/product title and `pillar-editor` as the package/run target.
 
 ## Phase 2: Jackdaw Editor Host Integration
-**Status:** Complete  
+**Status:** Corrective refactor awaiting commit/push  
 **Goal:** Replace the plain Bevy editor window with a Jackdaw-backed editor host.
 
 ### Tasks
@@ -71,8 +71,8 @@
   - Status: Complete
   - Notes: Added public `PiGamePlugin` in `crates/game/src/lib.rs`. It is currently empty but documented as the place for future gameplay systems/resources/reflected components. Ambient plugins remain in host binaries.
 - [x] Implement PillarEditor app startup with Jackdaw plugins.
-  - Status: Complete
-  - Notes: `pillar-editor` builds an app with the shared PillarEditor window config, then adds `PhysicsPlugins::default()`, `EnhancedInputPlugin`, `EditorPlugins::default()`, and `PiGamePlugin`.
+  - Status: Complete after corrective refactor
+  - Notes: `pillar-editor` is now a Jackdaw launcher/editor subproject, not a game-host-specific static editor. It uses Jackdaw launcher-style startup with `EditorPlugins::default()` and `DylibLoaderPlugin::default()`. Game-specific static editors live inside game subprojects.
 - [x] Preserve the game launcher.
   - Status: Complete
   - Notes: `cargo run -p pigame-game` still creates a `PiGame` Bevy window.
@@ -138,8 +138,7 @@
 - Ready for optional `gpt-5.5` sanity review or final user review.
 
 ## Postponed Work
-- Dynamic Jackdaw extension/dylib loading is postponed unless the user explicitly asks for hot-reloadable editor extensions.
-- Full game scene runtime integration and authored `assets/scene.jsn` loading are postponed; this feature integrates and opens the Jackdaw editor host without adding initial scene files.
+- Full custom game content beyond the generated TemplateGame-style `SpinningCube` example is postponed.
 - Advanced custom components, editor panels, and PillarEditor-specific branding assets/icons are postponed unless needed for the initial Jackdaw host.
 
 ## Progress Log
@@ -154,3 +153,6 @@
 - `2026-06-19`: Validation passed: format, clippy, tests, build, docs, and full PowerShell validation wrapper.
 - `2026-06-19`: Manual launch checks confirmed `PiGame` and `PillarEditor` windows are created; PillarEditor also loaded Jackdaw built-in extensions.
 - `2026-06-19`: Implementation commit `dc0828f` was created and pushed to `origin/feature/jackdaw-editor-integration`.
+- `2026-06-19`: User reported the prior architecture still did not match Jackdaw's generated game flow. Inspected `E:\GameDev\test\my_game` and confirmed Jackdaw static games are self-contained packages with their own `src/lib.rs`, `src/main.rs`, `src/bin/editor.rs`, `.cargo/config.toml`, `.jsn/project.jsn`, `assets/scene.jsn`, and `jackdaw.toml`.
+- `2026-06-19`: User clarified the intended repo architecture: a Jackdaw/PillarEditor subproject crate plus a TemplateGame subproject set up like Jackdaw's generated static game. Corrected the implementation accordingly: root workspace now contains `crates/pillar-editor`; `games/template-game` is a nested independent Cargo project excluded from the root workspace.
+- `2026-06-19`: Root PillarEditor validation passed: format, clippy, tests, build, and docs. TemplateGame validation passed format and clippy, then test/build/doc validation was blocked by disk space (`os error 112`, no space on device) while compiling dependencies. Removed `games/template-game/target` to recover space; root `target` remains large (~46G).

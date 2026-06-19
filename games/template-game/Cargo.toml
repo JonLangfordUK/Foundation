@@ -1,0 +1,29 @@
+[package]
+name = "template_game"
+version = "0.1.0"
+edition = "2024"
+publish = false
+default-run = "template_game"
+
+# Own workspace root so this project is not pulled into the parent PiGame workspace.
+[workspace]
+
+[[bin]]
+name = "editor"
+required-features = ["editor"]
+
+[features]
+default = []
+editor = ["dep:jackdaw"]
+
+[dependencies]
+bevy = { version = "0.18", features = ["file_watcher"] }
+jackdaw = { version = "0.4", default-features = false, optional = true }
+jackdaw_runtime = "0.4"
+ctrlc = "3"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

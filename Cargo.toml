@@ -1,8 +1,9 @@
 [workspace]
 members = [
-    "crates/engine",
-    "crates/game",
     "crates/pillar-editor",
+]
+exclude = [
+    "games/template-game",
 ]
 resolver = "2"
 
@@ -21,5 +22,3 @@ bevy = { version = "0.18.1", features = [
 ] }
 ctrlc = "3"
 jackdaw = { version = "0.4.1", default-features = false }
-pigame-engine = { path = "crates/engine" }
-pigame-game = { path = "crates/game" }
