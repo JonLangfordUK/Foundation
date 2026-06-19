@@ -3153,6 +3153,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "foundation-library"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "jackdaw_runtime",
+]
+
+[[package]]
 name = "fsevent-sys"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6432,6 +6440,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "ctrlc",
+ "foundation-library",
  "jackdaw",
  "jackdaw_runtime",
 ]
