@@ -4,7 +4,13 @@ param(
 
     [string]$FeatureName,
 
-    [string]$BranchName
+    [string]$BranchName,
+
+    [ValidateSet('game', 'engine', 'editor', 'multi-area', '<Feature Area>')]
+    [string]$FeatureArea = '<Feature Area>',
+
+    [ValidateSet('game', 'engine', 'editor', '<Primary Area>')]
+    [string]$PrimaryArea = '<Primary Area>'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,6 +63,8 @@ function Apply-Template {
     $content = $content.Replace('<Feature Name>', $FeatureName)
     $content = $content.Replace('<new-feature>', $FeatureSlug)
     $content = $content.Replace('feature/<work-being-done>', $BranchName)
+    $content = $content.Replace('<Feature Area>', $FeatureArea)
+    $content = $content.Replace('<Primary Area>', $PrimaryArea)
     $content = $content.Replace('<YYYY-MM-DD>', $date)
 
     Set-Content -Path $DestinationPath -Value $content -NoNewline
@@ -68,4 +76,6 @@ Apply-Template -TemplatePath $trackerTemplate -DestinationPath $trackerPath -Sta
 
 Write-Host "Feature planning scaffold ready for '$FeatureSlug'."
 Write-Host "Branch: $BranchName"
+Write-Host "Feature area: $FeatureArea"
+Write-Host "Primary area: $PrimaryArea"
 Write-Host 'Reminder: Use the feature-plan-docs skill before implementation and keep the tracker updated with the feature-tracker-update skill during implementation.'

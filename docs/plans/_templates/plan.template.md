@@ -2,6 +2,8 @@
 
 ## Metadata
 - Feature slug: `<new-feature>`
+- Feature area: `<Feature Area>`
+- Primary area: `<Primary Area>`
 - Branch: `feature/<work-being-done>`
 - Status: `Planned`
 - Planning model: `gpt-5.5`
@@ -15,6 +17,11 @@
 
 ## Feature Summary
 <What the feature is and why it exists>
+
+## Feature Area Classification
+- Area: `<Feature Area>`
+- Primary area: `<Primary Area>`
+- Rationale: <why this area owns the feature>
 
 ## Codebase Research
 - <Relevant Rust crate/module/API finding>
@@ -41,6 +48,11 @@
 ## Open Questions
 - <Question, if any>
 
+## Documentation Expectations
+- Public APIs added or changed by this feature must have Rustdoc comments, or this plan must explicitly justify why they are internal/undocumented.
+- Feature-level architecture or usage documentation should be added under `docs/` when Rustdoc alone is insufficient.
+- Generated documentation must be produced before the feature is considered complete.
+
 ## Implementation Handoff Notes
 - Use `gpt-5.4` for implementation.
 - Never use Anthropic models.
@@ -59,3 +71,4 @@
 - `scripts/lint-project.cmd`
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
+- `scripts/doc-project.cmd`

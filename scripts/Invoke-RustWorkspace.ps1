@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('validate-env', 'show-config', 'format-project', 'lint-project', 'test-project', 'compile-project', 'doc-project')]
+    [ValidateSet('validate-env', 'show-config', 'format-project', 'lint-project', 'test-project', 'compile-project', 'doc-project', 'validate-project')]
     [string]$Command = 'show-config'
 )
 
@@ -95,6 +95,14 @@ switch ($Command) {
     }
     'doc-project' {
         $scope = Get-ScopeArgs
+        Invoke-Checked -CargoArgs (@('doc') + $scope + @('--all-features', '--no-deps'))
+    }
+    'validate-project' {
+        Invoke-Checked -CargoArgs @('fmt', '--all', '--', '--check')
+        $scope = Get-ScopeArgs
+        Invoke-Checked -CargoArgs (@('clippy') + $scope + @('--all-targets', '--all-features', '--', '-D', 'warnings'))
+        Invoke-Checked -CargoArgs (@('test') + $scope + @('--all-features'))
+        Invoke-Checked -CargoArgs (@('build') + $scope + @('--all-features'))
         Invoke-Checked -CargoArgs (@('doc') + $scope + @('--all-features', '--no-deps'))
     }
 }

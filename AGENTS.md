@@ -30,6 +30,8 @@ When the user asks for Rust workspace, crate, module, test, build, lint, depende
    - `scripts/lint-project.cmd`
    - `scripts/test-project.cmd`
    - `scripts/compile-project.cmd`
+   - `scripts/doc-project.cmd`
+   - `scripts/validate-project.cmd` for full validation when a single command is preferred
 
 When adapting this template for a new Rust project:
 1. Rename the package in `Cargo.toml`.
@@ -60,7 +62,7 @@ When the user asks to continue or update in-progress feature work:
 2. Use `gpt-5.4` for implementation. Never use Anthropic models.
 3. Before making implementation edits, read the relevant `plan.md` and `tracker.md`, then update the tracker to record that implementation is starting or resuming.
 4. Keep the tracker updated with progress, validation state, issues found, postponements, and model handoff state.
-5. Do not mark tasks or phases complete until required Rust validation passes or a documented waiver exists.
+5. Do not mark tasks or phases complete until required Rust validation and documentation generation pass or a documented waiver exists.
 6. Commit each completed task and each completed phase, including the final phase.
 7. Push each commit/merge checkpoint to `origin` when available.
 8. If `origin` is not configured, record push status as `N/A (local-only repository)`.

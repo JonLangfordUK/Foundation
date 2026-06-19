@@ -74,17 +74,18 @@ The feature slug should usually match the feature branch suffix.
 ## Tracker document requirements
 `tracker.md` must include:
 1. Feature name and slug
-2. Branch name
-3. Overall status
-4. Ordered phases and tasks
-5. Validation state for each task and phase
-6. Notes/issues/oversights discovered during work
-7. Postponed work and reasons
-8. Progress log entries
-9. Planning model: `gpt-5.5`
-10. Preferred implementation model: `gpt-5.4`
-11. Optional final review model: `gpt-5.5`
-12. Current handoff state
+2. Feature area classification: `game`, `engine`, `editor`, or a clearly marked multi-area combination with one primary area
+3. Branch name
+4. Overall status
+5. Ordered phases and tasks
+6. Validation state for each task and phase
+7. Notes/issues/oversights discovered during work
+8. Postponed work and reasons
+9. Progress log entries
+10. Planning model: `gpt-5.5`
+11. Preferred implementation model: `gpt-5.4`
+12. Optional final review model: `gpt-5.5`
+13. Current handoff state
 
 ## Validation rules
 Default Rust validation, unless the plan states a justified alternative:

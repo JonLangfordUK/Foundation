@@ -43,6 +43,7 @@ Convenience wrappers are available:
 - `scripts/test-project.cmd` - run `cargo test --workspace --all-features`
 - `scripts/compile-project.cmd` - run `cargo build --workspace --all-features`
 - `scripts/doc-project.cmd` - when present, run project documentation generation; otherwise use `cargo doc --workspace --all-features --no-deps`
+- `scripts/validate-project.cmd` - run the full project validation sequence: format, lint, test, build, and documentation generation
 
 ## Workflow
 
