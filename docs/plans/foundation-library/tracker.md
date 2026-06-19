@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 after merging Jackdaw editor integration into `dev`.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before planning docs were created.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `73dfe2d` pushed to `origin/feature/foundation-library`; implementation commit pending.
+- Push status: Planning docs commit `73dfe2d` and implementation commit `9992cbf` pushed to `origin/feature/foundation-library`; final tracker checkpoint pending.
 - Prior branch cleanup: Local `feature/jackdaw-editor-integration` was deleted after merge to `dev`; remote branch was intentionally left intact per user preference.
 
 ## Phase 1: FoundationLibrary Crate Baseline
@@ -101,9 +101,9 @@
 - [x] Generate documentation.
   - Status: Complete
   - Notes: `cargo doc --workspace --all-features --no-deps` passed and generated `target/doc/foundation_library/index.html`.
-- [ ] Commit and push implementation checkpoints.
-  - Status: Awaiting commit/push
-  - Notes: Implementation commit pending.
+- [x] Commit and push implementation checkpoints.
+  - Status: Complete
+  - Notes: Implementation commit `9992cbf` pushed to `origin/feature/foundation-library`; final tracker checkpoint pending.
 
 ### Validation
 - Format: Passed
@@ -142,3 +142,4 @@
 - `2026-06-19`: Wired TemplateGame standalone and editor binaries to add `FoundationPlugin` before `TemplateGamePlugin`.
 - `2026-06-19`: Updated README with the Editor / Game / Library architecture.
 - `2026-06-19`: Validation passed: `cargo fmt --all -- --check`, `cargo check -p foundation-library`, `cargo check -p template-game`, `cargo check -p template-game --bin editor --features editor`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, `cargo doc --workspace --all-features --no-deps`, and `scripts/validate-project.cmd`.
+- `2026-06-19`: Implementation commit `9992cbf` created and pushed to `origin/feature/foundation-library`.
