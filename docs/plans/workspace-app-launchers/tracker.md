@@ -5,11 +5,11 @@
 - Feature area: `multi-area` (`engine`, `game`, `editor`)
 - Primary area: `engine`
 - Branch: `feature/workspace-app-launchers`
-- Overall status: `Implemented with Bevy 0.18.1 update`
+- Overall status: `Complete`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for final user review or optional gpt-5.5 sanity review`
+- Current handoff state: `Accepted by user; ready to merge to dev`
 - Created: `2026-06-19`
 - Last updated: `2026-06-19`
 
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Plan commit `2edb36a`, implementation commit `28fd9f8`, and tracker checkpoint `227358a` pushed to `origin/feature/workspace-app-launchers`; Bevy 0.18.1 follow-up commit pending.
+- Push status: Plan commit `2edb36a`, implementation commit `28fd9f8`, tracker checkpoint `227358a`, and Bevy 0.18.1 commit `cdbd882` pushed to `origin/feature/workspace-app-launchers`; final completion tracker commit pending.
 - Pre-existing working tree note: an untracked `NUL` file existed before planning and is not part of this feature unless the user later approves touching it.
 
 ## Phase 1: Workspace Structure And Shared Linking
@@ -121,8 +121,8 @@
 - Build: Passed
 - Documentation generation: Passed
 - Full validation wrapper: Passed
-- Push state: Implementation commit `28fd9f8` and tracker checkpoint `227358a` pushed; Bevy 0.18.1 follow-up commit pending.
-- User confirmation: User confirmed Bevy should be `0.18.1`; Jackdaw editor integration question answered as not currently implemented.
+- Push state: Implementation commit `28fd9f8`, tracker checkpoint `227358a`, and Bevy 0.18.1 commit `cdbd882` pushed; final completion tracker commit pending.
+- User confirmation: User accepted current feature direction and asked to finish this feature before starting Jackdaw integration.
 
 ### Notes
 - Phase completion requires validation evidence or documented user-approved waivers.
@@ -133,7 +133,7 @@
 - Active branch confirmed as `feature/workspace-app-launchers`.
 - Proposed package names were used: `pigame-engine`, `pigame-game`, `pigame-editor`.
 - Proposed run commands were used: `cargo run -p pigame-game` and `cargo run -p pigame-editor`.
-- Ready for optional `gpt-5.5` sanity review or final user review.
+- User accepted the current feature scope; optional Jackdaw editor integration remains a separate future feature.
 
 ## Postponed Work
 - Jackdaw editor integration is not currently implemented. The current editor subproject is a minimal Bevy window linked to shared/game crates. Research found Jackdaw `0.4.1` is a Bevy 0.18 scene editor with an `EditorPlugin`, making it a likely next implementation step if the editor should be Jackdaw-based.
@@ -155,3 +155,4 @@
 - `2026-06-19`: User corrected Bevy target version to `0.18.1`; updated workspace dependency and adjusted window resolution types from `f32` to `u32` for Bevy 0.18 compatibility.
 - `2026-06-19`: Confirmed current editor does not use Jackdaw. Researched Jackdaw as a Bevy 0.18 scene editor with an `EditorPlugin`; recorded it as postponed/follow-up integration work.
 - `2026-06-19`: Re-ran validation after Bevy 0.18.1 update: format, clippy, tests, build, docs, and full PowerShell validation wrapper passed.
+- `2026-06-19`: User confirmed Jackdaw should remain separate for now and asked to finish the current feature before starting new work.
