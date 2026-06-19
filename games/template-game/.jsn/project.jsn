@@ -1,0 +1,160 @@
+{
+  "jsn": {
+    "format_version": [
+      3,
+      0,
+      0
+    ],
+    "editor_version": "0.4.1",
+    "bevy_version": "0.18"
+  },
+  "project": {
+    "name": "TemplateGame",
+    "description": "Template game for PiGame/Jackdaw Editor",
+    "layout": {
+      "active": "layout",
+      "workspaces": [
+        {
+          "accent_color": [
+            0.3499999940395355,
+            0.550000011920929,
+            1.0,
+            0.800000011920929
+          ],
+          "icon": "",
+          "id": "layout",
+          "name": "Main scene",
+          "tree": {
+            "next_id": 9,
+            "next_tab_id": 13,
+            "nodes": {
+              "0": {
+                "Leaf": {
+                  "active": 1,
+                  "area_id": "left",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 1,
+                      "window_id": "jackdaw.hierarchy"
+                    },
+                    {
+                      "id": 2,
+                      "window_id": "jackdaw.import"
+                    }
+                  ]
+                }
+              },
+              "1": {
+                "Leaf": {
+                  "active": 4,
+                  "area_id": "center",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 4,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "2": {
+                "Leaf": {
+                  "active": 5,
+                  "area_id": "bottom_dock",
+                  "persistent": true,
+                  "style": "IconSidebar",
+                  "windows": [
+                    {
+                      "id": 5,
+                      "window_id": "jackdaw.assets"
+                    },
+                    {
+                      "id": 7,
+                      "window_id": "jackdaw.terminal"
+                    }
+                  ]
+                }
+              },
+              "3": {
+                "Leaf": {
+                  "active": 9,
+                  "area_id": "right_sidebar",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 8,
+                      "window_id": "jackdaw.inspector.components"
+                    },
+                    {
+                      "id": 9,
+                      "window_id": "jackdaw.inspector.materials"
+                    },
+                    {
+                      "id": 10,
+                      "window_id": "jackdaw.inspector.resources"
+                    },
+                    {
+                      "id": 11,
+                      "window_id": "jackdaw.inspector.systems"
+                    }
+                  ]
+                }
+              },
+              "4": {
+                "Split": {
+                  "a": 1,
+                  "axis": "Vertical",
+                  "b": 2,
+                  "fraction": 0.800000011920929
+                }
+              },
+              "5": {
+                "Split": {
+                  "a": 4,
+                  "axis": "Horizontal",
+                  "b": 3,
+                  "fraction": 0.7620370984077454
+                }
+              },
+              "6": {
+                "Split": {
+                  "a": 8,
+                  "axis": "Horizontal",
+                  "b": 5,
+                  "fraction": 0.15000000596046448
+                }
+              },
+              "7": {
+                "Leaf": {
+                  "active": 12,
+                  "area_id": "split.jackdaw.project_files.7",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 12,
+                      "window_id": "jackdaw.project_files"
+                    }
+                  ]
+                }
+              },
+              "8": {
+                "Split": {
+                  "a": 0,
+                  "axis": "Vertical",
+                  "b": 7,
+                  "fraction": 0.75
+                }
+              }
+            },
+            "root": 6
+          }
+        }
+      ]
+    }
+  }
+}

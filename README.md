@@ -1,32 +1,76 @@
 # PiGame
 
-PiGame is a Rust workspace for a Bevy-based game and editor.
+PiGame is a multi-project Rust repository for Jackdaw Editor and Jackdaw-style games.
 
-## Workspace layout
-- `Cargo.toml` - workspace manifest and shared dependency configuration
-- `crates/engine` - shared Bevy launcher/window setup used by workspace applications
-- `crates/game` - standalone game crate and executable
-- `crates/editor` - standalone editor executable linked to shared engine and game metadata
+## Repository layout
+- `Cargo.toml` - root workspace manifest for tooling/editor crates
+- `crates/jackdaw-editor` - Jackdaw Editor, a Jackdaw launcher/editor subproject
+- `games/template-game` - a Jackdaw static-game subproject shaped like Jackdaw's generated game template
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
 - `.pi/prompts/` - prompt templates for planning, implementation, review, and validation
 - `docs/plans/` - feature plans, trackers, and templates
-- `scripts/` - Windows wrappers for Cargo validation commands and optional feature-plan scaffolding
+- `scripts/` - Windows wrappers for root Cargo validation commands and optional feature-plan scaffolding
 
-## Running the applications
-Open the game window:
+`games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
 
-```cmd
-cargo run -p pigame-game
-```
-
-Open the editor window:
+## Running Jackdaw Editor
+From the repository root:
 
 ```cmd
-cargo run -p pigame-editor
+cargo run -p jackdaw-editor
 ```
 
-Both launchers use shared setup from `pigame-engine`. The editor also links to the game crate for shared game metadata.
+Jackdaw Editor can create/open Jackdaw projects. For static game projects, Jackdaw builds the project's own editor binary and hands off to it.
+
+## Running TemplateGame
+From the repository root:
+
+```cmd
+cargo run -p template-game
+```
+
+Open TemplateGame's Jackdaw editor binary from the repository root:
+
+```cmd
+cargo run -p template-game --bin editor --features editor
+```
+
+From `games/template-game`:
+
+```cmd
+cargo run
+```
+
+or:
+
+```cmd
+cargo play
+```
+
+Open TemplateGame's Jackdaw editor binary from `games/template-game`:
+
+```cmd
+cargo editor
+```
+
+Equivalent explicit command:
+
+```cmd
+cargo run --bin editor --features editor
+```
+
+## Jackdaw static-game shape
+TemplateGame follows Jackdaw's generated static template:
+
+- `src/lib.rs` contains shared game behavior in `TemplateGamePlugin`
+- `src/main.rs` is the standalone game runner
+- `src/bin/editor.rs` is the feature-gated editor + game runner
+- `assets/scene.jsn` is the authored scene
+- `.jsn/project.jsn` is Jackdaw project metadata/layout
+- `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
+- `.cargo/config.toml` defines `cargo editor` and `cargo play`
+- root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
@@ -41,35 +85,36 @@ or:
 npm run validate-env
 ```
 
-## Commands
-### Windows wrappers
-- `scripts/validate-env.cmd`
-- `scripts/show-config.cmd`
-- `scripts/scaffold-feature-plan.cmd` *(optional convenience helper)*
-- `scripts/format-project.cmd`
-- `scripts/lint-project.cmd`
-- `scripts/test-project.cmd`
-- `scripts/compile-project.cmd`
-- `scripts/doc-project.cmd`
-- `scripts/validate-project.cmd`
+Jackdaw project scaffolding also needs `cargo-generate` available on `PATH`. With the current Rust 1.92 toolchain, install the compatible version with:
 
-### npm scripts
-- `npm run validate-env`
-- `npm run show-config`
-- `npm run scaffold-feature-plan -- <feature-slug> [feature-name] [branch-name]`
-- `npm run format-project`
-- `npm run lint-project`
-- `npm run test-project`
-- `npm run compile-project`
+```cmd
+cargo install cargo-generate --version 0.22.0 --locked
+```
+
+## Commands
+### Root workspace validation
+From the repository root:
+
+```cmd
+scripts\format-project.cmd
+scripts\lint-project.cmd
+scripts\test-project.cmd
+scripts\compile-project.cmd
+scripts\doc-project.cmd
+```
+
+### TemplateGame validation
+From `games/template-game`:
+
+```cmd
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
+cargo build --all-features
+cargo doc --all-features --no-deps
+```
 
 ## Pi workflow
-From this folder, start Pi and use natural language, or use prompt templates:
-- `/scaffold-feature-plan Add a parser module`
-- `/feature-plan Add a parser module` *(planning only; stops for user review before implementation)*
-- `/feature-implement Add a parser module` *(implementation flow; reads the tracker workflow before code edits)*
-- `/compile-project`
-- `/review-feature Add a parser module`
-
 Feature workflow enforcement:
 - planning a feature must use the `feature-plan-docs` skill and `gpt-5.5`
 - implementing a feature must use `feature-plan-docs`, `feature-tracker-update`, and `gpt-5.4`
@@ -79,14 +124,3 @@ Feature workflow enforcement:
 - every completed task and phase should be committed
 - when remote `origin` exists, every commit and merge checkpoint should be pushed to `origin`
 - if no `origin` is configured, push status should be recorded as `N/A (local-only repository)`
-
-## Validation defaults
-Rust validation defaults to:
-
-```cmd
-scripts\format-project.cmd
-scripts\lint-project.cmd
-scripts\test-project.cmd
-scripts\compile-project.cmd
-scripts\doc-project.cmd
-```

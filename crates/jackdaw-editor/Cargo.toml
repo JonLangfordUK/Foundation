@@ -1,10 +1,12 @@
 [package]
-name = "pigame-engine"
+name = "jackdaw-editor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "Shared Bevy app setup for PiGame game and editor launchers"
+description = "Jackdaw editor launcher"
 
 [dependencies]
 bevy.workspace = true
+ctrlc.workspace = true
+jackdaw.workspace = true
