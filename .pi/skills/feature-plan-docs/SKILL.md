@@ -25,9 +25,10 @@ The plan and tracker are the persistence layer between models. Record enough det
 ## Required pre-work
 1. Read `.pi/skills/rust-workspace-dev/SKILL.md` for Rust workflow.
 2. Read `.pi/skills/gitflow-workflow/SKILL.md` for branch and commit rules.
-3. Inspect `Cargo.toml` and relevant Rust source/config/test files before writing the plan.
-4. If online research tools are available and useful, perform external research relevant to the feature.
-5. If online research tools are not available or not needed, explicitly note that in the plan.
+3. Ask or confirm whether the feature is a `game`, `engine`, or `editor` feature before finalizing the plan. If it spans multiple areas, record all applicable areas and the primary area.
+4. Inspect `Cargo.toml` and relevant Rust source/config/test files before writing the plan.
+5. If online research tools are available and useful, perform external research relevant to the feature.
+6. If online research tools are not available or not needed, explicitly note that in the plan.
 
 ## Branch requirement
 Every feature must have a dedicated branch from `dev`.
@@ -55,18 +56,20 @@ The feature slug should usually match the feature branch suffix.
 ## Plan document requirements
 `plan.md` must include:
 1. Feature name and user request
-2. Branch name and current status
-3. Codebase research findings
-4. External research findings or a note that none was performed
-5. Affected Rust crates/modules/APIs/configuration
-6. Proposed implementation approach
-7. Alternatives considered when relevant
-8. Risks, constraints, assumptions, and open questions
-9. Success criteria
-10. Testing and validation methodology
-11. Planning model used: `gpt-5.5`
-12. Handoff notes for `gpt-5.4` implementation
-13. Optional review focus areas for `gpt-5.5`
+2. Feature area classification: `game`, `engine`, `editor`, or a clearly marked multi-area combination with one primary area
+3. Branch name and current status
+4. Codebase research findings
+5. External research findings or a note that none was performed
+6. Affected Rust crates/modules/APIs/configuration
+7. Proposed implementation approach
+8. Documentation expectations, including public API documentation and generated documentation requirements
+9. Alternatives considered when relevant
+10. Risks, constraints, assumptions, and open questions
+11. Success criteria
+12. Testing and validation methodology
+13. Planning model used: `gpt-5.5`
+14. Handoff notes for `gpt-5.4` implementation
+15. Optional review focus areas for `gpt-5.5`
 
 ## Tracker document requirements
 `tracker.md` must include:
@@ -89,6 +92,7 @@ Default Rust validation, unless the plan states a justified alternative:
 - `scripts/lint-project.cmd`
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
+- documentation generation via `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
 
 A task may only be marked complete when required validation for that task has passed or a user-approved waiver is recorded.
 
@@ -122,6 +126,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 
 ## Metadata
 - Feature slug: `<new-feature>`
+- Feature area: `<game | engine | editor | multi-area; primary: ...>`
 - Branch: `feature/<work-being-done>`
 - Status: `Planned`
 - Planning model: `gpt-5.5`
@@ -135,6 +140,11 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 
 ## Feature Summary
 <What the feature is and why it exists>
+
+## Feature Area Classification
+- Area: `<game | engine | editor | multi-area>`
+- Primary area: `<game | engine | editor>`
+- Rationale: <why this area owns the feature>
 
 ## Codebase Research
 - <Relevant Rust crate/module/API finding>
@@ -158,6 +168,11 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 ## Open Questions
 - <Question, if any>
 
+## Documentation Expectations
+- Public APIs added or changed by this feature must have Rustdoc comments, or the plan must explicitly justify why they are internal/undocumented.
+- Feature-level architecture or usage documentation should be added under `docs/` when Rustdoc alone is insufficient.
+- Generated documentation must be produced before the feature is considered complete.
+
 ## Implementation Handoff Notes
 - Use `gpt-5.4` for implementation.
 - Never use Anthropic models.
@@ -175,6 +190,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 - `scripts/lint-project.cmd`
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
+- `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
 ```
 
 ## Suggested `tracker.md` template
@@ -183,6 +199,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 
 ## Metadata
 - Feature slug: `<new-feature>`
+- Feature area: `<game | engine | editor | multi-area; primary: ...>`
 - Branch: `feature/<work-being-done>`
 - Overall status: `Planned`
 - Planning model: `gpt-5.5`
@@ -194,7 +211,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 
 ## Validation Rules
 - Task complete only after required Rust validation passes or a waiver is recorded.
-- Phase complete only after required validation passes and required user confirmation is recorded.
+- Phase complete only after required validation passes, documentation generation is recorded, and required user confirmation is recorded.
 
 ## Phase 1: <Phase name>
 **Status:** Planned  
@@ -210,6 +227,7 @@ Treat clear affirmative responses such as `continue`, `carry on`, `go ahead`, `i
 - Lint: Pending
 - Tests: Pending
 - Build: Pending
+- Documentation generation: Pending
 - User confirmation: Pending / Not required yet
 
 ## Implementation / Review Handoff Notes

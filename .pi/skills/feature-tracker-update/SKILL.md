@@ -28,6 +28,7 @@ Update the tracker as work progresses, including:
 - current task and phase status
 - active implementation or review model
 - format/lint/test/build validation state
+- documentation generation state
 - notes about issues, oversights, blockers, or discoveries
 - postponed work and reasons
 - progress log entries
@@ -42,13 +43,14 @@ Record useful implementation notes, blockers, and decisions under the relevant t
 A task or phase may be postponed only when there is a clear reason. Record the original location, new location, reason, and impact.
 
 ### Task completion
-A task may only be marked complete when the required Rust validation for that task has passed or a user-approved waiver is recorded.
+A task may only be marked complete when the required Rust validation for that task has passed and documentation generation has been recorded, unless a user-approved waiver is recorded.
 
 Default validation:
 - `scripts/format-project.cmd`
 - `scripts/lint-project.cmd`
 - `scripts/test-project.cmd`
 - `scripts/compile-project.cmd`
+- documentation generation via `scripts/doc-project.cmd` when present, otherwise `cargo doc --workspace --all-features --no-deps`
 
 If implementation is done but validation has not passed yet, use a non-final status such as `In progress`, `Awaiting validation`, `Blocked`, or `Postponed`.
 
@@ -56,7 +58,7 @@ If implementation is done but validation has not passed yet, use a non-final sta
 Do not start the next phase until required validation for the current phase is recorded, unless a documented feature-level waiver exists.
 
 ### Phase completion
-A phase may only be marked complete when required validation has passed or a waiver is recorded, and required user confirmation has been recorded.
+A phase may only be marked complete when required validation has passed or a waiver is recorded, generated documentation has been recorded or waived, and required user confirmation has been recorded.
 
 ### Review handling
 An optional final sanity review uses `gpt-5.5`.
@@ -84,8 +86,8 @@ Requirements:
 2. Update the tracker before implementation resumes.
 3. Make focused Rust changes using `gpt-5.4`.
 4. Update task statuses and notes.
-5. Run and record validation results.
-6. Update phase status based on validation and user confirmation.
+5. Run and record validation results, including generated documentation.
+6. Update phase status based on validation, documentation generation, and user confirmation.
 7. Record commit/push state when applicable.
 8. Append a progress log entry.
 
@@ -96,6 +98,7 @@ Requirements:
 - `Awaiting lint`
 - `Awaiting tests`
 - `Awaiting build`
+- `Awaiting documentation generation`
 - `Awaiting validation`
 - `Awaiting review`
 - `Review feedback pending`

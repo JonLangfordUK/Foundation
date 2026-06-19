@@ -28,6 +28,7 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo build --workspace --all-features
+cargo doc --workspace --all-features --no-deps
 ```
 
 For a non-workspace crate, remove `--workspace` if Cargo reports it is invalid.
@@ -41,6 +42,7 @@ Convenience wrappers are available:
 - `scripts/lint-project.cmd` - run `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `scripts/test-project.cmd` - run `cargo test --workspace --all-features`
 - `scripts/compile-project.cmd` - run `cargo build --workspace --all-features`
+- `scripts/doc-project.cmd` - when present, run project documentation generation; otherwise use `cargo doc --workspace --all-features --no-deps`
 
 ## Workflow
 
@@ -66,7 +68,7 @@ When the user asks to implement a feature:
 2. Use `gpt-5.4` for implementation. Never use Anthropic models.
 3. Keep changes focused, idiomatic, and consistent with existing Rust style.
 4. Add or update tests for behavior changes where practical.
-5. Run formatting, linting, tests, and build checks unless the user says not to.
+5. Run formatting, linting, tests, build checks, and documentation generation unless the user says not to.
 
 ### 4. Review a feature
 When the user asks for a review:
@@ -81,4 +83,4 @@ When the user asks for a review:
 - Document new public items when appropriate.
 - Keep dependency additions minimal and justified in `Cargo.toml`.
 - Consider feature flags, target platforms, async runtime choices, and `no_std`/WASM constraints when relevant.
-- Treat `cargo fmt`, `cargo clippy`, `cargo test`, and `cargo build` results as the default validation evidence.
+- Treat `cargo fmt`, `cargo clippy`, `cargo test`, `cargo build`, and `cargo doc --workspace --all-features --no-deps` results as the default validation evidence.
