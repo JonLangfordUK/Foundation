@@ -2,6 +2,8 @@
 
 ## Metadata
 - Feature slug: `<new-feature>`
+- Feature area: `<Feature Area>`
+- Primary area: `<Primary Area>`
 - Branch: `feature/<work-being-done>`
 - Overall status: `Planned`
 - Planning model: `gpt-5.5`
@@ -12,8 +14,8 @@
 - Last updated: `<YYYY-MM-DD>`
 
 ## Validation Rules
-- Task complete only after required Rust validation passes or a waiver is recorded.
-- Phase complete only after required validation passes and required user confirmation is recorded.
+- Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
+- Phase complete only after required validation passes, documentation generation is recorded, and required user confirmation is recorded.
 - Never use Anthropic models.
 
 ## Phase 1: <Phase name>
@@ -33,6 +35,8 @@
 - Lint: Pending
 - Tests: Pending
 - Build: Pending
+- Documentation generation: Pending
+- Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes
@@ -52,6 +56,8 @@
 - Lint: Pending
 - Tests: Pending
 - Build: Pending
+- Documentation generation: Pending
+- Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes

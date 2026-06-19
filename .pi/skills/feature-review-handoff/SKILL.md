@@ -18,8 +18,8 @@ Use this skill after implementation when the user wants an additional sanity pas
 2. Read `docs/plans/<new-feature>/tracker.md`.
 3. Read `.pi/skills/rust-workspace-dev/SKILL.md`.
 4. Inspect the changed implementation files.
-5. Review format, lint, test, and build results if they exist.
-6. Identify plan requirements, success criteria, risks, or review focus areas that should shape the review.
+5. Review format, lint, test, build, and documentation generation results if they exist.
+6. Identify plan requirements, success criteria, documentation expectations, risks, or review focus areas that should shape the review.
 
 ## Review scope
 Review against:
@@ -27,7 +27,7 @@ Review against:
 - the recorded plan
 - the tracker state
 - changed files and implementation details
-- validation results already performed
+- validation results already performed, including documentation generation
 - risks, assumptions, and deferred work recorded during planning or implementation
 
 Focus on practical issues such as:
@@ -38,6 +38,7 @@ Focus on practical issues such as:
 - missing edge-case handling
 - maintainability concerns
 - missing validation coverage
+- missing public API documentation or missing generated documentation evidence
 
 ## Output requirements
 When performing the review:
