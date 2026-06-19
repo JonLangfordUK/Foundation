@@ -5,7 +5,7 @@
 - Feature area: `multi-area` (`engine`, `game`, `editor`)
 - Primary area: `engine`
 - Branch: `feature/workspace-app-launchers`
-- Overall status: `Implemented`
+- Overall status: `Implemented with Bevy 0.18.1 update`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
@@ -24,7 +24,7 @@
 - Branch creation: Created locally from `dev` on 2026-06-19 during planning.
 - Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before implementation edits.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Plan commit `2edb36a` and implementation commit `28fd9f8` pushed to `origin/feature/workspace-app-launchers`; tracker checkpoint update in progress.
+- Push status: Plan commit `2edb36a`, implementation commit `28fd9f8`, and tracker checkpoint `227358a` pushed to `origin/feature/workspace-app-launchers`; Bevy 0.18.1 follow-up commit pending.
 - Pre-existing working tree note: an untracked `NUL` file existed before planning and is not part of this feature unless the user later approves touching it.
 
 ## Phase 1: Workspace Structure And Shared Linking
@@ -67,7 +67,7 @@
 ### Tasks
 - [x] Add Bevy dependency configuration to the workspace.
   - Status: Complete
-  - Notes: Added Bevy `0.16.1` as a workspace dependency. Cargo noted `0.18.1` is available, but `0.16.1` was selected to match the researched API and compile cleanly with this implementation.
+  - Notes: Updated Bevy to `0.18.1` after user correction. Bevy 0.18 requires integer window resolutions, so `LauncherWindowConfig` now stores `u32` width/height values.
 - [x] Implement shared window/app configuration helpers with Rustdoc for public APIs.
   - Status: Complete
   - Notes: `pigame-engine` exposes `LauncherWindowConfig`, default resolution constants, `add_launcher_plugins`, and `run_launcher` with Rustdoc comments.
@@ -82,11 +82,11 @@
   - Notes: Added tests for engine defaults, custom resolution data, game title configuration, and editor title configuration. Tests do not require opening GPU windows.
 
 ### Validation
-- Format: Passed (`cargo fmt --all -- --check`; also via full validation wrapper)
-- Lint: Passed after fixing a dead-code warning in the editor launcher (`cargo clippy --workspace --all-targets --all-features -- -D warnings`)
-- Tests: Passed (`cargo test --workspace --all-features`; 4 unit tests passed plus doc-tests)
-- Build: Passed (`cargo build --workspace --all-features`)
-- Documentation generation: Passed (`cargo doc --workspace --all-features --no-deps`)
+- Format: Passed (`cargo fmt --all -- --check`; also via full validation wrapper after Bevy 0.18.1 update)
+- Lint: Passed after Bevy 0.18.1 update (`cargo clippy --workspace --all-targets --all-features -- -D warnings`)
+- Tests: Passed after Bevy 0.18.1 update (`cargo test --workspace --all-features`; 4 unit tests passed plus doc-tests)
+- Build: Passed after Bevy 0.18.1 update (`cargo build --workspace --all-features`)
+- Documentation generation: Passed after Bevy 0.18.1 update (`cargo doc --workspace --all-features --no-deps`)
 - Manual game window check: Passed by running `cargo run -p pigame-game`; Bevy logged `Creating new window PiGame (0v1)`. Command was allowed to time out after 30 seconds because the app remains open until the window closes.
 - Manual editor window check: Passed by running `cargo run -p pigame-editor`; Bevy logged `Creating new window PiGame Editor (0v1)`. Command was allowed to time out after 30 seconds because the app remains open until the window closes.
 - Full validation wrapper: Passed via `powershell -ExecutionPolicy Bypass -File scripts/Invoke-RustWorkspace.ps1 validate-project`
@@ -121,8 +121,8 @@
 - Build: Passed
 - Documentation generation: Passed
 - Full validation wrapper: Passed
-- Push state: Implementation commit `28fd9f8` pushed; tracker checkpoint update in progress.
-- User confirmation: Pending final user review.
+- Push state: Implementation commit `28fd9f8` and tracker checkpoint `227358a` pushed; Bevy 0.18.1 follow-up commit pending.
+- User confirmation: User confirmed Bevy should be `0.18.1`; Jackdaw editor integration question answered as not currently implemented.
 
 ### Notes
 - Phase completion requires validation evidence or documented user-approved waivers.
@@ -136,7 +136,8 @@
 - Ready for optional `gpt-5.5` sanity review or final user review.
 
 ## Postponed Work
-- Full editor UI, scene editing, asset browser, inspector, and hot-reload/dynamic game library loading are postponed. This feature only needs a minimal editor window and project linking.
+- Jackdaw editor integration is not currently implemented. The current editor subproject is a minimal Bevy window linked to shared/game crates. Research found Jackdaw `0.4.1` is a Bevy 0.18 scene editor with an `EditorPlugin`, making it a likely next implementation step if the editor should be Jackdaw-based.
+- Full editor UI, scene editing, asset browser, inspector, and hot-reload/dynamic game library loading are postponed. This feature only needs a minimal editor window and project linking unless the user expands scope to Jackdaw integration.
 - Advanced Bevy feature-flag optimization is postponed unless default Bevy setup causes a concrete issue.
 
 ## Progress Log
@@ -151,3 +152,6 @@
 - `2026-06-19`: Validation passed: format, clippy, tests, build, docs, and full PowerShell validation wrapper.
 - `2026-06-19`: Manual launch checks confirmed Bevy creates `PiGame` and `PiGame Editor` windows; both direct `cargo run` commands were stopped by timeout after successful window creation logs.
 - `2026-06-19`: Implementation commit `28fd9f8` was created and pushed to `origin/feature/workspace-app-launchers`.
+- `2026-06-19`: User corrected Bevy target version to `0.18.1`; updated workspace dependency and adjusted window resolution types from `f32` to `u32` for Bevy 0.18 compatibility.
+- `2026-06-19`: Confirmed current editor does not use Jackdaw. Researched Jackdaw as a Bevy 0.18 scene editor with an `EditorPlugin`; recorded it as postponed/follow-up integration work.
+- `2026-06-19`: Re-ran validation after Bevy 0.18.1 update: format, clippy, tests, build, docs, and full PowerShell validation wrapper passed.

@@ -7,10 +7,10 @@ use bevy::prelude::*;
 use bevy::window::WindowPlugin;
 
 /// Default launcher window width in physical pixels.
-pub const DEFAULT_WINDOW_WIDTH: f32 = 1280.0;
+pub const DEFAULT_WINDOW_WIDTH: u32 = 1280;
 
 /// Default launcher window height in physical pixels.
-pub const DEFAULT_WINDOW_HEIGHT: f32 = 720.0;
+pub const DEFAULT_WINDOW_HEIGHT: u32 = 720;
 
 /// Configuration for a Bevy launcher window.
 #[derive(Clone, Debug, PartialEq)]
@@ -18,9 +18,9 @@ pub struct LauncherWindowConfig {
     /// Title shown in the native window title bar.
     pub title: String,
     /// Width of the primary window.
-    pub width: f32,
+    pub width: u32,
     /// Height of the primary window.
-    pub height: f32,
+    pub height: u32,
 }
 
 impl LauncherWindowConfig {
@@ -75,11 +75,11 @@ mod tests {
     fn config_can_override_resolution() {
         let config = LauncherWindowConfig {
             title: "Custom".to_string(),
-            width: 800.0,
-            height: 600.0,
+            width: 800,
+            height: 600,
         };
 
-        assert_eq!(config.width, 800.0);
-        assert_eq!(config.height, 600.0);
+        assert_eq!(config.width, 800);
+        assert_eq!(config.height, 600);
     }
 }
