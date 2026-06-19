@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/pillar-editor",
+    "crates/jackdaw-editor",
 ]
 exclude = [
     "games/template-game",

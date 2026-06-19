@@ -7,11 +7,11 @@ use bevy::{
 };
 use jackdaw::prelude::*;
 
-const PILLAR_EDITOR_TITLE: &str = "PillarEditor";
+const JACKDAW_EDITOR_TITLE: &str = "Jackdaw Editor";
 
 fn main() -> AppExit {
     let _ = ctrlc::set_handler(|| {
-        error!("PillarEditor: received Ctrl+C, exiting");
+        error!("Jackdaw Editor: received Ctrl+C, exiting");
         std::process::exit(130);
     });
 
@@ -54,7 +54,7 @@ fn main() -> AppExit {
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: PILLAR_EDITOR_TITLE.into(),
+                        title: JACKDAW_EDITOR_TITLE.into(),
                         ..default()
                     }),
                     exit_condition: ExitCondition::DontExit,
@@ -102,7 +102,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn editor_title_is_pillar_editor() {
-        assert_eq!(PILLAR_EDITOR_TITLE, "PillarEditor");
+    fn editor_title_is_jackdaw_editor() {
+        assert_eq!(JACKDAW_EDITOR_TITLE, "Jackdaw Editor");
     }
 }

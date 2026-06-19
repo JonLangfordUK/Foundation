@@ -1,10 +1,10 @@
 # PiGame
 
-PiGame is a multi-project Rust repository for PillarEditor and Jackdaw-style games.
+PiGame is a multi-project Rust repository for Jackdaw Editor and Jackdaw-style games.
 
 ## Repository layout
 - `Cargo.toml` - root workspace manifest for tooling/editor crates
-- `crates/pillar-editor` - PillarEditor, a Jackdaw launcher/editor subproject
+- `crates/jackdaw-editor` - Jackdaw Editor, a Jackdaw launcher/editor subproject
 - `games/template-game` - a Jackdaw static-game subproject shaped like Jackdaw's generated game template
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
@@ -14,14 +14,14 @@ PiGame is a multi-project Rust repository for PillarEditor and Jackdaw-style gam
 
 `games/template-game` is intentionally its own nested Cargo workspace, matching Jackdaw's generated game structure so it is not accidentally absorbed into the root workspace.
 
-## Running PillarEditor
+## Running Jackdaw Editor
 From the repository root:
 
 ```cmd
-cargo run -p pillar-editor
+cargo run -p jackdaw-editor
 ```
 
-PillarEditor can create/open Jackdaw projects. For static game projects, Jackdaw builds the project's own editor binary and hands off to it.
+Jackdaw Editor can create/open Jackdaw projects. For static game projects, Jackdaw builds the project's own editor binary and hands off to it.
 
 ## Running TemplateGame
 From `games/template-game`:
@@ -56,7 +56,7 @@ TemplateGame follows Jackdaw's generated static template:
 - `src/bin/editor.rs` is the feature-gated editor + game runner
 - `assets/scene.jsn` is the authored scene
 - `.jsn/project.jsn` is Jackdaw project metadata/layout
-- `jackdaw.toml` configures PillarEditor/Jackdaw Play-button run modes
+- `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
 
 ## Setup

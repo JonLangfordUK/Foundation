@@ -3918,6 +3918,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jackdaw-editor"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ctrlc",
+ "jackdaw",
+]
+
+[[package]]
 name = "jackdaw_animation"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5292,15 +5301,6 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_derive",
-]
-
-[[package]]
-name = "pillar-editor"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "ctrlc",
- "jackdaw",
 ]
 
 [[package]]
