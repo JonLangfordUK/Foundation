@@ -141,6 +141,11 @@ fn initialize_fullscreen_backgrounds(
         let ui_root = commands
             .spawn((
                 Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     ..default()
@@ -150,6 +155,7 @@ fn initialize_fullscreen_backgrounds(
                     background.green,
                     background.blue,
                 )),
+                GlobalZIndex(-1000),
             ))
             .id();
 
