@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, editor viewport UI fix, editor viewport parenting fix, editor cargo alias, and editor default project root fix commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, editor viewport UI fix, editor viewport parenting fix, editor cargo alias, and editor default project root fix commits pushed to `origin/feature/scene-stack-example`; viewport-centered/clipped UI fix commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -359,3 +359,4 @@
 - `2026-06-20`: Editor cargo alias commit `454778e` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: User reported `cargo editor` opened the workspace root as a Jackdaw project; changed TemplateGame editor binary to default to `games/template-game` via `CARGO_MANIFEST_DIR`, set current directory to that project root, and kept `JACKDAW_PROJECT` as an override. Validation passed via `scripts/validate-project.cmd`; manual `timeout 30s cargo editor` loaded `games/template-game/assets/scene.jsn`.
 - `2026-06-20`: Editor default project root fix commit `5888ec5` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User reported splash text was still centered on the editor window rather than the viewport and requested viewport clipping. Updated generated splash/menu/background UI roots to be absolute fill roots with `Overflow::clip()`, set the Jackdaw `SceneViewport` node to clip during Play setup, and avoided inserting `UiTargetCamera` when roots are parented under the editor viewport so they inherit editor UI layout/camera context. Validation passed via `scripts/validate-project.cmd`; manual `timeout 20s cargo editor` opened the editor and loaded `splash_bevy.jsn` without panic.

@@ -179,10 +179,16 @@ fn initialize_splash_screens(
         let ui_root = commands
             .spawn((
                 Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 FoundationSplashGeneratedUi,
@@ -190,13 +196,12 @@ fn initialize_splash_screens(
             .add_child(text_entity)
             .id();
 
-        if let Some(ui_target_camera) = ui_target_camera.as_ref() {
+        if let Some(ui_parent) = ui_parent.as_ref() {
+            commands.entity(ui_parent.0).add_child(ui_root);
+        } else if let Some(ui_target_camera) = ui_target_camera.as_ref() {
             commands
                 .entity(ui_root)
                 .insert(UiTargetCamera(ui_target_camera.0));
-        }
-        if let Some(ui_parent) = ui_parent.as_ref() {
-            commands.entity(ui_parent.0).add_child(ui_root);
         }
 
         commands

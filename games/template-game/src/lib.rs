@@ -203,6 +203,9 @@ fn configure_editor_gameplay_ui_target(world: &mut World) {
     }
 
     if let Some(viewport_parent) = viewport_parent {
+        if let Some(mut node) = world.get_mut::<Node>(viewport_parent) {
+            node.overflow = Overflow::clip();
+        }
         world.insert_resource(FoundationSplashUiParent(viewport_parent));
     } else {
         world.remove_resource::<FoundationSplashUiParent>();
@@ -359,6 +362,7 @@ fn initialize_fullscreen_backgrounds(
                     bottom: Val::Px(0.0),
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(
@@ -469,13 +473,12 @@ fn attach_gameplay_ui_root(
     ui_target_camera: Option<Entity>,
     ui_parent: Option<Entity>,
 ) {
-    if let Some(ui_target_camera) = ui_target_camera {
+    if let Some(ui_parent) = ui_parent {
+        commands.entity(ui_parent).add_child(root);
+    } else if let Some(ui_target_camera) = ui_target_camera {
         commands
             .entity(root)
             .insert(UiTargetCamera(ui_target_camera));
-    }
-    if let Some(ui_parent) = ui_parent {
-        commands.entity(ui_parent).add_child(root);
     }
 }
 
@@ -503,12 +506,18 @@ fn spawn_main_menu_prompt(
     let root = commands
         .spawn((
             Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(20.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
@@ -530,12 +539,18 @@ fn spawn_main_menu_buttons(
     let root = commands
         .spawn((
             Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(18.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
