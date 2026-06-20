@@ -184,10 +184,10 @@
   - Status: Complete
   - Validation: Not run; non-interactive harness.
   - Notes: Manual standalone/editor UI smoke testing is recommended for the user after launch.
-- [ ] Commit completed work and push to `origin` if available.
-  - Status: Pending
-  - Validation: Pending commit/push after tracker update.
-  - Notes: Use gitflow commit message format with files changed.
+- [x] Commit completed work and push to `origin` if available.
+  - Status: Complete
+  - Validation: Committed and pushed to `origin/feature/ui-refinement` on 2026-06-20.
+  - Notes: Implementation commit `7d4ec8b` pushed successfully; this tracker follow-up records final commit/push state.
 
 ### Validation
 - Format: Passed (`scripts/validate-project.cmd`, 2026-06-20)
@@ -228,3 +228,4 @@
 - `2026-06-20`: Implemented FoundationLibrary menu primitives, splash contract cleanup, options/load-game scenes, and standalone/editor exit handling.
 - `2026-06-20`: First full validation failed on `clippy::type_complexity` in `crates/foundation-library/src/menu.rs`; added `GeneratedMenuUiWithoutOwnerQuery` alias.
 - `2026-06-20`: Full validation passed with `scripts/validate-project.cmd`. Manual UI smoke tests were not run in the non-interactive harness.
+- `2026-06-20`: Implementation committed and pushed to `origin/feature/ui-refinement` as `7d4ec8b`.
