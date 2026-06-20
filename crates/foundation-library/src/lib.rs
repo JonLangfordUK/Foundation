@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
+pub mod menu;
 pub mod scene_stack;
 pub mod splash_screen;
 
@@ -26,6 +27,7 @@ impl Plugin for FoundationPlugin {
         app.add_plugins((
             scene_stack::FoundationSceneStackPlugin,
             splash_screen::FoundationSplashScreenPlugin,
+            menu::FoundationMenuPlugin,
         ))
         .register_type::<FoundationSettings>()
         .register_type::<FoundationActor>()
@@ -68,6 +70,11 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationLibrary.
 pub mod prelude {
+    pub use crate::menu::{
+        FoundationCloseOnEscape, FoundationExitRequested, FoundationGeneratedMenuUi,
+        FoundationMenuButton, FoundationMenuPlugin, FoundationOptionsMenu,
+        FoundationPlaceholderMenu,
+    };
     pub use crate::scene_stack::{
         FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,
         SceneFocused, SceneId, SceneKey, SceneLoadRequested, SceneOwner, ScenePresentation,

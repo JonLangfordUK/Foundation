@@ -9,8 +9,8 @@
     "bevy_version": "0.18"
   },
   "metadata": {
-    "name": "Pixel Perfect Splash",
-    "description": "TemplateGame startup splash with authored UI and Foundation runtime fade behavior.",
+    "name": "Options Menu",
+    "description": "Reusable Foundation options menu placeholder scene.",
     "author": "",
     "created": "2026-06-20T00:00:00Z",
     "modified": "2026-06-20T00:00:00Z"
@@ -20,8 +20,14 @@
   "scene": [
     {
       "components": {
-        "foundation_library::splash_screen::FoundationSplashUiRoot": {},
-        "bevy_ecs::name::Name": "Pixel Perfect Splash UI Root",
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.03999999910593033,
+            "green": 0.02500000037252903,
+            "red": 0.019999999552965164
+          }
+        },
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -137,7 +143,7 @@
             "Px": 0.0
           },
           "row_gap": {
-            "Px": 0.0
+            "Px": 18.0
           },
           "scrollbar_width": 0.0,
           "top": {
@@ -147,41 +153,12 @@
             "Percent": 100.0
           }
         },
-        "foundation_library::splash_screen::FoundationSplashScreen": {
-          "font_size": 72.0,
-          "next_scene_path": "splash_bevy.jsn",
-          "replace_current_scene": true,
-          "reset_stack_for_next_scene": false,
-          "timings": {
-            "fade_in_seconds": 1.5,
-            "fade_out_seconds": 1.5,
-            "hold_seconds": 2.0
-          }
-        }
-      }
-    },
-    {
-      "parent": 0,
-      "components": {
-        "bevy_text::text::TextColor": {
-          "LinearRgba": {
-            "alpha": 1.0,
-            "blue": 1.0,
-            "green": 1.0,
-            "red": 1.0
-          }
+        "template_game::TemplateGameplayUiRoot": {},
+        "bevy_ecs::name::Name": "Options Menu UI Root",
+        "foundation_library::menu::FoundationOptionsMenu": {
+          "title": "Options"
         },
-        "bevy_text::text::TextFont": {
-          "font_features": {
-            "features": []
-          },
-          "font_size": 72.0,
-          "font_smoothing": "AntiAliased",
-          "weight": 400
-        },
-        "bevy_ui::widget::text::Text": "Pixel Perfect",
-        "bevy_ecs::name::Name": "Pixel Perfect Splash Text",
-        "foundation_library::splash_screen::FoundationSplashText": {}
+        "foundation_library::menu::FoundationCloseOnEscape": {}
       }
     }
   ]

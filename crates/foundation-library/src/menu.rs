@@ -1,0 +1,585 @@
+//! Reusable scene-stack menu primitives for Foundation games.
+//!
+//! These components intentionally describe game-agnostic menu behavior: opening
+//! scenes, closing the current scene, requesting application exit, rendering a
+//! dummy options menu, and rendering placeholder stack scenes. Game crates can
+//! author these components in Jackdaw `.jsn` assets without duplicating menu
+//! systems in game-specific Rust code.
+
+use bevy::prelude::*;
+use jackdaw_runtime::prelude::*;
+
+use crate::scene_stack::{
+    OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource,
+};
+
+/// Installs reusable Foundation menu components and systems.
+#[derive(Default)]
+pub struct FoundationMenuPlugin;
+
+impl Plugin for FoundationMenuPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<FoundationExitRequested>()
+            .register_type::<FoundationMenuButton>()
+            .register_type::<FoundationOptionsMenu>()
+            .register_type::<FoundationPlaceholderMenu>()
+            .register_type::<FoundationCloseOnEscape>()
+            .add_systems(
+                Update,
+                (
+                    initialize_options_menus,
+                    initialize_placeholder_menus,
+                    update_foundation_menu_button_interactions,
+                    update_options_tab_button_interactions,
+                    inherit_scene_owner_to_generated_menu_ui,
+                    close_on_escape,
+                ),
+            );
+    }
+}
+
+/// Message emitted when reusable menu UI requests application exit.
+///
+/// Standalone games should translate this into [`AppExit`]. Editor integrations
+/// can translate it into a stop-play action so the editor process remains open.
+#[derive(Clone, Copy, Debug, Default, Message, PartialEq, Eq)]
+pub struct FoundationExitRequested;
+
+/// Reusable button action component for stack-based menus.
+///
+/// Supported `action` values are:
+/// - `none`
+/// - `open_scene`
+/// - `close_current`
+/// - `exit`
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+pub struct FoundationMenuButton {
+    /// Action identifier. Use `open_scene`, `close_current`, `exit`, or `none`.
+    pub action: String,
+    /// Jackdaw `.jsn` scene path used by the `open_scene` action.
+    pub scene_path: String,
+    /// Optional scene-stack key used by the `open_scene` action.
+    pub scene_key: String,
+}
+
+impl FoundationMenuButton {
+    /// Creates a button that does nothing when pressed.
+    pub fn none() -> Self {
+        Self {
+            action: "none".to_string(),
+            scene_path: String::new(),
+            scene_key: String::new(),
+        }
+    }
+
+    /// Creates a button that opens a full-screen Jackdaw scene on the stack.
+    pub fn open_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
+        Self {
+            action: "open_scene".to_string(),
+            scene_path: path.into(),
+            scene_key: key.into(),
+        }
+    }
+
+    /// Creates a button that closes the current scene-stack entry.
+    pub fn close_current() -> Self {
+        Self {
+            action: "close_current".to_string(),
+            scene_path: String::new(),
+            scene_key: String::new(),
+        }
+    }
+
+    /// Creates a button that requests application exit.
+    pub fn exit() -> Self {
+        Self {
+            action: "exit".to_string(),
+            scene_path: String::new(),
+            scene_key: String::new(),
+        }
+    }
+}
+
+impl Default for FoundationMenuButton {
+    fn default() -> Self {
+        Self::none()
+    }
+}
+
+/// Marks an options menu root that should be populated with reusable dummy UI.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+pub struct FoundationOptionsMenu {
+    /// Title shown above the tabs.
+    pub title: String,
+}
+
+impl Default for FoundationOptionsMenu {
+    fn default() -> Self {
+        Self {
+            title: "Options".to_string(),
+        }
+    }
+}
+
+/// Marks a placeholder menu root that should show title/body text and a Back button.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+pub struct FoundationPlaceholderMenu {
+    /// Title shown at the top of the placeholder menu.
+    pub title: String,
+    /// Body copy shown under the title.
+    pub body: String,
+}
+
+impl Default for FoundationPlaceholderMenu {
+    fn default() -> Self {
+        Self {
+            title: "Placeholder".to_string(),
+            body: "This scene is not implemented yet.".to_string(),
+        }
+    }
+}
+
+/// Closes the current scene-stack entry when Escape is pressed.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+pub struct FoundationCloseOnEscape;
+
+#[derive(Component, Debug)]
+struct FoundationOptionsRuntime {
+    active_tab: usize,
+}
+
+/// Marks UI entities generated by [`FoundationMenuPlugin`] systems.
+///
+/// Game-specific authored-UI repair systems can use this marker to avoid
+/// treating Foundation-generated runtime UI as Jackdaw-authored scene data.
+#[derive(Component, Debug)]
+pub struct FoundationGeneratedMenuUi;
+
+#[derive(Component, Debug)]
+struct FoundationOptionsTabButton {
+    tab: usize,
+}
+
+#[derive(Component, Debug)]
+struct FoundationOptionsSettingLabel {
+    index: usize,
+}
+
+#[derive(Component, Debug)]
+struct FoundationOptionsSettingValue {
+    index: usize,
+}
+
+const OPTIONS_TABS: [&str; 4] = ["Gameplay", "Display", "Graphics", "Accessibility"];
+
+fn initialize_options_menus(
+    mut commands: Commands,
+    menus: Query<
+        (Entity, &FoundationOptionsMenu, Option<&SceneOwner>),
+        Without<FoundationOptionsRuntime>,
+    >,
+) {
+    for (menu_entity, menu, scene_owner) in &menus {
+        if spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
+            .is_none()
+        {
+            continue;
+        }
+        commands
+            .entity(menu_entity)
+            .insert(FoundationOptionsRuntime { active_tab: 0 });
+    }
+}
+
+fn initialize_placeholder_menus(
+    mut commands: Commands,
+    menus: Query<
+        (Entity, &FoundationPlaceholderMenu, Option<&SceneOwner>),
+        Added<FoundationPlaceholderMenu>,
+    >,
+) {
+    for (menu_entity, menu, scene_owner) in &menus {
+        spawn_placeholder_menu_children(&mut commands, menu_entity, menu, scene_owner.copied());
+    }
+}
+
+fn spawn_options_menu_children(
+    commands: &mut Commands,
+    parent: Entity,
+    menu: &FoundationOptionsMenu,
+    scene_owner: Option<SceneOwner>,
+) -> Option<Entity> {
+    let title = spawn_text(commands, &menu.title, 48.0, scene_owner);
+    let tabs = commands
+        .spawn((
+            row_node(12.0),
+            FoundationGeneratedMenuUi,
+            Name::new("Options Tabs"),
+        ))
+        .id();
+    insert_owner(commands, tabs, scene_owner);
+
+    let tab_buttons = OPTIONS_TABS
+        .iter()
+        .enumerate()
+        .map(|(index, label)| {
+            let tab = spawn_button(commands, label, scene_owner);
+            commands
+                .entity(tab)
+                .insert(FoundationOptionsTabButton { tab: index });
+            tab
+        })
+        .collect::<Vec<_>>();
+    commands.entity(tabs).replace_children(&tab_buttons);
+
+    let content = commands
+        .spawn((
+            Node {
+                width: Val::Px(640.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.0),
+                ..default()
+            },
+            FoundationGeneratedMenuUi,
+            Name::new("Options Content"),
+        ))
+        .id();
+    insert_owner(commands, content, scene_owner);
+    spawn_setting_rows(commands, content, 0, scene_owner);
+
+    let back = spawn_button(commands, "Back", scene_owner);
+    commands
+        .entity(back)
+        .insert(FoundationMenuButton::close_current());
+
+    commands
+        .entity(parent)
+        .replace_children(&[title, tabs, content, back]);
+
+    Some(content)
+}
+
+fn spawn_placeholder_menu_children(
+    commands: &mut Commands,
+    parent: Entity,
+    menu: &FoundationPlaceholderMenu,
+    scene_owner: Option<SceneOwner>,
+) {
+    let title = spawn_text(commands, &menu.title, 48.0, scene_owner);
+    let body = spawn_text(commands, &menu.body, 24.0, scene_owner);
+    let back = spawn_button(commands, "Back", scene_owner);
+    commands
+        .entity(back)
+        .insert(FoundationMenuButton::close_current());
+    commands
+        .entity(parent)
+        .replace_children(&[title, body, back]);
+}
+
+fn spawn_setting_rows(
+    commands: &mut Commands,
+    content: Entity,
+    tab: usize,
+    scene_owner: Option<SceneOwner>,
+) {
+    let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
+    let mut rows = Vec::new();
+    for index in 1..=5 {
+        let row = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(24.0),
+                    ..default()
+                },
+                FoundationGeneratedMenuUi,
+                Name::new(format!("{tab_name} Setting Row {index}")),
+            ))
+            .id();
+        insert_owner(commands, row, scene_owner);
+
+        let label = spawn_text(
+            commands,
+            &format!("{tab_name} Property {index}"),
+            22.0,
+            scene_owner,
+        );
+        commands
+            .entity(label)
+            .insert(FoundationOptionsSettingLabel { index });
+        let value = spawn_text(commands, &format!("< Value {index} >"), 22.0, scene_owner);
+        commands
+            .entity(value)
+            .insert(FoundationOptionsSettingValue { index });
+        commands.entity(row).replace_children(&[label, value]);
+        rows.push(row);
+    }
+    commands.entity(content).replace_children(&rows);
+}
+
+fn spawn_button(commands: &mut Commands, label: &str, scene_owner: Option<SceneOwner>) -> Entity {
+    let text = spawn_text(commands, label, 24.0, scene_owner);
+    let button = commands
+        .spawn((
+            Button,
+            Node {
+                width: Val::Px(220.0),
+                height: Val::Px(52.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::all(Val::Px(8.0)),
+                ..default()
+            },
+            BackgroundColor(NORMAL_BUTTON),
+            FoundationGeneratedMenuUi,
+            Name::new(format!("{label} Button")),
+        ))
+        .add_child(text)
+        .id();
+    insert_owner(commands, button, scene_owner);
+    button
+}
+
+fn spawn_text(
+    commands: &mut Commands,
+    value: &str,
+    size: f32,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let entity = commands
+        .spawn((
+            Text::new(value.to_string()),
+            TextFont::from_font_size(size),
+            TextColor(Color::WHITE),
+            FoundationGeneratedMenuUi,
+            Name::new(value.to_string()),
+        ))
+        .id();
+    insert_owner(commands, entity, scene_owner);
+    entity
+}
+
+fn row_node(gap: f32) -> Node {
+    Node {
+        flex_direction: FlexDirection::Row,
+        column_gap: Val::Px(gap),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        ..default()
+    }
+}
+
+fn insert_owner(commands: &mut Commands, entity: Entity, scene_owner: Option<SceneOwner>) {
+    if let Some(scene_owner) = scene_owner {
+        commands.entity(entity).insert(scene_owner);
+    }
+}
+
+const NORMAL_BUTTON: Color = Color::srgb(0.12, 0.14, 0.25);
+const HOVERED_BUTTON: Color = Color::srgb(0.28, 0.32, 0.62);
+const PRESSED_BUTTON: Color = Color::srgb(0.45, 0.50, 0.85);
+const SELECTED_BUTTON: Color = Color::srgb(0.30, 0.42, 0.80);
+
+type FoundationMenuButtonInteractionQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static Interaction,
+        &'static FoundationMenuButton,
+        &'static mut BackgroundColor,
+    ),
+    (Changed<Interaction>, With<Button>),
+>;
+
+fn update_foundation_menu_button_interactions(
+    mut buttons: FoundationMenuButtonInteractionQuery,
+    mut scene_commands: MessageWriter<SceneCommand>,
+    mut exit_requested: MessageWriter<FoundationExitRequested>,
+) {
+    for (interaction, button, mut background) in &mut buttons {
+        background.0 = match *interaction {
+            Interaction::Pressed => {
+                perform_menu_action(button, &mut scene_commands, &mut exit_requested);
+                PRESSED_BUTTON
+            }
+            Interaction::Hovered => HOVERED_BUTTON,
+            Interaction::None => NORMAL_BUTTON,
+        };
+    }
+}
+
+fn perform_menu_action(
+    button: &FoundationMenuButton,
+    scene_commands: &mut MessageWriter<SceneCommand>,
+    exit_requested: &mut MessageWriter<FoundationExitRequested>,
+) {
+    match button.action.trim().to_ascii_lowercase().as_str() {
+        "open_scene" => {
+            let path = button.scene_path.trim();
+            if path.is_empty() {
+                warn!("FoundationMenuButton open_scene action has an empty scene_path");
+                return;
+            }
+            let mut options =
+                OpenSceneOptions::default().with_presentation(ScenePresentation::FULLSCREEN);
+            let key = button.scene_key.trim();
+            if !key.is_empty() {
+                options = options.with_key(key);
+            }
+            scene_commands.write(SceneCommand::open_with_options(
+                SceneSource::jsn_level(path),
+                options,
+            ));
+        }
+        "close_current" => {
+            scene_commands.write(SceneCommand::CloseCurrent);
+        }
+        "exit" => {
+            exit_requested.write(FoundationExitRequested);
+        }
+        "none" | "" => {}
+        unknown => warn!("Unknown FoundationMenuButton action `{unknown}`"),
+    }
+}
+
+type OptionsTabInteractionQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static Interaction,
+        &'static FoundationOptionsTabButton,
+        &'static mut BackgroundColor,
+    ),
+    (Changed<Interaction>, With<Button>),
+>;
+
+type GeneratedMenuUiWithoutOwnerQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static ChildOf),
+    (With<FoundationGeneratedMenuUi>, Without<SceneOwner>),
+>;
+
+type OptionsSettingTextQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static mut Text,
+        Option<&'static FoundationOptionsSettingLabel>,
+        Option<&'static FoundationOptionsSettingValue>,
+        Option<&'static SceneOwner>,
+    ),
+    Or<(
+        With<FoundationOptionsSettingLabel>,
+        With<FoundationOptionsSettingValue>,
+    )>,
+>;
+
+fn update_options_tab_button_interactions(
+    mut buttons: OptionsTabInteractionQuery,
+    mut menus: Query<(&mut FoundationOptionsRuntime, Option<&SceneOwner>)>,
+    mut setting_texts: OptionsSettingTextQuery,
+) {
+    for (interaction, tab_button, mut background) in &mut buttons {
+        let mut selected = false;
+        if *interaction == Interaction::Pressed {
+            for (mut runtime, scene_owner) in &mut menus {
+                runtime.active_tab = tab_button.tab;
+                selected = true;
+                update_setting_texts(tab_button.tab, scene_owner.copied(), &mut setting_texts);
+            }
+        }
+
+        background.0 = match *interaction {
+            Interaction::Pressed => PRESSED_BUTTON,
+            Interaction::Hovered => HOVERED_BUTTON,
+            Interaction::None if selected => SELECTED_BUTTON,
+            Interaction::None => NORMAL_BUTTON,
+        };
+    }
+}
+
+fn update_setting_texts(
+    tab: usize,
+    scene_owner: Option<SceneOwner>,
+    setting_texts: &mut OptionsSettingTextQuery,
+) {
+    let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
+    for (mut text, label, value, owner) in setting_texts.iter_mut() {
+        if !scene_owners_match(scene_owner, owner.copied()) {
+            continue;
+        }
+
+        if let Some(label) = label {
+            text.0 = format!("{tab_name} Property {}", label.index);
+        } else if let Some(value) = value {
+            text.0 = format!("< Value {} >", value.index);
+        }
+    }
+}
+
+fn scene_owners_match(expected: Option<SceneOwner>, actual: Option<SceneOwner>) -> bool {
+    match (expected, actual) {
+        (Some(expected), Some(actual)) => expected == actual,
+        (None, None) => true,
+        (None, Some(_)) => true,
+        (Some(_), None) => false,
+    }
+}
+
+fn inherit_scene_owner_to_generated_menu_ui(
+    mut commands: Commands,
+    generated_children: GeneratedMenuUiWithoutOwnerQuery,
+    owners: Query<&SceneOwner>,
+) {
+    for (entity, child_of) in &generated_children {
+        if let Ok(owner) = owners.get(child_of.0) {
+            commands.entity(entity).insert(*owner);
+        }
+    }
+}
+
+fn close_on_escape(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    close_markers: Query<(), With<FoundationCloseOnEscape>>,
+    mut scene_commands: MessageWriter<SceneCommand>,
+) {
+    if close_markers.is_empty() || !keyboard.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    scene_commands.write(SceneCommand::CloseCurrent);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn menu_button_constructors_set_expected_actions() {
+        assert_eq!(FoundationMenuButton::none().action, "none");
+        let open = FoundationMenuButton::open_scene("options_menu.jsn", "options-menu");
+        assert_eq!(open.action, "open_scene");
+        assert_eq!(open.scene_path, "options_menu.jsn");
+        assert_eq!(open.scene_key, "options-menu");
+        assert_eq!(
+            FoundationMenuButton::close_current().action,
+            "close_current"
+        );
+        assert_eq!(FoundationMenuButton::exit().action, "exit");
+    }
+
+    #[test]
+    fn options_tabs_match_requested_order() {
+        assert_eq!(
+            OPTIONS_TABS,
+            ["Gameplay", "Display", "Graphics", "Accessibility"]
+        );
+    }
+}

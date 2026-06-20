@@ -195,7 +195,6 @@
             "red": 0.11999999731779099
           }
         },
-        "template_game::TemplateMenuButton": {},
         "bevy_ui::widget::button::Button": {},
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
@@ -313,6 +312,11 @@
           "width": {
             "Px": 260.0
           }
+        },
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "none",
+          "scene_path": "",
+          "scene_key": ""
         }
       }
     },
@@ -469,7 +473,11 @@
             "red": 0.11999999731779099
           }
         },
-        "template_game::TemplateMenuButton": {}
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "open_scene",
+          "scene_path": "load_game.jsn",
+          "scene_key": "load-game"
+        }
       }
     },
     {
@@ -498,7 +506,6 @@
     {
       "parent": 0,
       "components": {
-        "template_game::TemplateMenuButton": {},
         "bevy_ui::ui_node::BackgroundColor": {
           "Srgba": {
             "alpha": 1.0,
@@ -625,7 +632,12 @@
             "Px": 260.0
           }
         },
-        "bevy_ecs::name::Name": "Options Button"
+        "bevy_ecs::name::Name": "Options Button",
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "open_scene",
+          "scene_path": "options_menu.jsn",
+          "scene_key": "options-menu"
+        }
       }
     },
     {
@@ -655,8 +667,7 @@
       "parent": 0,
       "components": {
         "bevy_ui::widget::button::Button": {},
-        "template_game::TemplateMenuButton": {},
-        "bevy_ecs::name::Name": "Quit Button",
+        "bevy_ecs::name::Name": "Exit Button",
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -781,6 +792,11 @@
             "green": 0.14000000059604645,
             "red": 0.11999999731779099
           }
+        },
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "exit",
+          "scene_path": "",
+          "scene_key": ""
         }
       }
     },
@@ -803,8 +819,8 @@
             "red": 1.0
           }
         },
-        "bevy_ecs::name::Name": "Quit Button Label",
-        "bevy_ui::widget::text::Text": "Quit"
+        "bevy_ecs::name::Name": "Exit Button Label",
+        "bevy_ui::widget::text::Text": "Exit"
       }
     }
   ]

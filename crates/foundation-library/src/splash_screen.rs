@@ -2,7 +2,7 @@
 //!
 //! Splash scene data can live in Jackdaw `.jsn` files as reflected
 //! [`FoundationSplashScreen`] components. At runtime this module creates the
-//! centered UI text, drives a fade-in/hold/fade-out sequence, and emits scene
+//! authored UI text, drives a fade-in/hold/fade-out sequence, and emits scene
 //! stack commands when the sequence completes.
 
 use bevy::prelude::*;
@@ -94,17 +94,18 @@ impl Plugin for FoundationSplashScreenPlugin {
 
 /// Scene-authored splash-screen configuration.
 ///
-/// Attach this component to an entity in a Jackdaw `.jsn` scene to display
-/// centered text, fade it in, hold it, fade it out, and optionally transition to
-/// another scene-stack entry.
+/// Attach this component to an entity in a Jackdaw `.jsn` scene to fade an
+/// authored [`FoundationSplashText`] child, hold it, fade it out, and optionally
+/// transition to another scene-stack entry. Visible copy is owned by the Bevy
+/// [`Text`] component on the marked text entity, not by this configuration
+/// component.
 #[derive(Clone, Debug, Component, Reflect)]
 #[reflect(Component, @EditorCategory::new("Foundation/Splash"))]
 pub struct FoundationSplashScreen {
-    /// Text shown in the middle of the screen.
-    pub text: String,
     /// Timing values for the splash sequence, in seconds.
     pub timings: FoundationSplashTimings,
-    /// Font size used for the generated centered UI text.
+    /// Font size used only for the empty generated fallback text when no
+    /// authored [`FoundationSplashText`] exists.
     pub font_size: f32,
     /// Optional Jackdaw `.jsn` scene path to open after fade-out completes.
     ///
@@ -119,9 +120,8 @@ pub struct FoundationSplashScreen {
 
 impl FoundationSplashScreen {
     /// Creates a splash screen with default Foundation timings.
-    pub fn new(text: impl Into<String>) -> Self {
+    pub fn new() -> Self {
         Self {
-            text: text.into(),
             timings: FoundationSplashTimings::default(),
             font_size: 72.0,
             next_scene_path: String::new(),
@@ -160,7 +160,7 @@ impl FoundationSplashScreen {
 
 impl Default for FoundationSplashScreen {
     fn default() -> Self {
-        Self::new("Splash")
+        Self::new()
     }
 }
 
@@ -314,7 +314,7 @@ fn spawn_generated_splash_ui(
 ) -> (Entity, Entity, bool) {
     let text_entity = commands
         .spawn((
-            Text::new(splash.text.clone()),
+            Text::new(String::new()),
             TextFont::from_font_size(splash.font_size),
             TextColor(Color::srgba(1.0, 1.0, 1.0, 0.0)),
             FoundationSplashText,
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn splash_completion_command_can_replace_current_scene() {
-        let mut splash = FoundationSplashScreen::new("Pixel Perfect");
+        let mut splash = FoundationSplashScreen::new();
         splash.next_scene_path = "splash_bevy.jsn".to_string();
 
         assert_eq!(
@@ -461,7 +461,7 @@ mod tests {
 
     #[test]
     fn splash_completion_command_can_reset_stack_for_next_scene() {
-        let mut splash = FoundationSplashScreen::new("Bevy");
+        let mut splash = FoundationSplashScreen::new();
         splash.next_scene_path = "main_menu.jsn".to_string();
         splash.reset_stack_for_next_scene = true;
 

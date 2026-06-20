@@ -22,6 +22,10 @@ pub const BEVY_SPLASH_SCENE: &str = "splash_bevy.jsn";
 pub const LANDING_PAGE_SCENE: &str = "landing_page.jsn";
 /// Jackdaw scene path for the example main menu.
 pub const MAIN_MENU_SCENE: &str = "main_menu.jsn";
+/// Jackdaw scene path for the stack-based options menu.
+pub const OPTIONS_MENU_SCENE: &str = "options_menu.jsn";
+/// Jackdaw scene path for the dummy load-game menu.
+pub const LOAD_GAME_SCENE: &str = "load_game.jsn";
 
 /// TemplateGame's Bevy plugin.
 #[derive(Default)]
@@ -36,6 +40,12 @@ impl Plugin for TemplateGamePlugin {
             .register_type::<TemplateMainMenu>()
             .register_type::<TemplateMenuButton>()
             .add_systems(Update, spin_cube.run_if(play_gate::is_playing));
+
+        #[cfg(not(feature = "editor"))]
+        app.add_systems(Update, exit_game_on_foundation_exit_request);
+
+        #[cfg(feature = "editor")]
+        app.add_systems(Update, stop_editor_play_on_foundation_exit_request);
 
         #[cfg(feature = "editor")]
         app.add_systems(Update, target_editor_authored_gameplay_ui_roots)
@@ -165,6 +175,7 @@ type AuthoredUiNodeCompletionQuery<'w, 's> = Query<
             With<FoundationSplashUiRoot>,
             With<Text>,
         )>,
+        Without<FoundationGeneratedMenuUi>,
     ),
 >;
 
@@ -177,7 +188,11 @@ type AuthoredUiTextCompletionQuery<'w, 's> = Query<
         Option<&'static TextFont>,
         Option<&'static ChildOf>,
     ),
-    (With<Text>, Without<TemplateUiTextCompleted>),
+    (
+        With<Text>,
+        Without<TemplateUiTextCompleted>,
+        Without<FoundationGeneratedMenuUi>,
+    ),
 >;
 
 /// Marker for TemplateGame's press-any-button landing page scene.
@@ -356,6 +371,12 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
         MAIN_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
             MAIN_MENU_SCENE,
         ))],
+        OPTIONS_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            OPTIONS_MENU_SCENE,
+        ))],
+        LOAD_GAME_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            LOAD_GAME_SCENE,
+        ))],
         _ => initial_scene_commands().into_iter().collect(),
     }
 }
@@ -375,6 +396,8 @@ fn editor_scene_key(path: &str) -> &'static str {
         BEVY_SPLASH_SCENE => "bevy-splash",
         LANDING_PAGE_SCENE => "landing-page",
         MAIN_MENU_SCENE => "main-menu",
+        OPTIONS_MENU_SCENE => "options-menu",
+        LOAD_GAME_SCENE => "load-game",
         _ => "editor-scene",
     }
 }
@@ -655,6 +678,7 @@ fn initialize_main_menus(
     }
 }
 
+#[allow(dead_code)]
 fn update_main_menu_button_interactions(mut buttons: MenuButtonInteractionQuery) {
     for (interaction, mut background) in &mut buttons {
         background.0 = match *interaction {
@@ -687,6 +711,26 @@ fn attach_gameplay_ui_root(
             .insert(UiTargetCamera(ui_target_camera));
     } else if let Some(ui_parent) = ui_parent {
         commands.entity(ui_parent).add_child(root);
+    }
+}
+
+#[cfg(not(feature = "editor"))]
+fn exit_game_on_foundation_exit_request(
+    mut exit_requests: MessageReader<FoundationExitRequested>,
+    mut app_exit: MessageWriter<AppExit>,
+) {
+    if exit_requests.read().next().is_some() {
+        app_exit.write(AppExit::Success);
+    }
+}
+
+#[cfg(feature = "editor")]
+fn stop_editor_play_on_foundation_exit_request(
+    mut exit_requests: MessageReader<FoundationExitRequested>,
+    mut next_play_state: ResMut<NextState<jackdaw::prelude::PlayState>>,
+) {
+    if exit_requests.read().next().is_some() {
+        next_play_state.set(jackdaw::prelude::PlayState::Stopped);
     }
 }
 
@@ -740,6 +784,8 @@ mod tests {
         assert_eq!(BEVY_SPLASH_SCENE, "splash_bevy.jsn");
         assert_eq!(LANDING_PAGE_SCENE, "landing_page.jsn");
         assert_eq!(MAIN_MENU_SCENE, "main_menu.jsn");
+        assert_eq!(OPTIONS_MENU_SCENE, "options_menu.jsn");
+        assert_eq!(LOAD_GAME_SCENE, "load_game.jsn");
     }
 
     #[test]
