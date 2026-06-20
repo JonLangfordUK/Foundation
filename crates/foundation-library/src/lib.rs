@@ -10,6 +10,8 @@
 use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
+pub mod scene_stack;
+
 /// Shared baseline plugin for Foundation games.
 ///
 /// Add this plugin to both standalone game binaries and game-specific Jackdaw
@@ -20,7 +22,8 @@ pub struct FoundationPlugin;
 
 impl Plugin for FoundationPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<FoundationSettings>()
+        app.add_plugins(scene_stack::FoundationSceneStackPlugin)
+            .register_type::<FoundationSettings>()
             .register_type::<FoundationActor>()
             .init_resource::<FoundationSettings>();
     }
@@ -61,6 +64,11 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationLibrary.
 pub mod prelude {
+    pub use crate::scene_stack::{
+        FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,
+        SceneFocused, SceneId, SceneKey, SceneOwner, ScenePresentation, SceneRemoved,
+        SceneRuntimeFlags, SceneSource, SceneStack, SceneStackEntry, SceneTarget, SceneUnfocused,
+    };
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }
 

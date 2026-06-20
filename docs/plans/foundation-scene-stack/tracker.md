@@ -6,11 +6,11 @@
 - Primary area: `engine`
 - Foundation area: `Foundation Library`
 - Branch: `feature/foundation-scene-stack`
-- Overall status: `Planned`
+- Overall status: `In progress`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for user review before gpt-5.4 implementation`
+- Current handoff state: `Implementation in progress with gpt-5.4`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 
@@ -21,34 +21,35 @@
 - Use `scripts/format-project.cmd`, `scripts/lint-project.cmd`, `scripts/test-project.cmd`, `scripts/compile-project.cmd`, `scripts/doc-project.cmd`, and `scripts/validate-project.cmd` unless a documented waiver exists.
 
 ## Phase 1: ECS scene stack API foundation
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Add core FoundationLibrary scene stack types, resources, messages, plugin registration, prelude exports, and unit tests for command API shape.
 
 ### Tasks
-- [ ] Add a scene stack module under `crates/foundation-library/src/` and register it from `FoundationPlugin`.
-  - Status: Planned
-  - Notes: Must preserve existing `FoundationSettings` and `FoundationActor` behavior.
-- [ ] Define public core types with Rustdoc: scene id, optional key/name, scene source, scene presentation, stack entry, stack resource, and open options.
-  - Status: Planned
-  - Notes: Include `.jsn` level source support without creating a competing level format.
-- [ ] Define buffered scene command messages and ergonomic game-facing helpers for open, close current, close target, clear, and clear-and-open.
-  - Status: Planned
-  - Notes: Multiple commands per frame are required.
-- [ ] Add unit tests for public defaults and command construction/helpers.
-  - Status: Planned
-  - Notes: Prefer tests inside `crates/foundation-library/src/lib.rs` or module-specific tests.
+- [x] Add a scene stack module under `crates/foundation-library/src/` and register it from `FoundationPlugin`.
+  - Status: Complete
+  - Notes: Added `scene_stack` module and `FoundationSceneStackPlugin`; `FoundationPlugin` now installs it while preserving existing `FoundationSettings` and `FoundationActor` behavior.
+- [x] Define public core types with Rustdoc: scene id, optional key/name, scene source, scene presentation, stack entry, stack resource, and open options.
+  - Status: Complete
+  - Notes: Added `.jsn` level source support through `SceneSource::JsnLevel` without creating a competing level format.
+- [x] Define buffered scene command messages and ergonomic game-facing helpers for open, close current, close target, clear, and clear-and-open.
+  - Status: Complete
+  - Notes: Added `SceneCommand` message and `SceneCommandsExt` for queuing multiple commands through Bevy `Commands`.
+- [x] Add unit tests for public defaults and command construction/helpers.
+  - Status: Complete
+  - Notes: Added module tests for presentation defaults, open options, scene sources, command helpers, and empty stack defaults.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
+- Format: Passed (`scripts/format-project.cmd`, 2026-06-20)
+- Lint: Passed (`scripts/lint-project.cmd`, 2026-06-20; fixed initial `clippy::derivable_impls` warning for `OpenSceneOptions`)
+- Tests: Passed (`scripts/test-project.cmd`, 2026-06-20; 6 FoundationLibrary tests passed plus workspace tests)
+- Build: Passed (`scripts/compile-project.cmd`, 2026-06-20)
+- Documentation generation: Passed (`scripts/doc-project.cmd`, 2026-06-20; generated FoundationLibrary docs)
 - Full validation wrapper: Pending / Not required yet
-- User confirmation: Pending before implementation starts
+- User confirmation: Received (`I'm happy. Commit, and then start work`)
 
 ### Notes
-- Architecture is ECS-first by user preference; do not introduce trait-object scene controllers.
+- Architecture is ECS-first by user preference; no trait-object scene controllers were introduced.
+- Phase 1 implementation is ready to commit and push.
 
 ## Phase 2: Command processing, focus, and lifecycle messages
 **Status:** Planned  
@@ -156,3 +157,6 @@
 - `2026-06-20`: Discussed and selected ECS-first scene stack architecture for FoundationLibrary.
 - `2026-06-20`: Created `feature/foundation-scene-stack` from `dev` for feature planning.
 - `2026-06-20`: Plan and tracker created for user review.
+- `2026-06-20`: Planning commit `8e5b672` created and pushed to `origin/feature/foundation-scene-stack`.
+- `2026-06-20`: User approved implementation start; branch matches tracker and `dev` is an ancestor of `HEAD`.
+- `2026-06-20`: Completed Phase 1 ECS scene stack API foundation and recorded validation results.
