@@ -274,7 +274,7 @@ fn initialize_splash_screens(
                 .insert(UiTargetCamera(ui_target_camera.0));
         } else if generated_ui {
             if let Some(ui_parent) = ui_parent.as_ref() {
-                commands.entity(ui_parent.0).add_child(ui_root);
+                safe_add_child(&mut commands, ui_parent.0, ui_root);
             }
         }
 
@@ -340,8 +340,8 @@ fn spawn_generated_splash_ui(
             FoundationSplashUiRoot,
             FoundationSplashGeneratedUi,
         ))
-        .add_child(text_entity)
         .id();
+    safe_add_child(commands, ui_root, text_entity);
 
     if let Some(scene_owner) = scene_owner {
         commands.entity(text_entity).insert(scene_owner);
@@ -353,10 +353,22 @@ fn spawn_generated_splash_ui(
             .entity(ui_root)
             .insert(UiTargetCamera(ui_target_camera.0));
     } else if let Some(ui_parent) = ui_parent {
-        commands.entity(ui_parent.0).add_child(ui_root);
+        safe_add_child(commands, ui_parent.0, ui_root);
     }
 
     (ui_root, text_entity, true)
+}
+
+fn safe_add_child(commands: &mut Commands, parent: Entity, child: Entity) {
+    commands.queue(move |world: &mut World| {
+        if world.get_entity(parent).is_err() || world.get_entity(child).is_err() {
+            return;
+        }
+
+        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
+            parent_entity.add_child(child);
+        }
+    });
 }
 
 fn advance_splash_screens(

@@ -354,9 +354,7 @@ fn initialize_simple_gameplay_levels(
                 commands.entity(entity).insert(scene_owner);
             }
         }
-        commands
-            .entity(level_entity)
-            .add_children(&[cube, light, camera]);
+        safe_add_children(&mut commands, level_entity, vec![cube, light, camera]);
     }
 }
 
@@ -534,8 +532,8 @@ fn spawn_button(commands: &mut Commands, label: &str, scene_owner: Option<SceneO
             FoundationGeneratedMenuUi,
             Name::new(format!("{label} Button")),
         ))
-        .add_child(text)
         .id();
+    safe_add_child(commands, button, text);
     insert_owner(commands, button, scene_owner);
     button
 }
@@ -573,6 +571,30 @@ fn insert_owner(commands: &mut Commands, entity: Entity, scene_owner: Option<Sce
     if let Some(scene_owner) = scene_owner {
         commands.entity(entity).insert(scene_owner);
     }
+}
+
+fn safe_add_child(commands: &mut Commands, parent: Entity, child: Entity) {
+    safe_add_children(commands, parent, vec![child]);
+}
+
+fn safe_add_children(commands: &mut Commands, parent: Entity, children: Vec<Entity>) {
+    commands.queue(move |world: &mut World| {
+        if world.get_entity(parent).is_err() {
+            return;
+        }
+
+        let existing_children = children
+            .into_iter()
+            .filter(|child| world.get_entity(*child).is_ok())
+            .collect::<Vec<_>>();
+        if existing_children.is_empty() {
+            return;
+        }
+
+        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
+            parent_entity.add_children(&existing_children);
+        }
+    });
 }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.12, 0.14, 0.25);

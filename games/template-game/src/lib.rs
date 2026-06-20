@@ -79,8 +79,6 @@ impl Plugin for TemplateGamePlugin {
             Update,
             (
                 spawn_requested_jackdaw_scenes,
-                deactivate_new_editor_runtime_cameras,
-                target_editor_runtime_cameras_to_viewport,
                 detach_scene_stack_ui_roots,
                 update_scene_stack_ui_root_z_indices,
                 complete_authored_ui_text_components,
@@ -91,6 +89,15 @@ impl Plugin for TemplateGamePlugin {
                 initialize_main_menus,
                 update_main_menu_button_interactions,
             )
+                .run_if(play_gate::is_playing),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                deactivate_new_editor_runtime_cameras,
+                target_editor_runtime_cameras_to_viewport,
+            )
+                .chain()
                 .run_if(play_gate::is_playing),
         );
 
