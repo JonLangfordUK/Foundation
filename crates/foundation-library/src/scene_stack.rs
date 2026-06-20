@@ -20,7 +20,8 @@ impl Plugin for FoundationSceneStackPlugin {
             .add_message::<SceneRemoved>()
             .add_message::<SceneFocused>()
             .add_message::<SceneUnfocused>()
-            .register_type::<SceneOwner>();
+            .register_type::<SceneOwner>()
+            .add_systems(PostUpdate, process_scene_commands);
     }
 }
 
@@ -181,6 +182,23 @@ impl SceneStack {
         self.entries.last()
     }
 
+    /// Finds a scene by generated id.
+    pub fn get(&self, id: SceneId) -> Option<&SceneStackEntry> {
+        self.entries.iter().find(|entry| entry.id == id)
+    }
+
+    /// Finds a scene by game-authored key.
+    pub fn get_by_key(&self, key: &SceneKey) -> Option<&SceneStackEntry> {
+        self.entries
+            .iter()
+            .find(|entry| entry.key.as_ref() == Some(key))
+    }
+
+    /// Returns the currently focused scene, if any.
+    pub fn focused(&self) -> Option<&SceneStackEntry> {
+        self.entries.iter().find(|entry| entry.flags.focused)
+    }
+
     /// Returns true when no scenes are stacked.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
@@ -194,6 +212,12 @@ impl SceneStack {
     /// Returns the next id that will be assigned by command processing.
     pub fn next_scene_id(&self) -> SceneId {
         SceneId(self.next_id)
+    }
+
+    fn allocate_id(&mut self) -> SceneId {
+        let id = SceneId(self.next_id);
+        self.next_id += 1;
+        id
     }
 }
 
@@ -412,6 +436,158 @@ impl<'w, 's> QueueSceneCommand for Commands<'w, 's> {
     }
 }
 
+fn process_scene_commands(
+    mut commands: MessageReader<SceneCommand>,
+    mut stack: ResMut<SceneStack>,
+    mut added: MessageWriter<SceneAdded>,
+    mut removed: MessageWriter<SceneRemoved>,
+    mut focused: MessageWriter<SceneFocused>,
+    mut unfocused: MessageWriter<SceneUnfocused>,
+) {
+    let scene_commands = commands.read().cloned().collect::<Vec<_>>();
+
+    for command in scene_commands {
+        apply_scene_command(
+            command,
+            &mut stack,
+            &mut added,
+            &mut removed,
+            &mut focused,
+            &mut unfocused,
+        );
+    }
+}
+
+fn apply_scene_command(
+    command: SceneCommand,
+    stack: &mut SceneStack,
+    added: &mut MessageWriter<SceneAdded>,
+    removed: &mut MessageWriter<SceneRemoved>,
+    focused: &mut MessageWriter<SceneFocused>,
+    unfocused: &mut MessageWriter<SceneUnfocused>,
+) {
+    match command {
+        SceneCommand::Open { source, options } => {
+            if options.clear_stack {
+                clear_stack(stack, removed);
+            } else if options.close_current {
+                close_current(stack, removed);
+            }
+            open_scene(source, options, stack, added);
+        }
+        SceneCommand::CloseCurrent => close_current(stack, removed),
+        SceneCommand::Close(target) => close_target(target, stack, removed),
+        SceneCommand::Clear => clear_stack(stack, removed),
+        SceneCommand::ClearAndOpen { source, options } => {
+            clear_stack(stack, removed);
+            open_scene(source, options, stack, added);
+        }
+    }
+
+    update_runtime_flags(stack, focused, unfocused);
+}
+
+fn open_scene(
+    source: SceneSource,
+    options: OpenSceneOptions,
+    stack: &mut SceneStack,
+    added: &mut MessageWriter<SceneAdded>,
+) {
+    let id = stack.allocate_id();
+    stack.entries.push(SceneStackEntry {
+        id,
+        key: options.key,
+        source,
+        presentation: options.presentation,
+        flags: SceneRuntimeFlags::default(),
+    });
+    added.write(SceneAdded { scene_id: id });
+}
+
+fn close_current(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>) {
+    if let Some(entry) = stack.entries.pop() {
+        removed.write(SceneRemoved { scene_id: entry.id });
+    }
+}
+
+fn close_target(
+    target: SceneTarget,
+    stack: &mut SceneStack,
+    removed: &mut MessageWriter<SceneRemoved>,
+) {
+    let position = match target {
+        SceneTarget::Id(id) => stack.entries.iter().position(|entry| entry.id == id),
+        SceneTarget::Key(key) => stack
+            .entries
+            .iter()
+            .position(|entry| entry.key.as_ref() == Some(&key)),
+    };
+
+    if let Some(position) = position {
+        let entry = stack.entries.remove(position);
+        removed.write(SceneRemoved { scene_id: entry.id });
+    }
+}
+
+fn clear_stack(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>) {
+    while let Some(entry) = stack.entries.pop() {
+        removed.write(SceneRemoved { scene_id: entry.id });
+    }
+}
+
+fn update_runtime_flags(
+    stack: &mut SceneStack,
+    focused: &mut MessageWriter<SceneFocused>,
+    unfocused: &mut MessageWriter<SceneUnfocused>,
+) {
+    let previous_focus = stack
+        .entries
+        .iter()
+        .find(|entry| entry.flags.focused)
+        .map(|entry| entry.id);
+
+    let mut covered = false;
+    let mut input_blocked = false;
+    let mut update_blocked = false;
+
+    for entry in stack.entries.iter_mut().rev() {
+        entry.flags.visible = !covered;
+        entry.flags.interactive = !input_blocked;
+        entry.flags.updating = !update_blocked;
+        entry.flags.focused = false;
+
+        covered |= entry.presentation.covers_previous;
+        input_blocked |= entry.presentation.blocks_previous_input;
+        update_blocked |= entry.presentation.blocks_previous_update;
+    }
+
+    let new_focus = stack
+        .entries
+        .iter_mut()
+        .rev()
+        .find(|entry| entry.flags.interactive)
+        .map(|entry| {
+            entry.flags.focused = true;
+            entry.id
+        });
+
+    if previous_focus != new_focus {
+        if let Some(previous_focus) = previous_focus {
+            if stack.entries.iter().any(|entry| entry.id == previous_focus) {
+                unfocused.write(SceneUnfocused {
+                    scene_id: previous_focus,
+                });
+            }
+        }
+
+        if let Some(new_focus) = new_focus {
+            focused.write(SceneFocused {
+                scene_id: new_focus,
+            });
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -479,5 +655,172 @@ mod tests {
         assert_eq!(stack.len(), 0);
         assert_eq!(stack.current(), None);
         assert_eq!(stack.next_scene_id(), SceneId(1));
+    }
+
+    #[test]
+    fn processing_open_command_pushes_scene_and_focuses_it() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::jsn_level("levels/one.jsn")));
+
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert_eq!(stack.len(), 1);
+        let entry = stack.current().expect("opened scene should be stacked");
+        assert_eq!(entry.id, SceneId(1));
+        assert_eq!(entry.source, SceneSource::jsn_level("levels/one.jsn"));
+        assert!(entry.flags.visible);
+        assert!(entry.flags.interactive);
+        assert!(entry.flags.updating);
+        assert!(entry.flags.focused);
+    }
+
+    #[test]
+    fn presentation_flags_control_lower_scene_runtime_flags() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("pause"),
+                OpenSceneOptions::default()
+                    .with_presentation(ScenePresentation::PAUSE_OVERLAY)
+                    .with_key("pause"),
+            ));
+
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        let gameplay = &stack.entries()[0];
+        let pause = &stack.entries()[1];
+
+        assert!(gameplay.flags.visible);
+        assert!(!gameplay.flags.interactive);
+        assert!(!gameplay.flags.updating);
+        assert!(!gameplay.flags.focused);
+        assert!(pause.flags.visible);
+        assert!(pause.flags.interactive);
+        assert!(pause.flags.updating);
+        assert!(pause.flags.focused);
+    }
+
+    #[test]
+    fn close_current_restores_previous_scene_focus() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("menu")));
+        app.update();
+
+        app.world_mut().write_message(SceneCommand::CloseCurrent);
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert_eq!(stack.len(), 1);
+        assert_eq!(stack.current().map(|entry| entry.id), Some(SceneId(1)));
+        assert_eq!(stack.focused().map(|entry| entry.id), Some(SceneId(1)));
+    }
+
+    #[test]
+    fn clear_and_open_replaces_stack() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::clear_and_open(SceneSource::jsn_level(
+                "levels/two.jsn",
+            )));
+
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert_eq!(stack.len(), 1);
+        let entry = stack
+            .current()
+            .expect("replacement scene should be stacked");
+        assert_eq!(entry.id, SceneId(2));
+        assert_eq!(entry.source, SceneSource::jsn_level("levels/two.jsn"));
+    }
+
+    #[test]
+    fn lifecycle_messages_are_emitted_for_focus_changes() {
+        let mut app = test_app();
+        app.init_resource::<LifecycleLog>();
+        app.add_systems(Last, collect_lifecycle_messages);
+
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("menu")));
+        app.update();
+
+        let log = app.world().resource::<LifecycleLog>();
+        assert_eq!(
+            log.0,
+            vec![
+                "added:1",
+                "added:2",
+                "unfocused:1",
+                "focused:1",
+                "focused:2"
+            ]
+        );
+    }
+
+    #[test]
+    fn close_by_key_removes_target_scene() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("pause"),
+                OpenSceneOptions::default().with_key("pause"),
+            ));
+        app.update();
+
+        app.world_mut()
+            .write_message(SceneCommand::Close(SceneTarget::Key(SceneKey::new(
+                "pause",
+            ))));
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert_eq!(stack.len(), 1);
+        assert_eq!(stack.current().map(|entry| entry.id), Some(SceneId(1)));
+        assert_eq!(stack.get_by_key(&SceneKey::new("pause")), None);
+    }
+
+    fn test_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(FoundationSceneStackPlugin);
+        app
+    }
+
+    #[derive(Default, Resource)]
+    struct LifecycleLog(Vec<String>);
+
+    fn collect_lifecycle_messages(
+        mut added: MessageReader<SceneAdded>,
+        mut removed: MessageReader<SceneRemoved>,
+        mut focused: MessageReader<SceneFocused>,
+        mut unfocused: MessageReader<SceneUnfocused>,
+        mut log: ResMut<LifecycleLog>,
+    ) {
+        for message in added.read() {
+            log.0.push(format!("added:{}", message.scene_id.0));
+        }
+        for message in removed.read() {
+            log.0.push(format!("removed:{}", message.scene_id.0));
+        }
+        for message in unfocused.read() {
+            log.0.push(format!("unfocused:{}", message.scene_id.0));
+        }
+        for message in focused.read() {
+            log.0.push(format!("focused:{}", message.scene_id.0));
+        }
     }
 }

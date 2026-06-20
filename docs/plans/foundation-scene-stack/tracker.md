@@ -52,34 +52,35 @@
 - Phase 1 implementation is ready to commit and push.
 
 ## Phase 2: Command processing, focus, and lifecycle messages
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Implement deterministic stack mutation from queued commands, lifecycle message emission, and derived runtime flags.
 
 ### Tasks
-- [ ] Implement ordered scene command processing at a safe Bevy schedule point.
-  - Status: Planned
-  - Notes: Capture old focus, process all commands in queue order, then recalculate derived state.
-- [ ] Emit lifecycle messages for `SceneAdded`, `SceneRemoved`, `SceneFocused`, and `SceneUnfocused`.
-  - Status: Planned
-  - Notes: Use Bevy 0.18 `Message` APIs where buffered predictable processing is appropriate.
-- [ ] Implement focus restoration and runtime flag derivation for visible, interactive, and updating scenes using `ScenePresentation`.
-  - Status: Planned
-  - Notes: Stack and presentation policy remain the source of truth.
-- [ ] Add tests for push, close current, close target, clear, clear-and-open, buried-scene removal, and focus/visibility/input/update behavior.
-  - Status: Planned
-  - Notes: Include multi-command same-frame scenarios.
+- [x] Implement ordered scene command processing at a safe Bevy schedule point.
+  - Status: Complete
+  - Notes: `process_scene_commands` runs in `PostUpdate`, processes queued `SceneCommand` messages in read order, and recalculates derived state after each command.
+- [x] Emit lifecycle messages for `SceneAdded`, `SceneRemoved`, `SceneFocused`, and `SceneUnfocused`.
+  - Status: Complete
+  - Notes: Uses Bevy 0.18 `Message` APIs for buffered predictable processing.
+- [x] Implement focus restoration and runtime flag derivation for visible, interactive, and updating scenes using `ScenePresentation`.
+  - Status: Complete
+  - Notes: Stack and presentation policy remain the source of truth; focus is assigned to the topmost interactive scene after runtime flags are derived.
+- [x] Add tests for push, close current, close target, clear, clear-and-open, buried-scene removal, and focus/visibility/input/update behavior.
+  - Status: Complete
+  - Notes: Added tests for open processing, pause overlay flag derivation, close current focus restoration, close by key, clear-and-open, and lifecycle messages.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
+- Format: Passed (`scripts/format-project.cmd`, 2026-06-20; applied `cargo fmt --all` first)
+- Lint: Passed (`scripts/lint-project.cmd`, 2026-06-20; fixed initial bool assert comparison warnings)
+- Tests: Passed (`scripts/test-project.cmd`, 2026-06-20; 12 FoundationLibrary tests passed plus workspace tests)
+- Build: Passed (`scripts/compile-project.cmd`, 2026-06-20)
+- Documentation generation: Passed (`scripts/doc-project.cmd`, 2026-06-20; generated FoundationLibrary docs)
 - Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes
-- Lifecycle ordering must be deterministic and documented.
+- Lifecycle message types are separate Bevy message streams; systems that need one combined global ordering should consume stack state changes via a dedicated future aggregate message if required.
+- Phase 2 implementation is ready to commit and push.
 
 ## Phase 3: Scene ownership cleanup and Jackdaw `.jsn` integration bridge
 **Status:** Planned  
@@ -160,3 +161,5 @@
 - `2026-06-20`: Planning commit `8e5b672` created and pushed to `origin/feature/foundation-scene-stack`.
 - `2026-06-20`: User approved implementation start; branch matches tracker and `dev` is an ancestor of `HEAD`.
 - `2026-06-20`: Completed Phase 1 ECS scene stack API foundation and recorded validation results.
+- `2026-06-20`: Phase 1 commit `d73c8f9` pushed to `origin/feature/foundation-scene-stack`; started Phase 2 command processing work.
+- `2026-06-20`: Completed Phase 2 command processing, lifecycle messages, focus restoration, runtime flags, and validation.
