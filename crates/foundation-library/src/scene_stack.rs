@@ -563,7 +563,8 @@ fn clear_stack(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>
 fn cleanup_removed_scene_entities(
     mut commands: Commands,
     mut removed: MessageReader<SceneRemoved>,
-    owned_entities: Query<(Entity, &SceneOwner)>,
+    owned_entities: Query<(Entity, &SceneOwner, Option<&ChildOf>)>,
+    owners: Query<&SceneOwner>,
 ) {
     let removed_scene_ids = removed
         .read()
@@ -574,8 +575,16 @@ fn cleanup_removed_scene_entities(
         return;
     }
 
-    for (entity, owner) in &owned_entities {
-        if removed_scene_ids.contains(&owner.scene_id) {
+    for (entity, owner, parent) in &owned_entities {
+        if !removed_scene_ids.contains(&owner.scene_id) {
+            continue;
+        }
+
+        let parent_is_removed_scene_owned = parent
+            .and_then(|parent| owners.get(parent.0).ok())
+            .is_some_and(|parent_owner| removed_scene_ids.contains(&parent_owner.scene_id));
+
+        if !parent_is_removed_scene_owned {
             commands.entity(entity).despawn();
         }
     }
