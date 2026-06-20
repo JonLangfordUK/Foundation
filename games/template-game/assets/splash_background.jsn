@@ -160,7 +160,10 @@
           "green": 0.0,
           "red": 0.0
         },
-        "bevy_ui::ui_node::GlobalZIndex": -1000
+        "bevy_ui::ui_node::GlobalZIndex": -1000,
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
+        }
       }
     }
   ]

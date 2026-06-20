@@ -27,6 +27,7 @@ impl Plugin for FoundationMenuPlugin {
             .register_type::<FoundationCloseOnEscape>()
             .register_type::<FoundationPauseOpener>()
             .register_type::<FoundationSimpleGameplayLevel>()
+            .register_type::<FoundationUiOrder>()
             .register_type::<FoundationPauseState>()
             .add_systems(
                 Update,
@@ -234,6 +235,17 @@ impl Default for FoundationSimpleGameplayLevel {
 
 #[derive(Component, Debug)]
 struct FoundationGeneratedGameplayLevel;
+
+/// Stable authored sibling order for UI entities loaded from `.jsn` assets.
+///
+/// Jackdaw-authored UI can include this component so runtime repair systems can
+/// rebuild Bevy `Children` lists without relying on ECS query or entity order.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/UI"))]
+pub struct FoundationUiOrder {
+    /// Zero-based order of this entity within the authored scene file.
+    pub order: u32,
+}
 
 #[derive(Component, Debug)]
 struct FoundationOptionsRuntime {

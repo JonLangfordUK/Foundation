@@ -527,6 +527,10 @@ fn complete_authored_ui_text_components(
     mut commands: Commands,
     ui_nodes: AuthoredUiNodeCompletionQuery,
     texts: AuthoredUiTextCompletionQuery,
+    child_links: Query<
+        (Entity, &ChildOf, Option<&FoundationUiOrder>),
+        Without<FoundationGeneratedMenuUi>,
+    >,
 ) {
     for entity in &ui_nodes {
         commands
@@ -534,15 +538,17 @@ fn complete_authored_ui_text_components(
             .remove::<(Transform, GlobalTransform)>();
     }
 
-    for (entity, text, font, _) in &texts {
+    let mut parents_to_rebuild = std::collections::HashSet::new();
+    for (entity, text, font, parent) in &texts {
         // Jackdaw runtime inserts reflected components one-by-one, which can
         // bypass Bevy's typed `Text` required-components path. Add the UI text
         // measure/layout components that `commands.spawn(Text::new(...))` would
-        // normally provide, while preserving the authored Text/TextFont/TextColor
-        // and the child order authored by Jackdaw. Do not rebuild parent
-        // children here: ECS query/entity order is not an authored-order source.
+        // normally provide, while preserving the authored Text/TextFont/TextColor.
         let font_size = font.map(|font| font.font_size).unwrap_or(20.0);
         let width = (text.0.chars().count() as f32 * font_size * 0.7).max(font_size);
+        if let Some(parent) = parent {
+            parents_to_rebuild.insert(parent.0);
+        }
         commands.entity(entity).insert((
             TemplateUiTextCompleted,
             Node {
@@ -558,6 +564,21 @@ fn complete_authored_ui_text_components(
             ContentSize::default(),
             FontHinting::Disabled,
         ));
+    }
+
+    for parent in parents_to_rebuild {
+        let mut children = child_links
+            .iter()
+            .filter_map(|(child, child_of, order)| {
+                (child_of.0 == parent).then_some((child, order.map(|order| order.order)))
+            })
+            .collect::<Vec<_>>();
+        children.sort_by_key(|(child, order)| (order.unwrap_or(u32::MAX), child.index_u32()));
+        let children = children
+            .into_iter()
+            .map(|(child, _)| child)
+            .collect::<Vec<_>>();
+        commands.entity(parent).replace_children(&children);
     }
 }
 

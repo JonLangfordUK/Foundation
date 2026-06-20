@@ -27,6 +27,9 @@
         "foundation_library::menu::FoundationPauseOpener": {
           "pause_scene_path": "pause_menu.jsn",
           "pause_scene_key": "pause-menu"
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
         }
       }
     }

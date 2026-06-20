@@ -154,7 +154,10 @@
           }
         },
         "bevy_ecs::name::Name": "Pause Menu UI Root",
-        "template_game::TemplateGameplayUiRoot": {}
+        "template_game::TemplateGameplayUiRoot": {},
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
+        }
       }
     },
     {
@@ -177,7 +180,10 @@
           "font_smoothing": "AntiAliased",
           "weight": 400
         },
-        "bevy_ecs::name::Name": "Pause Menu Title"
+        "bevy_ecs::name::Name": "Pause Menu Title",
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 1
+        }
       }
     },
     {
@@ -314,6 +320,9 @@
           "action": "resume",
           "scene_path": "",
           "scene_key": ""
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 2
         }
       }
     },
@@ -337,6 +346,9 @@
             "green": 1.0,
             "red": 1.0
           }
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 3
         }
       }
     },
@@ -474,6 +486,9 @@
           "action": "open_scene",
           "scene_path": "options_menu.jsn",
           "scene_key": "options-menu"
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 4
         }
       }
     },
@@ -497,6 +512,9 @@
           "font_size": 28.0,
           "font_smoothing": "AntiAliased",
           "weight": 400
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 5
         }
       }
     },
@@ -634,6 +652,9 @@
           "action": "clear_and_open_scene",
           "scene_path": "main_menu.jsn",
           "scene_key": "main-menu"
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 6
         }
       }
     },
@@ -657,6 +678,9 @@
           "font_size": 28.0,
           "font_smoothing": "AntiAliased",
           "weight": 400
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 7
         }
       }
     },
@@ -794,6 +818,9 @@
           "action": "exit",
           "scene_path": "",
           "scene_key": ""
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 8
         }
       }
     },
@@ -817,7 +844,10 @@
           }
         },
         "bevy_ecs::name::Name": "Quit Game Button Label",
-        "bevy_ui::widget::text::Text": "Quit Game"
+        "bevy_ui::widget::text::Text": "Quit Game",
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 9
+        }
       }
     }
   ]
