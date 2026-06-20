@@ -11,9 +11,7 @@ fn main() -> AppExit {
     let _ = ctrlc::set_handler(|| std::process::exit(130));
 
     App::new()
-        // Debug fallback clear color: should usually be black, but blue makes
-        // any uncovered frame obvious while tuning splash transitions.
-        .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 1.0)))
+        .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)))
         .set_error_handler(bevy::ecs::error::error)
         .add_plugins(DefaultPlugins.set(ImagePlugin {
             default_sampler: ImageSamplerDescriptor {

@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, and main menu stub commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, and tracker push-status commits pushed to `origin/feature/scene-stack-example`.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -147,7 +147,7 @@
   - Notes: Foundation splash UI root no longer spawns `BackgroundColor`; the persistent background scene is responsible for the fill.
 - [x] Set the game fallback clear color to debug blue for now.
   - Status: Complete
-  - Notes: Standalone TemplateGame inserts `ClearColor(Color::srgb(0.0, 0.0, 1.0))` with a comment noting black is the intended normal fallback.
+  - Notes: Standalone TemplateGame inserts `ClearColor(Color::srgb(0.0, 0.0, 0.0))` with a comment noting black is the intended normal fallback.
 
 ### Validation
 - Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
@@ -233,3 +233,4 @@
 - `2026-06-20`: First manual launch showed `ButtonInput<GamepadButton>` may be absent; changed gamepad input to `Option<Res<ButtonInput<GamepadButton>>>` and reran validation/manual launch successfully.
 - `2026-06-20`: Main menu stub validation passed via `scripts/validate-project.cmd`; manual startup smoke check opened the game window without system errors.
 - `2026-06-20`: Main menu stub commit `712ed94` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: Main menu tracker push-status commit `55d0ddc` pushed to `origin/feature/scene-stack-example`.
