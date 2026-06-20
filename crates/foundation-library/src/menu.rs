@@ -150,7 +150,6 @@ pub struct FoundationCloseOnEscape;
 #[derive(Component, Debug)]
 struct FoundationOptionsRuntime {
     active_tab: usize,
-    content: Entity,
 }
 
 #[derive(Component, Debug)]
@@ -159,6 +158,16 @@ struct FoundationGeneratedMenuUi;
 #[derive(Component, Debug)]
 struct FoundationOptionsTabButton {
     tab: usize,
+}
+
+#[derive(Component, Debug)]
+struct FoundationOptionsSettingLabel {
+    index: usize,
+}
+
+#[derive(Component, Debug)]
+struct FoundationOptionsSettingValue {
+    index: usize,
 }
 
 const OPTIONS_TABS: [&str; 4] = ["Gameplay", "Display", "Graphics", "Accessibility"];
@@ -171,17 +180,14 @@ fn initialize_options_menus(
     >,
 ) {
     for (menu_entity, menu, scene_owner) in &menus {
-        let Some(content) =
-            spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
-        else {
+        if spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
+            .is_none()
+        {
             continue;
-        };
+        }
         commands
             .entity(menu_entity)
-            .insert(FoundationOptionsRuntime {
-                active_tab: 0,
-                content,
-            });
+            .insert(FoundationOptionsRuntime { active_tab: 0 });
     }
 }
 
@@ -213,13 +219,18 @@ fn spawn_options_menu_children(
         .id();
     insert_owner(commands, tabs, scene_owner);
 
-    for (index, label) in OPTIONS_TABS.iter().enumerate() {
-        let tab = spawn_button(commands, label, scene_owner);
-        commands
-            .entity(tab)
-            .insert(FoundationOptionsTabButton { tab: index });
-        commands.entity(tabs).add_child(tab);
-    }
+    let tab_buttons = OPTIONS_TABS
+        .iter()
+        .enumerate()
+        .map(|(index, label)| {
+            let tab = spawn_button(commands, label, scene_owner);
+            commands
+                .entity(tab)
+                .insert(FoundationOptionsTabButton { tab: index });
+            tab
+        })
+        .collect::<Vec<_>>();
+    commands.entity(tabs).replace_children(&tab_buttons);
 
     let content = commands
         .spawn((
@@ -243,10 +254,7 @@ fn spawn_options_menu_children(
 
     commands
         .entity(parent)
-        .add_child(title)
-        .add_child(tabs)
-        .add_child(content)
-        .add_child(back);
+        .replace_children(&[title, tabs, content, back]);
 
     Some(content)
 }
@@ -265,9 +273,7 @@ fn spawn_placeholder_menu_children(
         .insert(FoundationMenuButton::close_current());
     commands
         .entity(parent)
-        .add_child(title)
-        .add_child(body)
-        .add_child(back);
+        .replace_children(&[title, body, back]);
 }
 
 fn spawn_setting_rows(
@@ -277,6 +283,7 @@ fn spawn_setting_rows(
     scene_owner: Option<SceneOwner>,
 ) {
     let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
+    let mut rows = Vec::new();
     for index in 1..=5 {
         let row = commands
             .spawn((
@@ -299,10 +306,17 @@ fn spawn_setting_rows(
             22.0,
             scene_owner,
         );
+        commands
+            .entity(label)
+            .insert(FoundationOptionsSettingLabel { index });
         let value = spawn_text(commands, &format!("< Value {index} >"), 22.0, scene_owner);
-        commands.entity(row).add_child(label).add_child(value);
-        commands.entity(content).add_child(row);
+        commands
+            .entity(value)
+            .insert(FoundationOptionsSettingValue { index });
+        commands.entity(row).replace_children(&[label, value]);
+        rows.push(row);
     }
+    commands.entity(content).replace_children(&rows);
 }
 
 fn spawn_button(commands: &mut Commands, label: &str, scene_owner: Option<SceneOwner>) -> Entity {
@@ -448,11 +462,31 @@ type GeneratedMenuUiWithoutOwnerQuery<'w, 's> = Query<
     (With<FoundationGeneratedMenuUi>, Without<SceneOwner>),
 >;
 
+type OptionsSettingLabelQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static mut Text,
+        &'static FoundationOptionsSettingLabel,
+        Option<&'static SceneOwner>,
+    ),
+>;
+
+type OptionsSettingValueQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static mut Text,
+        &'static FoundationOptionsSettingValue,
+        Option<&'static SceneOwner>,
+    ),
+>;
+
 fn update_options_tab_button_interactions(
-    mut commands: Commands,
     mut buttons: OptionsTabInteractionQuery,
     mut menus: Query<(&mut FoundationOptionsRuntime, Option<&SceneOwner>)>,
-    children: Query<&Children>,
+    mut labels: OptionsSettingLabelQuery,
+    mut values: OptionsSettingValueQuery,
 ) {
     for (interaction, tab_button, mut background) in &mut buttons {
         let mut selected = false;
@@ -460,16 +494,11 @@ fn update_options_tab_button_interactions(
             for (mut runtime, scene_owner) in &mut menus {
                 runtime.active_tab = tab_button.tab;
                 selected = true;
-                if let Ok(content_children) = children.get(runtime.content) {
-                    for child in content_children.iter() {
-                        commands.entity(child).despawn();
-                    }
-                }
-                spawn_setting_rows(
-                    &mut commands,
-                    runtime.content,
+                update_setting_texts(
                     tab_button.tab,
                     scene_owner.copied(),
+                    &mut labels,
+                    &mut values,
                 );
             }
         }
@@ -480,6 +509,34 @@ fn update_options_tab_button_interactions(
             Interaction::None if selected => SELECTED_BUTTON,
             Interaction::None => NORMAL_BUTTON,
         };
+    }
+}
+
+fn update_setting_texts(
+    tab: usize,
+    scene_owner: Option<SceneOwner>,
+    labels: &mut OptionsSettingLabelQuery,
+    values: &mut OptionsSettingValueQuery,
+) {
+    let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
+    for (mut text, label, owner) in labels.iter_mut() {
+        if scene_owners_match(scene_owner, owner.copied()) {
+            text.0 = format!("{tab_name} Property {}", label.index);
+        }
+    }
+    for (mut text, value, owner) in values.iter_mut() {
+        if scene_owners_match(scene_owner, owner.copied()) {
+            text.0 = format!("< Value {} >", value.index);
+        }
+    }
+}
+
+fn scene_owners_match(expected: Option<SceneOwner>, actual: Option<SceneOwner>) -> bool {
+    match (expected, actual) {
+        (Some(expected), Some(actual)) => expected == actual,
+        (None, None) => true,
+        (None, Some(_)) => true,
+        (Some(_), None) => false,
     }
 }
 

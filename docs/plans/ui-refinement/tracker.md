@@ -10,7 +10,7 @@
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance`
+- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance after follow-up fix`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 
@@ -211,6 +211,7 @@
 - User clarified that game-agnostic code should go in FoundationLibrary, and the game should mostly receive assets unless that is not possible.
 - Load-game Escape close was implemented for consistency.
 - Initial validation issue: `scripts/validate-project.cmd` failed on `clippy::type_complexity` for `GeneratedMenuUiWithoutOwnerQuery`; fixed by adding the type alias and rerunning successfully.
+- User reported follow-up UI issues: generated load-game/options scene elements can change vertical order each time the scene opens, and options tab changes have an undesirable flash. Follow-up fixed by replacing generated menu child lists in deterministic order and updating existing option setting text in place instead of despawning/recreating rows on tab changes.
 
 ## Postponed Work
 - Real gameplay settings persistence is postponed; options values are intentionally dummy placeholders.
@@ -229,3 +230,5 @@
 - `2026-06-20`: First full validation failed on `clippy::type_complexity` in `crates/foundation-library/src/menu.rs`; added `GeneratedMenuUiWithoutOwnerQuery` alias.
 - `2026-06-20`: Full validation passed with `scripts/validate-project.cmd`. Manual UI smoke tests were not run in the non-interactive harness.
 - `2026-06-20`: Implementation committed and pushed to `origin/feature/ui-refinement` as `7d4ec8b`.
+- `2026-06-20`: User reported unstable vertical ordering in load-game/options scenes and tab-change flash; follow-up implementation started with `gpt-5.4` on `feature/ui-refinement`.
+- `2026-06-20`: Fixed generated menu child ordering with explicit `replace_children` calls and removed tab-change flash by updating existing setting row text in place. Full validation passed again with `scripts/validate-project.cmd`.
