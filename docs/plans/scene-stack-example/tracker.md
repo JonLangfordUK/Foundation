@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, and editor play integration commits pushed to `origin/feature/scene-stack-example`; editor current-scene support commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, and editor current-scene support commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -301,3 +301,4 @@
 - `2026-06-20`: User clarified editor Play should start from whichever `.jsn` scene is open, so `splash_bevy.jsn` can continue to `main_menu.jsn`, and editor UI must never be removed by the scene stack.
 - `2026-06-20`: Implemented editor current-scene detection from `SceneFilePath`; known TemplateGame scenes now start at the opened scene during Play while scene-stack ownership remains limited to runtime-spawned scene entities.
 - `2026-06-20`: Current-scene editor support validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
+- `2026-06-20`: Editor current-scene support commit `dff4c76` pushed to `origin/feature/scene-stack-example`.
