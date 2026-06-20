@@ -251,7 +251,11 @@ type EditorViewportCameraWriteQuery<'w, 's> =
 type EditorRuntimeCameraQuery<'w, 's> = Query<
     'w,
     's,
-    (Entity, &'static mut Camera),
+    (
+        Entity,
+        &'static mut Camera,
+        Option<&'static mut RenderTarget>,
+    ),
     (
         With<SceneOwner>,
         Without<jackdaw::viewport::MainViewportCamera>,
@@ -361,10 +365,7 @@ fn target_editor_open_scene_ui_roots_to_viewport(
     };
 
     for (root, child_of) in &roots {
-        commands.entity(root).remove::<UiTargetCamera>();
-        if root != viewport_parent && child_of.map(|parent| parent.0) != Some(viewport_parent) {
-            commands.entity(viewport_parent).add_child(root);
-        }
+        safely_parent_ui_root_to_viewport(&mut commands, root, child_of, viewport_parent);
     }
 }
 
@@ -381,10 +382,7 @@ fn target_editor_authored_gameplay_ui_roots(
 
     if let Some(viewport_parent) = viewport_parent {
         for (root, child_of) in &roots {
-            commands.entity(root).remove::<UiTargetCamera>();
-            if root != viewport_parent && child_of.map(|parent| parent.0) != Some(viewport_parent) {
-                commands.entity(viewport_parent).add_child(root);
-            }
+            safely_parent_ui_root_to_viewport(&mut commands, root, child_of, viewport_parent);
         }
         return;
     }
@@ -400,6 +398,28 @@ fn target_editor_authored_gameplay_ui_roots(
     for (root, _) in &roots {
         commands.entity(root).insert(UiTargetCamera(target_camera));
     }
+}
+
+fn safely_parent_ui_root_to_viewport(
+    commands: &mut Commands,
+    root: Entity,
+    current_parent: Option<&ChildOf>,
+    viewport_parent: Entity,
+) {
+    if root == viewport_parent || current_parent.map(|parent| parent.0) == Some(viewport_parent) {
+        return;
+    }
+
+    commands.queue(move |world: &mut World| {
+        if world.get_entity(root).is_err() || world.get_entity(viewport_parent).is_err() {
+            return;
+        }
+
+        if let Ok(mut root_entity) = world.get_entity_mut(root) {
+            root_entity.remove::<UiTargetCamera>();
+            root_entity.insert(ChildOf(viewport_parent));
+        }
+    });
 }
 
 #[cfg(feature = "editor")]
@@ -556,11 +576,15 @@ fn target_editor_runtime_cameras_to_viewport(
     let mut has_runtime_camera = false;
     {
         let mut runtime_cameras = cameras.p2();
-        for (entity, mut camera) in &mut runtime_cameras {
+        for (index, (entity, mut camera, render_target)) in runtime_cameras.iter_mut().enumerate() {
             has_runtime_camera = true;
-            commands.entity(entity).insert(target.clone());
-            camera.order = order;
-            camera.is_active = true;
+            camera.order = order + index as isize;
+            camera.is_active = index == 0 && render_target.is_some();
+            if let Some(mut render_target) = render_target {
+                *render_target = target.clone();
+            } else {
+                commands.entity(entity).insert(target.clone());
+            }
         }
     }
 
@@ -907,8 +931,7 @@ fn attach_gameplay_ui_root(
     ui_parent: Option<Entity>,
 ) {
     if let Some(ui_parent) = ui_parent {
-        commands.entity(root).remove::<UiTargetCamera>();
-        commands.entity(ui_parent).add_child(root);
+        safely_parent_ui_root_to_viewport(commands, root, None, ui_parent);
     } else if let Some(ui_target_camera) = ui_target_camera {
         commands
             .entity(root)
