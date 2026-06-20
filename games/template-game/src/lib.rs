@@ -75,6 +75,7 @@ impl Plugin for TemplateGamePlugin {
                 (
                     spawn_requested_jackdaw_scenes,
                     detach_scene_stack_ui_roots,
+                    update_scene_stack_ui_root_z_indices,
                     complete_authored_ui_text_components,
                     initialize_fullscreen_backgrounds,
                     cleanup_orphaned_fullscreen_backgrounds,
@@ -92,6 +93,7 @@ impl Plugin for TemplateGamePlugin {
             (
                 spawn_requested_jackdaw_scenes,
                 detach_scene_stack_ui_roots,
+                update_scene_stack_ui_root_z_indices,
                 complete_authored_ui_text_components,
                 initialize_fullscreen_backgrounds,
                 cleanup_orphaned_fullscreen_backgrounds,
@@ -519,6 +521,29 @@ fn detach_scene_stack_ui_roots(
     for (root, child_of) in &roots {
         if let Ok(owner) = owners.get(child_of.0) {
             commands.entity(root).insert(*owner).remove::<ChildOf>();
+        }
+    }
+}
+
+type SceneStackUiRootZIndexQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static SceneOwner, Has<GlobalZIndex>),
+    (
+        With<TemplateGameplayUiRoot>,
+        Without<GeneratedFullscreenBackground>,
+    ),
+>;
+
+fn update_scene_stack_ui_root_z_indices(
+    mut commands: Commands,
+    roots: SceneStackUiRootZIndexQuery,
+) {
+    for (root, owner, has_global_z_index) in &roots {
+        if !has_global_z_index {
+            commands
+                .entity(root)
+                .insert(GlobalZIndex(owner.scene_id.0.saturating_mul(10) as i32));
         }
     }
 }
