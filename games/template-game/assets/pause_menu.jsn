@@ -20,14 +20,6 @@
   "scene": [
     {
       "components": {
-        "bevy_ui::ui_node::BackgroundColor": {
-          "Srgba": {
-            "alpha": 1.0,
-            "blue": 0.03999999910593033,
-            "green": 0.02500000037252903,
-            "red": 0.019999999552965164
-          }
-        },
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",

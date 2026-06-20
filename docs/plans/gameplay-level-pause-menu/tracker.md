@@ -186,6 +186,7 @@
 - `2026-06-20`: Added `FoundationMenuButton::open_overlay_scene` / `open_overlay_scene` action and updated pause-menu Options to use it for `options_menu.jsn`. Full validation passed with `scripts/validate-project.cmd`.
 - `2026-06-20`: User reported pause Options still does not appear; investigated stack scene UI root z-order.
 - `2026-06-20`: Added `update_scene_stack_ui_root_z_indices` so later stack UI scenes render above earlier ones while preserving explicitly authored z-indices such as the splash background. Full validation passed with `scripts/validate-project.cmd`.
+- `2026-06-20`: User asked to remove the pause menu background; removed the root `BackgroundColor` from `pause_menu.jsn` while preserving button backgrounds.
 - `2026-06-20`: User reported repeated Bevy camera order ambiguity warnings; investigated default UI camera vs gameplay camera ordering.
 - `2026-06-20`: Updated standalone `Camera2d` to order 100 and no clear color to avoid conflict with gameplay `Camera3d` order 0. Full validation passed with `scripts/validate-project.cmd`. A short `cargo run` smoke command was attempted but timed out during relink after 10s, so runtime warning verification remains manual.
 - `2026-06-20`: User reported repeated `Entity despawned` warnings from queued despawn commands; investigated scene-owned cleanup recursion.
