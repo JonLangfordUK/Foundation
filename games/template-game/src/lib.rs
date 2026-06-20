@@ -34,6 +34,8 @@ impl Plugin for TemplateGamePlugin {
                     initialize_fullscreen_backgrounds,
                     cleanup_orphaned_fullscreen_backgrounds,
                     initialize_main_menus,
+                    advance_main_menu_prompt,
+                    update_main_menu_button_interactions,
                     spin_cube.run_if(play_gate::is_playing),
                 ),
             );
@@ -70,6 +72,28 @@ struct GeneratedFullscreenBackground {
     source: Entity,
 }
 
+#[derive(Component)]
+struct TemplateMainMenuRuntime {
+    root: Entity,
+    state: TemplateMainMenuState,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TemplateMainMenuState {
+    Prompt,
+    Buttons,
+}
+
+#[derive(Component)]
+struct TemplateMenuButton;
+
+type MenuButtonInteractionQuery<'w, 's> = Query<
+    'w,
+    's,
+    (&'static Interaction, &'static mut BackgroundColor),
+    (Changed<Interaction>, With<TemplateMenuButton>),
+>;
+
 /// Marker for TemplateGame's example main menu scene.
 ///
 /// The marker is authored in the main-menu `.jsn` file. Runtime game code uses
@@ -87,8 +111,8 @@ pub struct TemplateMainMenu {
 impl Default for TemplateMainMenu {
     fn default() -> Self {
         Self {
-            title: "Main Menu".to_string(),
-            hint: "Scene stack reset complete".to_string(),
+            title: "Template Game".to_string(),
+            hint: "Press any button".to_string(),
         }
     }
 }
@@ -189,40 +213,141 @@ fn initialize_main_menus(
     menus: Query<(Entity, &TemplateMainMenu), Added<TemplateMainMenu>>,
 ) {
     for (menu_entity, menu) in &menus {
-        let title = commands
-            .spawn((
-                Text::new(menu.title.clone()),
-                TextFont::from_font_size(64.0),
-                TextColor(Color::WHITE),
-            ))
-            .id();
-        let hint = commands
-            .spawn((
-                Text::new(menu.hint.clone()),
-                TextFont::from_font_size(24.0),
-                TextColor(Color::srgb(0.75, 0.8, 1.0)),
-            ))
-            .id();
-
-        let ui_root = commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(16.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
-            ))
-            .add_child(title)
-            .add_child(hint)
-            .id();
-
-        commands.entity(menu_entity).add_child(ui_root);
+        let ui_root = spawn_main_menu_prompt(&mut commands, menu);
+        commands
+            .entity(menu_entity)
+            .insert(TemplateMainMenuRuntime {
+                root: ui_root,
+                state: TemplateMainMenuState::Prompt,
+            });
     }
+}
+
+fn advance_main_menu_prompt(
+    mut commands: Commands,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    gamepad: Option<Res<ButtonInput<GamepadButton>>>,
+    mut menus: Query<(&TemplateMainMenu, &mut TemplateMainMenuRuntime)>,
+) {
+    if !any_button_just_pressed(&keyboard, &mouse, gamepad.as_deref()) {
+        return;
+    }
+
+    for (_menu, mut runtime) in &mut menus {
+        if runtime.state != TemplateMainMenuState::Prompt {
+            continue;
+        }
+
+        commands.entity(runtime.root).despawn();
+        runtime.root = spawn_main_menu_buttons(&mut commands);
+        runtime.state = TemplateMainMenuState::Buttons;
+    }
+}
+
+fn update_main_menu_button_interactions(mut buttons: MenuButtonInteractionQuery) {
+    for (interaction, mut background) in &mut buttons {
+        background.0 = match *interaction {
+            Interaction::Pressed => Color::srgb(0.45, 0.50, 0.85),
+            Interaction::Hovered => Color::srgb(0.28, 0.32, 0.62),
+            Interaction::None => Color::srgb(0.12, 0.14, 0.25),
+        };
+    }
+}
+
+fn any_button_just_pressed(
+    keyboard: &ButtonInput<KeyCode>,
+    mouse: &ButtonInput<MouseButton>,
+    gamepad: Option<&ButtonInput<GamepadButton>>,
+) -> bool {
+    keyboard.get_just_pressed().next().is_some()
+        || mouse.get_just_pressed().next().is_some()
+        || gamepad.is_some_and(|gamepad| gamepad.get_just_pressed().next().is_some())
+}
+
+fn spawn_main_menu_prompt(commands: &mut Commands, menu: &TemplateMainMenu) -> Entity {
+    let title = commands
+        .spawn((
+            Text::new(menu.title.clone()),
+            TextFont::from_font_size(72.0),
+            TextColor(Color::WHITE),
+        ))
+        .id();
+    let hint = commands
+        .spawn((
+            Text::new(menu.hint.clone()),
+            TextFont::from_font_size(24.0),
+            TextColor(Color::srgb(0.75, 0.8, 1.0)),
+        ))
+        .id();
+
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(20.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
+        ))
+        .add_child(title)
+        .add_child(hint)
+        .id()
+}
+
+fn spawn_main_menu_buttons(commands: &mut Commands) -> Entity {
+    let root = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(18.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
+        ))
+        .id();
+
+    for label in ["New Game", "Load Game", "Options", "Quit"] {
+        let button = spawn_menu_button(commands, label);
+        commands.entity(root).add_child(button);
+    }
+
+    root
+}
+
+fn spawn_menu_button(commands: &mut Commands, label: &str) -> Entity {
+    let text = commands
+        .spawn((
+            Text::new(label),
+            TextFont::from_font_size(28.0),
+            TextColor(Color::WHITE),
+        ))
+        .id();
+
+    commands
+        .spawn((
+            Button,
+            Node {
+                width: Val::Px(260.0),
+                height: Val::Px(56.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(Val::Px(8.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.12, 0.14, 0.25)),
+            TemplateMenuButton,
+        ))
+        .add_child(text)
+        .id()
 }
 
 /// Spin-rate in radians per second. Attach in the inspector while authoring.
@@ -287,6 +412,13 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn default_main_menu_starts_with_template_game_prompt() {
+        let menu = TemplateMainMenu::default();
+        assert_eq!(menu.title, "Template Game");
+        assert_eq!(menu.hint, "Press any button");
     }
 
     #[test]

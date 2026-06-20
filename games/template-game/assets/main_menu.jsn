@@ -18,8 +18,8 @@
       "components": {
         "bevy_ecs::name::Name": "Example Main Menu",
         "template_game::TemplateMainMenu": {
-          "title": "Main Menu",
-          "hint": "Scene stack reset complete"
+          "title": "Template Game",
+          "hint": "Press any button"
         }
       }
     }

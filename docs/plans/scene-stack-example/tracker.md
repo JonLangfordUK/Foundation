@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Follow-up implemented; validation passed`
+- Overall status: `Main menu stub implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Follow-up implementation complete with gpt-5.4; ready for user verification`
+- Current handoff state: `Main menu stub implementation complete with gpt-5.4; ready for user verification`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
@@ -162,6 +162,34 @@
 ### Notes
 - This is a follow-up to the initial implementation after the user observed a flash between splash screens.
 
+## Phase 5: Template Game Prompt And Stub Main Menu
+**Status:** Complete  
+**Goal:** Replace the placeholder main menu with a Template Game prompt screen that advances on any keyboard, mouse, or gamepad button, then shows four hoverable stub buttons.
+
+### Tasks
+- [x] Update the main-menu `.jsn` data to show `Template Game` and `Press any button` prompt text.
+  - Status: Complete
+  - Notes: Updated `games/template-game/assets/main_menu.jsn` and `TemplateMainMenu::default()`.
+- [x] Add main-menu prompt-to-buttons transition on any keyboard, mouse, or gamepad button press.
+  - Status: Complete
+  - Notes: Added prompt state transition using keyboard, mouse, and optional gamepad button input. Gamepad input resource is optional because manual launch showed it can be absent.
+- [x] Add four main menu buttons with hover visual support: `New Game`, `Load Game`, `Options`, `Quit`.
+  - Status: Complete
+  - Notes: Added stub Bevy UI buttons with normal, hovered, and pressed colors. Buttons intentionally have no actions yet.
+
+### Validation
+- Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/test-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Manual launch check: Passed startup smoke check; `timeout 30s cargo run -p template-game` opened the window and logged no system errors after making gamepad input optional
+- User confirmation: Pending final user acceptance
+
+### Notes
+- This is a follow-up requested after the splash/background behavior was accepted.
+
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
 - Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
@@ -200,3 +228,7 @@
 - `2026-06-20`: User still saw debug-blue clear color, indicating the black background UI was likely not stretching/rendering as intended while parented under the Jackdaw scene entity. Changed generated fullscreen background UI to be a top-level UI root with orphan cleanup tied to the source marker entity.
 - `2026-06-20`: Detached background root adjustment validation passed via `scripts/test-project.cmd` and full `scripts/validate-project.cmd`; manual startup check opened the game window without scene-load errors.
 - `2026-06-20`: Detached background root adjustment commit `02a4506` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User accepted splash/background behavior and requested a Template Game prompt screen that advances on any keyboard, mouse, or gamepad button to a stub main menu with hoverable New Game, Load Game, Options, and Quit buttons.
+- `2026-06-20`: Implemented Template Game prompt, any-button prompt transition, and four hoverable stub main menu buttons.
+- `2026-06-20`: First manual launch showed `ButtonInput<GamepadButton>` may be absent; changed gamepad input to `Option<Res<ButtonInput<GamepadButton>>>` and reran validation/manual launch successfully.
+- `2026-06-20`: Main menu stub validation passed via `scripts/validate-project.cmd`; manual startup smoke check opened the game window without system errors.
