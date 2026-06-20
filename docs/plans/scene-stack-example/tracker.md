@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Implemented; validation passed`
+- Overall status: `Follow-up implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation complete with gpt-5.4; ready for optional gpt-5.5 sanity review`
+- Current handoff state: `Follow-up implementation complete with gpt-5.4; ready for user verification`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
@@ -131,6 +131,37 @@
   ```
 - Default total splash time before main menu is `10.0s`.
 
+## Phase 4: Persistent Splash Background And Debug Clear Color
+**Status:** Complete  
+**Goal:** Remove flashes between splash screens by keeping a persistent background scene under non-covering splash UI overlays and make the game clear color visible for debugging.
+
+### Tasks
+- [x] Add a startup background `.jsn` scene that fills the screen before splash overlays.
+  - Status: Complete
+  - Notes: Added `games/template-game/assets/splash_background.jsn` with `TemplateFullscreenBackground` and startup now opens this fullscreen scene before the Pixel Perfect splash.
+- [x] Change splash scene presentation so splash screens do not hide the background but still prevent interaction.
+  - Status: Complete
+  - Notes: Initial and splash-to-splash transitions now use `ScenePresentation::INPUT_BLOCKING_OVERLAY` for splash scenes.
+- [x] Remove the generated splash UI background fill so splash scenes only contribute their own UI text.
+  - Status: Complete
+  - Notes: Foundation splash UI root no longer spawns `BackgroundColor`; the persistent background scene is responsible for the fill.
+- [x] Set the game fallback clear color to debug blue for now.
+  - Status: Complete
+  - Notes: Standalone TemplateGame inserts `ClearColor(Color::srgb(0.0, 0.0, 1.0))` with a comment noting black is the intended normal fallback.
+
+### Validation
+- Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/test-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Manual launch check: Passed startup smoke check; `timeout 30s cargo run -p template-game` opened the window and logged no scene-load errors before intentional timeout termination
+- User confirmation: Pending final user acceptance
+
+### Notes
+- This is a follow-up to the initial implementation after the user observed a flash between splash screens.
+
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
 - Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
@@ -158,3 +189,6 @@
 - `2026-06-20`: Manual startup smoke check opened the TemplateGame window and Jackdaw runtime without logged scene-load errors before intentional timeout termination.
 - `2026-06-20`: Implementation commit `9275efd` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: Tracker push-status commit `1508d61` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User observed a flash between splash screens and requested a debug-blue game fallback clear color plus a persistent background scene under non-covering splash UI overlays; follow-up implementation started with `gpt-5.4`.
+- `2026-06-20`: Added persistent `splash_background.jsn`, `TemplateFullscreenBackground`, overlay splash presentations, transparent splash UI roots, and debug-blue standalone game clear color.
+- `2026-06-20`: Follow-up validation passed via `scripts/test-project.cmd` and full `scripts/validate-project.cmd`; manual startup smoke check passed with intentional timeout termination.

@@ -8,6 +8,8 @@ use bevy::prelude::*;
 use foundation_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
+/// Jackdaw scene path for the persistent startup background.
+pub const SPLASH_BACKGROUND_SCENE: &str = "splash_background.jsn";
 /// Jackdaw scene path for the first startup splash screen.
 pub const PIXEL_PERFECT_SPLASH_SCENE: &str = "splash_pixel_perfect.jsn";
 /// Jackdaw scene path for the second startup splash screen.
@@ -22,16 +24,43 @@ pub struct TemplateGamePlugin;
 impl Plugin for TemplateGamePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<SpinningCube>()
+            .register_type::<TemplateFullscreenBackground>()
             .register_type::<TemplateMainMenu>()
             .add_systems(Startup, open_initial_scene)
             .add_systems(
                 Update,
                 (
                     spawn_requested_jackdaw_scenes,
+                    initialize_fullscreen_backgrounds,
                     initialize_main_menus,
                     spin_cube.run_if(play_gate::is_playing),
                 ),
             );
+    }
+}
+
+/// Marker for a TemplateGame full-screen background scene.
+///
+/// This is authored in `.jsn` so splash screens can be transparent UI overlays
+/// above a persistent scene-stack background.
+#[derive(Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("TemplateGame"))]
+pub struct TemplateFullscreenBackground {
+    /// Red channel in sRGB color space.
+    pub red: f32,
+    /// Green channel in sRGB color space.
+    pub green: f32,
+    /// Blue channel in sRGB color space.
+    pub blue: f32,
+}
+
+impl Default for TemplateFullscreenBackground {
+    fn default() -> Self {
+        Self {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+        }
     }
 }
 
@@ -58,18 +87,28 @@ impl Default for TemplateMainMenu {
     }
 }
 
-/// Creates the startup scene-stack command for TemplateGame.
-pub fn initial_scene_command() -> SceneCommand {
-    SceneCommand::open_with_options(
-        SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
-        OpenSceneOptions::default()
-            .with_key("pixel-perfect-splash")
-            .with_presentation(ScenePresentation::FULLSCREEN),
-    )
+/// Creates the startup scene-stack commands for TemplateGame.
+pub fn initial_scene_commands() -> [SceneCommand; 2] {
+    [
+        SceneCommand::open_with_options(
+            SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
+            OpenSceneOptions::default()
+                .with_key("splash-background")
+                .with_presentation(ScenePresentation::FULLSCREEN),
+        ),
+        SceneCommand::open_with_options(
+            SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
+            OpenSceneOptions::default()
+                .with_key("pixel-perfect-splash")
+                .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
+        ),
+    ]
 }
 
 fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
-    scene_commands.write(initial_scene_command());
+    for command in initial_scene_commands() {
+        scene_commands.write(command);
+    }
 }
 
 fn spawn_requested_jackdaw_scenes(
@@ -88,6 +127,33 @@ fn spawn_requested_jackdaw_scenes(
                 scene_id: request.scene_id,
             },
         ));
+    }
+}
+
+fn initialize_fullscreen_backgrounds(
+    mut commands: Commands,
+    backgrounds: Query<
+        (Entity, &TemplateFullscreenBackground),
+        Added<TemplateFullscreenBackground>,
+    >,
+) {
+    for (background_entity, background) in &backgrounds {
+        let ui_root = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(
+                    background.red,
+                    background.green,
+                    background.blue,
+                )),
+            ))
+            .id();
+
+        commands.entity(background_entity).add_child(ui_root);
     }
 }
 
@@ -169,21 +235,30 @@ mod tests {
 
     #[test]
     fn scene_paths_match_stack_example_assets() {
+        assert_eq!(SPLASH_BACKGROUND_SCENE, "splash_background.jsn");
         assert_eq!(PIXEL_PERFECT_SPLASH_SCENE, "splash_pixel_perfect.jsn");
         assert_eq!(BEVY_SPLASH_SCENE, "splash_bevy.jsn");
         assert_eq!(MAIN_MENU_SCENE, "main_menu.jsn");
     }
 
     #[test]
-    fn initial_scene_command_opens_pixel_perfect_splash() {
+    fn initial_scene_commands_open_background_then_pixel_perfect_splash() {
         assert_eq!(
-            initial_scene_command(),
-            SceneCommand::Open {
-                source: SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
-                options: OpenSceneOptions::default()
-                    .with_key("pixel-perfect-splash")
-                    .with_presentation(ScenePresentation::FULLSCREEN),
-            }
+            initial_scene_commands(),
+            [
+                SceneCommand::Open {
+                    source: SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
+                    options: OpenSceneOptions::default()
+                        .with_key("splash-background")
+                        .with_presentation(ScenePresentation::FULLSCREEN),
+                },
+                SceneCommand::Open {
+                    source: SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
+                    options: OpenSceneOptions::default()
+                        .with_key("pixel-perfect-splash")
+                        .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
+                },
+            ]
         );
     }
 
@@ -197,6 +272,7 @@ mod tests {
             .world()
             .resource::<bevy::ecs::reflect::AppTypeRegistry>()
             .read();
+        assert!(registry.contains(std::any::TypeId::of::<TemplateFullscreenBackground>()));
         assert!(registry.contains(std::any::TypeId::of::<TemplateMainMenu>()));
     }
 }

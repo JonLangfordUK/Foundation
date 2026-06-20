@@ -81,8 +81,8 @@ impl FoundationSplashScreen {
                     .with_presentation(ScenePresentation::FULLSCREEN),
             })
         } else {
-            let mut options =
-                OpenSceneOptions::default().with_presentation(ScenePresentation::FULLSCREEN);
+            let mut options = OpenSceneOptions::default()
+                .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY);
             if self.replace_current_scene {
                 options = options.close_current();
             }
@@ -167,7 +167,6 @@ fn initialize_splash_screens(
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BackgroundColor(Color::BLACK),
                 FoundationSplashGeneratedUi,
             ))
             .add_child(text_entity)
@@ -276,7 +275,7 @@ mod tests {
             Some(SceneCommand::Open {
                 source: SceneSource::jsn_level("splash_bevy.jsn"),
                 options: OpenSceneOptions::default()
-                    .with_presentation(ScenePresentation::FULLSCREEN)
+                    .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY)
                     .close_current(),
             })
         );

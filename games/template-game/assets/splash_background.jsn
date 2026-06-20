@@ -1,0 +1,28 @@
+{
+  "jsn": {
+    "format_version": [3, 0, 0],
+    "editor_version": "0.4.1",
+    "bevy_version": "0.18"
+  },
+  "metadata": {
+    "name": "Splash Background",
+    "description": "Persistent black background scene shown under startup splash UI overlays.",
+    "author": "",
+    "created": "2026-06-20T00:00:00Z",
+    "modified": "2026-06-20T00:00:00Z"
+  },
+  "assets": {},
+  "editor": null,
+  "scene": [
+    {
+      "components": {
+        "bevy_ecs::name::Name": "Splash Background",
+        "template_game::TemplateFullscreenBackground": {
+          "red": 0.0,
+          "green": 0.0,
+          "blue": 0.0
+        }
+      }
+    }
+  ]
+}
