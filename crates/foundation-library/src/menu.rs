@@ -27,6 +27,7 @@ impl Plugin for FoundationMenuPlugin {
             .register_type::<FoundationCloseOnEscape>()
             .register_type::<FoundationPauseOpener>()
             .register_type::<FoundationSimpleGameplayLevel>()
+            .register_type::<FoundationSpin>()
             .register_type::<FoundationUiOrder>()
             .register_type::<FoundationPauseState>()
             .add_systems(
@@ -36,6 +37,7 @@ impl Plugin for FoundationMenuPlugin {
                     initialize_options_menus,
                     initialize_placeholder_menus,
                     open_pause_menus,
+                    spin_foundation_entities.run_if(foundation_is_not_paused),
                     update_foundation_menu_button_interactions,
                     update_options_tab_button_interactions,
                     inherit_scene_owner_to_generated_menu_ui,
@@ -243,6 +245,22 @@ impl Default for FoundationSimpleGameplayLevel {
     }
 }
 
+/// Rotates an entity around its local Y axis while Foundation gameplay is not paused.
+#[derive(Clone, Copy, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Gameplay"))]
+pub struct FoundationSpin {
+    /// Rotation speed around the Y axis, in radians per second.
+    pub radians_per_second: f32,
+}
+
+impl Default for FoundationSpin {
+    fn default() -> Self {
+        Self {
+            radians_per_second: 1.0,
+        }
+    }
+}
+
 #[derive(Component, Debug)]
 struct FoundationGeneratedGameplayLevel;
 
@@ -305,6 +323,7 @@ fn initialize_simple_gameplay_levels(
                     ..default()
                 })),
                 Transform::from_xyz(0.0, level.cube_size * 0.5, 0.0),
+                FoundationSpin::default(),
                 FoundationGeneratedGameplayLevel,
                 Name::new("Foundation Gameplay Cube"),
             ))
@@ -338,6 +357,16 @@ fn initialize_simple_gameplay_levels(
         commands
             .entity(level_entity)
             .add_children(&[cube, light, camera]);
+    }
+}
+
+fn spin_foundation_entities(
+    time: Res<Time>,
+    mut spinners: Query<(&FoundationSpin, &mut Transform)>,
+) {
+    let dt = time.delta_secs();
+    for (spin, mut transform) in &mut spinners {
+        transform.rotate_y(spin.radians_per_second * dt);
     }
 }
 
@@ -830,6 +859,11 @@ mod tests {
     #[test]
     fn simple_gameplay_level_defaults_to_two_unit_cube() {
         assert_eq!(FoundationSimpleGameplayLevel::default().cube_size, 2.0);
+    }
+
+    #[test]
+    fn foundation_spin_defaults_to_one_radian_per_second() {
+        assert_eq!(FoundationSpin::default().radians_per_second, 1.0);
     }
 
     #[test]
