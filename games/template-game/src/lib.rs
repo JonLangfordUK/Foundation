@@ -426,6 +426,7 @@ fn mark_editor_runtime_scene_entity(
 fn target_editor_open_scene_ui_roots_to_viewport(
     mut commands: Commands,
     active_viewport: Option<Res<jackdaw::viewport::ActiveViewport>>,
+    cameras: Query<Entity, With<jackdaw::viewport::MainViewportCamera>>,
     viewports: Query<Entity, With<jackdaw::viewport::SceneViewport>>,
     roots: EditorOpenSceneUiRootTargetQuery,
 ) {
@@ -433,12 +434,26 @@ fn target_editor_open_scene_ui_roots_to_viewport(
         .as_deref()
         .and_then(|viewport| viewport.ui_node)
         .or_else(|| viewports.iter().next());
-    let Some(viewport_parent) = viewport_parent else {
-        return;
-    };
+    let target_camera = active_viewport
+        .as_deref()
+        .and_then(|viewport| viewport.camera)
+        .or_else(|| cameras.iter().next());
 
     for (root, child_of) in &roots {
-        safely_parent_ui_root_to_viewport(&mut commands, root, child_of, viewport_parent);
+        if viewport_parent
+            .is_some_and(|viewport_parent| child_of.map(|parent| parent.0) == Some(viewport_parent))
+        {
+            // Earlier builds parented edit-mode UI roots under the editor viewport.
+            // Jackdaw treats viewport descendants as editor-owned, so scene-open
+            // cleanup can miss those roots and leave stale UI rendered in the
+            // viewport after switching .jsn files. Remove any such legacy roots.
+            commands.entity(root).despawn();
+            continue;
+        }
+
+        if let Some(target_camera) = target_camera {
+            commands.entity(root).insert(UiTargetCamera(target_camera));
+        }
     }
 }
 
@@ -612,6 +627,7 @@ fn editor_scene_key(path: &str) -> &'static str {
 #[cfg(feature = "editor")]
 fn clear_scene_stack(world: &mut World) {
     world.write_message(SceneCommand::Clear);
+    despawn_editor_runtime_scene_entities(world);
     world.insert_resource(FoundationSplashRuntimeSettings {
         enabled: false,
         require_scene_owner: true,
@@ -620,6 +636,28 @@ fn clear_scene_stack(world: &mut World) {
     world.remove_resource::<FoundationSplashUiParent>();
     if let Some(mut pause_state) = world.get_resource_mut::<FoundationPauseState>() {
         pause_state.paused = false;
+    }
+}
+
+#[cfg(feature = "editor")]
+fn despawn_editor_runtime_scene_entities(world: &mut World) {
+    let mut owned_entities = world.query_filtered::<(Entity, Option<&ChildOf>), With<SceneOwner>>();
+    let owned = owned_entities
+        .iter(world)
+        .map(|(entity, parent)| (entity, parent.map(|parent| parent.0)))
+        .collect::<Vec<_>>();
+    let owned_set = owned
+        .iter()
+        .map(|(entity, _)| *entity)
+        .collect::<std::collections::HashSet<_>>();
+
+    for (entity, parent) in owned {
+        if parent.is_some_and(|parent| owned_set.contains(&parent)) {
+            continue;
+        }
+        if let Ok(entity) = world.get_entity_mut(entity) {
+            entity.despawn();
+        }
     }
 }
 
