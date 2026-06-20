@@ -79,6 +79,7 @@ impl Plugin for TemplateGamePlugin {
             Update,
             (
                 spawn_requested_jackdaw_scenes,
+                deactivate_new_editor_runtime_cameras,
                 target_editor_runtime_cameras_to_viewport,
                 detach_scene_stack_ui_roots,
                 update_scene_stack_ui_root_z_indices,
@@ -551,6 +552,13 @@ fn clear_scene_stack(world: &mut World) {
 }
 
 #[cfg(feature = "editor")]
+fn deactivate_new_editor_runtime_cameras(mut cameras: EditorRuntimeCameraQuery) {
+    for (_, mut camera, _) in &mut cameras {
+        camera.is_active = false;
+    }
+}
+
+#[cfg(feature = "editor")]
 fn target_editor_runtime_cameras_to_viewport(
     mut commands: Commands,
     active_viewport: Option<Res<jackdaw::viewport::ActiveViewport>>,
@@ -664,6 +672,9 @@ fn spawn_requested_jackdaw_scenes(
             );
             for entity in spawned {
                 if let Ok(mut entity) = world.get_entity_mut(entity) {
+                    if let Some(mut camera) = entity.get_mut::<Camera>() {
+                        camera.is_active = false;
+                    }
                     entity.insert(SceneOwner { scene_id });
                 }
             }
@@ -774,8 +785,24 @@ fn complete_authored_ui_text_components(
             .into_iter()
             .map(|(child, _)| child)
             .collect::<Vec<_>>();
-        commands.entity(parent).replace_children(&children);
+        safe_replace_children(&mut commands, parent, children);
     }
+}
+
+fn safe_replace_children(commands: &mut Commands, parent: Entity, children: Vec<Entity>) {
+    commands.queue(move |world: &mut World| {
+        if world.get_entity(parent).is_err() {
+            return;
+        }
+
+        let existing_children = children
+            .into_iter()
+            .filter(|child| world.get_entity(*child).is_ok())
+            .collect::<Vec<_>>();
+        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
+            parent_entity.replace_children(&existing_children);
+        }
+    });
 }
 
 fn initialize_fullscreen_backgrounds(
