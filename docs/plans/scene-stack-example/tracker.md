@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, and detached background root adjustment commits pushed to `origin/feature/scene-stack-example`.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, and main menu stub commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -232,3 +232,4 @@
 - `2026-06-20`: Implemented Template Game prompt, any-button prompt transition, and four hoverable stub main menu buttons.
 - `2026-06-20`: First manual launch showed `ButtonInput<GamepadButton>` may be absent; changed gamepad input to `Option<Res<ButtonInput<GamepadButton>>>` and reran validation/manual launch successfully.
 - `2026-06-20`: Main menu stub validation passed via `scripts/validate-project.cmd`; manual startup smoke check opened the game window without system errors.
+- `2026-06-20`: Main menu stub commit `712ed94` pushed to `origin/feature/scene-stack-example`.
