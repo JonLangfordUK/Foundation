@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, and editor current-scene support commits pushed to `origin/feature/scene-stack-example`; editor viewport UI fix commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, and editor viewport UI fix commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -333,3 +333,4 @@
 - `2026-06-20`: User reported that Play from `main_menu.jsn` and other scenes still renders gameplay UI over the whole editor window; gameplay UI should be confined to the Jackdaw viewport.
 - `2026-06-20`: Implemented viewport camera targeting for generated Foundation splash UI and TemplateGame background/menu UI using `UiTargetCamera` with Jackdaw's active/first `MainViewportCamera` during editor Play.
 - `2026-06-20`: Viewport-confined UI fix validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
+- `2026-06-20`: Editor viewport UI fix commit `ea07064` pushed to `origin/feature/scene-stack-example`.
