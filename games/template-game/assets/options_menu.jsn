@@ -158,7 +158,10 @@
         "foundation_library::menu::FoundationOptionsMenu": {
           "title": "Options"
         },
-        "foundation_library::menu::FoundationCloseOnEscape": {}
+        "foundation_library::menu::FoundationCloseOnEscape": {},
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
+        }
       }
     }
   ]

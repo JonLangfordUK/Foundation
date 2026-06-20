@@ -9,8 +9,8 @@
     "bevy_version": "0.18"
   },
   "metadata": {
-    "name": "Example Main Menu",
-    "description": "TemplateGame scene-stack example main menu.",
+    "name": "Pause Menu",
+    "description": "Foundation pause menu with resume, options, quit-to-menu, and quit-game actions.",
     "author": "",
     "created": "2026-06-20T00:00:00Z",
     "modified": "2026-06-20T00:00:00Z"
@@ -20,14 +20,6 @@
   "scene": [
     {
       "components": {
-        "bevy_ui::ui_node::BackgroundColor": {
-          "Srgba": {
-            "alpha": 1.0,
-            "blue": 0.03999999910593033,
-            "green": 0.02500000037252903,
-            "red": 0.019999999552965164
-          }
-        },
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -153,10 +145,7 @@
             "Percent": 100.0
           }
         },
-        "template_game::TemplateMainMenu": {
-          "title": "Main Menu"
-        },
-        "bevy_ecs::name::Name": "Main Menu UI Root",
+        "bevy_ecs::name::Name": "Pause Menu UI Root",
         "template_game::TemplateGameplayUiRoot": {},
         "foundation_library::menu::FoundationUiOrder": {
           "order": 0
@@ -174,7 +163,7 @@
             "red": 1.0
           }
         },
-        "bevy_ui::widget::text::Text": "Main Menu",
+        "bevy_ui::widget::text::Text": "Paused",
         "bevy_text::text::TextFont": {
           "font_features": {
             "features": []
@@ -183,7 +172,7 @@
           "font_smoothing": "AntiAliased",
           "weight": 400
         },
-        "bevy_ecs::name::Name": "Main Menu Title",
+        "bevy_ecs::name::Name": "Pause Menu Title",
         "foundation_library::menu::FoundationUiOrder": {
           "order": 1
         }
@@ -192,7 +181,7 @@
     {
       "parent": 0,
       "components": {
-        "bevy_ecs::name::Name": "New Game Button",
+        "bevy_ecs::name::Name": "Resume Button",
         "bevy_ui::ui_node::BackgroundColor": {
           "Srgba": {
             "alpha": 1.0,
@@ -320,9 +309,9 @@
           }
         },
         "foundation_library::menu::FoundationMenuButton": {
-          "action": "clear_and_open_scene",
-          "scene_path": "gameplay_level.jsn",
-          "scene_key": "gameplay-level"
+          "action": "resume",
+          "scene_path": "",
+          "scene_key": ""
         },
         "foundation_library::menu::FoundationUiOrder": {
           "order": 2
@@ -332,8 +321,8 @@
     {
       "parent": 2,
       "components": {
-        "bevy_ui::widget::text::Text": "New Game",
-        "bevy_ecs::name::Name": "New Game Button Label",
+        "bevy_ui::widget::text::Text": "Resume",
+        "bevy_ecs::name::Name": "Resume Button Label",
         "bevy_text::text::TextFont": {
           "font_features": {
             "features": []
@@ -475,7 +464,7 @@
             "Px": 260.0
           }
         },
-        "bevy_ecs::name::Name": "Load Game Button",
+        "bevy_ecs::name::Name": "Options Button",
         "bevy_ui::widget::button::Button": {},
         "bevy_ui::ui_node::BackgroundColor": {
           "Srgba": {
@@ -486,9 +475,9 @@
           }
         },
         "foundation_library::menu::FoundationMenuButton": {
-          "action": "open_scene",
-          "scene_path": "load_game.jsn",
-          "scene_key": "load-game"
+          "action": "open_overlay_scene",
+          "scene_path": "options_menu.jsn",
+          "scene_key": "options-menu"
         },
         "foundation_library::menu::FoundationUiOrder": {
           "order": 4
@@ -498,7 +487,7 @@
     {
       "parent": 4,
       "components": {
-        "bevy_ecs::name::Name": "Load Game Button Label",
+        "bevy_ecs::name::Name": "Options Button Label",
         "bevy_text::text::TextColor": {
           "LinearRgba": {
             "alpha": 1.0,
@@ -507,7 +496,7 @@
             "red": 1.0
           }
         },
-        "bevy_ui::widget::text::Text": "Load Game",
+        "bevy_ui::widget::text::Text": "Options",
         "bevy_text::text::TextFont": {
           "font_features": {
             "features": []
@@ -650,11 +639,11 @@
             "Px": 260.0
           }
         },
-        "bevy_ecs::name::Name": "Options Button",
+        "bevy_ecs::name::Name": "Quit To Menu Button",
         "foundation_library::menu::FoundationMenuButton": {
-          "action": "open_scene",
-          "scene_path": "options_menu.jsn",
-          "scene_key": "options-menu"
+          "action": "clear_and_open_scene",
+          "scene_path": "main_menu.jsn",
+          "scene_key": "main-menu"
         },
         "foundation_library::menu::FoundationUiOrder": {
           "order": 6
@@ -664,7 +653,7 @@
     {
       "parent": 6,
       "components": {
-        "bevy_ui::widget::text::Text": "Options",
+        "bevy_ui::widget::text::Text": "Quit to Menu",
         "bevy_text::text::TextColor": {
           "LinearRgba": {
             "alpha": 1.0,
@@ -673,7 +662,7 @@
             "red": 1.0
           }
         },
-        "bevy_ecs::name::Name": "Options Button Label",
+        "bevy_ecs::name::Name": "Quit To Menu Button Label",
         "bevy_text::text::TextFont": {
           "font_features": {
             "features": []
@@ -691,7 +680,7 @@
       "parent": 0,
       "components": {
         "bevy_ui::widget::button::Button": {},
-        "bevy_ecs::name::Name": "Exit Button",
+        "bevy_ecs::name::Name": "Quit Game Button",
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -846,8 +835,8 @@
             "red": 1.0
           }
         },
-        "bevy_ecs::name::Name": "Exit Button Label",
-        "bevy_ui::widget::text::Text": "Exit",
+        "bevy_ecs::name::Name": "Quit Game Button Label",
+        "bevy_ui::widget::text::Text": "Quit Game",
         "foundation_library::menu::FoundationUiOrder": {
           "order": 9
         }

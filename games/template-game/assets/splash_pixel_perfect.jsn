@@ -157,6 +157,9 @@
             "fade_out_seconds": 1.5,
             "hold_seconds": 2.0
           }
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
         }
       }
     },
@@ -181,7 +184,10 @@
         },
         "bevy_ui::widget::text::Text": "Pixel Perfect",
         "bevy_ecs::name::Name": "Pixel Perfect Splash Text",
-        "foundation_library::splash_screen::FoundationSplashText": {}
+        "foundation_library::splash_screen::FoundationSplashText": {},
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 1
+        }
       }
     }
   ]

@@ -159,6 +159,9 @@
         "foundation_library::menu::FoundationPlaceholderMenu": {
           "title": "Load Game",
           "body": "Load game scene placeholder."
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
         }
       }
     }

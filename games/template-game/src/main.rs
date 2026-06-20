@@ -42,5 +42,12 @@ fn main() -> AppExit {
 }
 
 fn spawn_default_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 100,
+            clear_color: ClearColorConfig::None,
+            ..default()
+        },
+    ));
 }
