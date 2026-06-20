@@ -14,6 +14,14 @@ use crate::scene_stack::{OpenSceneOptions, SceneCommand, ScenePresentation, Scen
 #[derive(Default)]
 pub struct FoundationSplashScreenPlugin;
 
+/// Optional UI camera target for generated splash UI.
+///
+/// Editor integrations can insert this resource before gameplay starts so
+/// splash UI renders into an editor viewport camera instead of covering the
+/// editor window chrome.
+#[derive(Clone, Copy, Debug, Resource)]
+pub struct FoundationSplashUiTargetCamera(pub Entity);
+
 impl Plugin for FoundationSplashScreenPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<FoundationSplashScreen>()
@@ -147,6 +155,7 @@ struct FoundationSplashGeneratedUi;
 fn initialize_splash_screens(
     mut commands: Commands,
     splashes: Query<(Entity, &FoundationSplashScreen), Added<FoundationSplashScreen>>,
+    ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
 ) {
     for (splash_entity, splash) in &splashes {
         let text_entity = commands
@@ -171,6 +180,12 @@ fn initialize_splash_screens(
             ))
             .add_child(text_entity)
             .id();
+
+        if let Some(ui_target_camera) = ui_target_camera.as_ref() {
+            commands
+                .entity(ui_root)
+                .insert(UiTargetCamera(ui_target_camera.0));
+        }
 
         commands
             .entity(splash_entity)

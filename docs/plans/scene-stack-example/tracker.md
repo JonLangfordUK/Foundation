@@ -5,15 +5,15 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Editor play current-scene support implemented; validation passed`
+- Overall status: `Editor viewport-confined gameplay UI implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Editor play current-scene support complete with gpt-5.4; ready for user verification`
+- Current handoff state: `Editor viewport-confined gameplay UI fix complete with gpt-5.4; ready for user verification`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, and editor current-scene support commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, and editor current-scene support commits pushed to `origin/feature/scene-stack-example`; editor viewport UI fix commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -247,6 +247,34 @@
 ### Notes
 - The editor can still only infer a continuation point for known TemplateGame scenes: `splash_background.jsn`, `splash_pixel_perfect.jsn`, `splash_bevy.jsn`, and `main_menu.jsn`. Other scenes intentionally fall back to the default startup flow until a generic per-scene continuation contract exists.
 
+## Phase 8: Editor Viewport-Confined Gameplay UI
+**Status:** Complete  
+**Goal:** Ensure gameplay UI spawned by the scene-stack flow renders inside Jackdaw's viewport during editor Play instead of covering/removing editor chrome.
+
+### Tasks
+- [x] Add reusable support for targeting generated Foundation splash UI to a specific UI camera.
+  - Status: Complete
+  - Notes: Added `FoundationSplashUiTargetCamera`; splash UI roots insert `UiTargetCamera` when the resource is present.
+- [x] Configure TemplateGame editor Play to target Jackdaw's viewport camera.
+  - Status: Complete
+  - Notes: On Play enter, TemplateGame captures the active Jackdaw viewport camera, or falls back to the first `MainViewportCamera`, and stores it as the gameplay UI target.
+- [x] Apply the same viewport target to TemplateGame-generated background and main-menu UI roots.
+  - Status: Complete
+  - Notes: Persistent splash background, prompt menu, and button menu roots now insert `UiTargetCamera` in editor Play so they render through the viewport camera rather than the default editor-window UI camera.
+
+### Validation
+- Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Manual editor launch check: Passed via `cd games/template-game && timeout 25s cargo run --bin editor --features editor`; editor opened without panic. Visual confirmation of Play viewport confinement is pending user verification.
+- User confirmation: Pending final user acceptance
+
+### Notes
+- This addresses the issue where opening `main_menu.jsn` or splash scenes and pressing Play caused gameplay UI to cover the full editor window. The scene-stack cleanup already only owns `SceneOwner` entities; the missing piece was the generated UI root camera target.
+
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
 - Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
@@ -302,3 +330,6 @@
 - `2026-06-20`: Implemented editor current-scene detection from `SceneFilePath`; known TemplateGame scenes now start at the opened scene during Play while scene-stack ownership remains limited to runtime-spawned scene entities.
 - `2026-06-20`: Current-scene editor support validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
 - `2026-06-20`: Editor current-scene support commit `dff4c76` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User reported that Play from `main_menu.jsn` and other scenes still renders gameplay UI over the whole editor window; gameplay UI should be confined to the Jackdaw viewport.
+- `2026-06-20`: Implemented viewport camera targeting for generated Foundation splash UI and TemplateGame background/menu UI using `UiTargetCamera` with Jackdaw's active/first `MainViewportCamera` during editor Play.
+- `2026-06-20`: Viewport-confined UI fix validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.

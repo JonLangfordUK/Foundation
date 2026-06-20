@@ -76,6 +76,7 @@ pub mod prelude {
     };
     pub use crate::splash_screen::{
         FoundationSplashScreen, FoundationSplashScreenPlugin, FoundationSplashTimings,
+        FoundationSplashUiTargetCamera,
     };
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }
