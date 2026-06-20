@@ -26,6 +26,10 @@ pub const MAIN_MENU_SCENE: &str = "main_menu.jsn";
 pub const OPTIONS_MENU_SCENE: &str = "options_menu.jsn";
 /// Jackdaw scene path for the dummy load-game menu.
 pub const LOAD_GAME_SCENE: &str = "load_game.jsn";
+/// Jackdaw scene path for the small sample gameplay level.
+pub const GAMEPLAY_LEVEL_SCENE: &str = "gameplay_level.jsn";
+/// Jackdaw scene path for the gameplay pause menu.
+pub const PAUSE_MENU_SCENE: &str = "pause_menu.jsn";
 
 /// TemplateGame's Bevy plugin.
 #[derive(Default)]
@@ -39,7 +43,12 @@ impl Plugin for TemplateGamePlugin {
             .register_type::<TemplateLandingPage>()
             .register_type::<TemplateMainMenu>()
             .register_type::<TemplateMenuButton>()
-            .add_systems(Update, spin_cube.run_if(play_gate::is_playing));
+            .add_systems(
+                Update,
+                spin_cube
+                    .run_if(play_gate::is_playing)
+                    .run_if(foundation_is_not_paused),
+            );
 
         #[cfg(not(feature = "editor"))]
         app.add_systems(Update, exit_game_on_foundation_exit_request);
@@ -377,6 +386,12 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
         LOAD_GAME_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
             LOAD_GAME_SCENE,
         ))],
+        GAMEPLAY_LEVEL_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            GAMEPLAY_LEVEL_SCENE,
+        ))],
+        PAUSE_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            PAUSE_MENU_SCENE,
+        ))],
         _ => initial_scene_commands().into_iter().collect(),
     }
 }
@@ -398,6 +413,8 @@ fn editor_scene_key(path: &str) -> &'static str {
         MAIN_MENU_SCENE => "main-menu",
         OPTIONS_MENU_SCENE => "options-menu",
         LOAD_GAME_SCENE => "load-game",
+        GAMEPLAY_LEVEL_SCENE => "gameplay-level",
+        PAUSE_MENU_SCENE => "pause-menu",
         _ => "editor-scene",
     }
 }
@@ -411,6 +428,9 @@ fn clear_scene_stack(world: &mut World) {
     });
     world.remove_resource::<FoundationSplashUiTargetCamera>();
     world.remove_resource::<FoundationSplashUiParent>();
+    if let Some(mut pause_state) = world.get_resource_mut::<FoundationPauseState>() {
+        pause_state.paused = false;
+    }
 }
 
 #[cfg(not(feature = "editor"))]
@@ -786,6 +806,8 @@ mod tests {
         assert_eq!(MAIN_MENU_SCENE, "main_menu.jsn");
         assert_eq!(OPTIONS_MENU_SCENE, "options_menu.jsn");
         assert_eq!(LOAD_GAME_SCENE, "load_game.jsn");
+        assert_eq!(GAMEPLAY_LEVEL_SCENE, "gameplay_level.jsn");
+        assert_eq!(PAUSE_MENU_SCENE, "pause_menu.jsn");
     }
 
     #[test]

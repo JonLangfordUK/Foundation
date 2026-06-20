@@ -19,16 +19,22 @@ pub struct FoundationMenuPlugin;
 
 impl Plugin for FoundationMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<FoundationExitRequested>()
+        app.init_resource::<FoundationPauseState>()
+            .add_message::<FoundationExitRequested>()
             .register_type::<FoundationMenuButton>()
             .register_type::<FoundationOptionsMenu>()
             .register_type::<FoundationPlaceholderMenu>()
             .register_type::<FoundationCloseOnEscape>()
+            .register_type::<FoundationPauseOpener>()
+            .register_type::<FoundationSimpleGameplayLevel>()
+            .register_type::<FoundationPauseState>()
             .add_systems(
                 Update,
                 (
+                    initialize_simple_gameplay_levels,
                     initialize_options_menus,
                     initialize_placeholder_menus,
+                    open_pause_menus,
                     update_foundation_menu_button_interactions,
                     update_options_tab_button_interactions,
                     inherit_scene_owner_to_generated_menu_ui,
@@ -36,6 +42,28 @@ impl Plugin for FoundationMenuPlugin {
                 ),
             );
     }
+}
+
+/// Global pause state for Foundation scene-stack gameplay.
+///
+/// Games can read this resource directly or use [`foundation_is_paused`] and
+/// [`foundation_is_not_paused`] as run conditions for systems that should react
+/// to pause menus.
+#[derive(Clone, Copy, Debug, Default, Reflect, Resource)]
+#[reflect(Resource)]
+pub struct FoundationPauseState {
+    /// True while gameplay is paused by a Foundation pause menu.
+    pub paused: bool,
+}
+
+/// Returns true when Foundation gameplay is currently paused.
+pub fn foundation_is_paused(pause: Res<FoundationPauseState>) -> bool {
+    pause.paused
+}
+
+/// Returns true when Foundation gameplay is not currently paused.
+pub fn foundation_is_not_paused(pause: Res<FoundationPauseState>) -> bool {
+    !pause.paused
 }
 
 /// Message emitted when reusable menu UI requests application exit.
@@ -50,7 +78,9 @@ pub struct FoundationExitRequested;
 /// Supported `action` values are:
 /// - `none`
 /// - `open_scene`
+/// - `clear_and_open_scene`
 /// - `close_current`
+/// - `resume`
 /// - `exit`
 #[derive(Clone, Debug, Component, Reflect)]
 #[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
@@ -82,10 +112,29 @@ impl FoundationMenuButton {
         }
     }
 
+    /// Creates a button that clears the stack and opens a Jackdaw scene.
+    pub fn clear_and_open_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
+        Self {
+            action: "clear_and_open_scene".to_string(),
+            scene_path: path.into(),
+            scene_key: key.into(),
+        }
+    }
+
     /// Creates a button that closes the current scene-stack entry.
     pub fn close_current() -> Self {
         Self {
             action: "close_current".to_string(),
+            scene_path: String::new(),
+            scene_key: String::new(),
+        }
+    }
+
+    /// Creates a button that resumes gameplay by closing the current scene and
+    /// clearing [`FoundationPauseState`].
+    pub fn resume() -> Self {
+        Self {
+            action: "resume".to_string(),
             scene_path: String::new(),
             scene_key: String::new(),
         }
@@ -147,6 +196,45 @@ impl Default for FoundationPlaceholderMenu {
 #[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
 pub struct FoundationCloseOnEscape;
 
+/// Opens a pause menu scene when Escape is pressed while gameplay is unpaused.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+pub struct FoundationPauseOpener {
+    /// Jackdaw `.jsn` scene path for the pause menu.
+    pub pause_scene_path: String,
+    /// Optional scene-stack key for the pause menu.
+    pub pause_scene_key: String,
+}
+
+impl Default for FoundationPauseOpener {
+    fn default() -> Self {
+        Self {
+            pause_scene_path: String::new(),
+            pause_scene_key: "pause-menu".to_string(),
+        }
+    }
+}
+
+/// Runtime-authored starter gameplay level with a centered cube and light.
+///
+/// Add this component to a Jackdaw scene entity when a project needs a small
+/// placeholder level without hand-authoring mesh/material handles in `.jsn`.
+#[derive(Clone, Copy, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Gameplay"))]
+pub struct FoundationSimpleGameplayLevel {
+    /// Edge length of the generated cube in world units.
+    pub cube_size: f32,
+}
+
+impl Default for FoundationSimpleGameplayLevel {
+    fn default() -> Self {
+        Self { cube_size: 2.0 }
+    }
+}
+
+#[derive(Component, Debug)]
+struct FoundationGeneratedGameplayLevel;
+
 #[derive(Component, Debug)]
 struct FoundationOptionsRuntime {
     active_tab: usize,
@@ -175,6 +263,61 @@ struct FoundationOptionsSettingValue {
 }
 
 const OPTIONS_TABS: [&str; 4] = ["Gameplay", "Display", "Graphics", "Accessibility"];
+
+fn initialize_simple_gameplay_levels(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    levels: Query<
+        (Entity, &FoundationSimpleGameplayLevel, Option<&SceneOwner>),
+        Added<FoundationSimpleGameplayLevel>,
+    >,
+) {
+    for (level_entity, level, scene_owner) in &levels {
+        let scene_owner = scene_owner.copied();
+        let cube = commands
+            .spawn((
+                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(level.cube_size)))),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::srgb(0.45, 0.55, 0.90),
+                    ..default()
+                })),
+                Transform::from_xyz(0.0, level.cube_size * 0.5, 0.0),
+                FoundationGeneratedGameplayLevel,
+                Name::new("Foundation Gameplay Cube"),
+            ))
+            .id();
+        let light = commands
+            .spawn((
+                DirectionalLight {
+                    illuminance: 12_000.0,
+                    shadows_enabled: true,
+                    ..default()
+                },
+                Transform::from_xyz(3.0, 5.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+                FoundationGeneratedGameplayLevel,
+                Name::new("Foundation Gameplay Directional Light"),
+            ))
+            .id();
+        let camera = commands
+            .spawn((
+                Camera3d::default(),
+                Transform::from_xyz(4.0, 3.0, 6.0).looking_at(Vec3::new(0.0, 0.75, 0.0), Vec3::Y),
+                FoundationGeneratedGameplayLevel,
+                Name::new("Foundation Gameplay Camera"),
+            ))
+            .id();
+
+        for entity in [cube, light, camera] {
+            if let Some(scene_owner) = scene_owner {
+                commands.entity(entity).insert(scene_owner);
+            }
+        }
+        commands
+            .entity(level_entity)
+            .add_children(&[cube, light, camera]);
+    }
+}
 
 fn initialize_options_menus(
     mut commands: Commands,
@@ -397,15 +540,53 @@ type FoundationMenuButtonInteractionQuery<'w, 's> = Query<
     (Changed<Interaction>, With<Button>),
 >;
 
+fn open_pause_menus(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut pause_state: ResMut<FoundationPauseState>,
+    pause_openers: Query<&FoundationPauseOpener>,
+    mut scene_commands: MessageWriter<SceneCommand>,
+) {
+    if pause_state.paused || !keyboard.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    let Some(opener) = pause_openers.iter().next() else {
+        return;
+    };
+    let path = opener.pause_scene_path.trim();
+    if path.is_empty() {
+        warn!("FoundationPauseOpener has an empty pause_scene_path");
+        return;
+    }
+
+    pause_state.paused = true;
+    let mut options =
+        OpenSceneOptions::default().with_presentation(ScenePresentation::PAUSE_OVERLAY);
+    let key = opener.pause_scene_key.trim();
+    if !key.is_empty() {
+        options = options.with_key(key);
+    }
+    scene_commands.write(SceneCommand::open_with_options(
+        SceneSource::jsn_level(path),
+        options,
+    ));
+}
+
 fn update_foundation_menu_button_interactions(
     mut buttons: FoundationMenuButtonInteractionQuery,
     mut scene_commands: MessageWriter<SceneCommand>,
     mut exit_requested: MessageWriter<FoundationExitRequested>,
+    mut pause_state: ResMut<FoundationPauseState>,
 ) {
     for (interaction, button, mut background) in &mut buttons {
         background.0 = match *interaction {
             Interaction::Pressed => {
-                perform_menu_action(button, &mut scene_commands, &mut exit_requested);
+                perform_menu_action(
+                    button,
+                    &mut scene_commands,
+                    &mut exit_requested,
+                    &mut pause_state,
+                );
                 PRESSED_BUTTON
             }
             Interaction::Hovered => HOVERED_BUTTON,
@@ -418,33 +599,58 @@ fn perform_menu_action(
     button: &FoundationMenuButton,
     scene_commands: &mut MessageWriter<SceneCommand>,
     exit_requested: &mut MessageWriter<FoundationExitRequested>,
+    pause_state: &mut FoundationPauseState,
 ) {
     match button.action.trim().to_ascii_lowercase().as_str() {
-        "open_scene" => {
-            let path = button.scene_path.trim();
-            if path.is_empty() {
-                warn!("FoundationMenuButton open_scene action has an empty scene_path");
-                return;
-            }
-            let mut options =
-                OpenSceneOptions::default().with_presentation(ScenePresentation::FULLSCREEN);
-            let key = button.scene_key.trim();
-            if !key.is_empty() {
-                options = options.with_key(key);
-            }
-            scene_commands.write(SceneCommand::open_with_options(
-                SceneSource::jsn_level(path),
-                options,
-            ));
+        "open_scene" => open_configured_scene(button, scene_commands, false),
+        "clear_and_open_scene" => {
+            pause_state.paused = false;
+            open_configured_scene(button, scene_commands, true);
         }
         "close_current" => {
             scene_commands.write(SceneCommand::CloseCurrent);
         }
+        "resume" => {
+            pause_state.paused = false;
+            scene_commands.write(SceneCommand::CloseCurrent);
+        }
         "exit" => {
+            pause_state.paused = false;
             exit_requested.write(FoundationExitRequested);
         }
         "none" | "" => {}
         unknown => warn!("Unknown FoundationMenuButton action `{unknown}`"),
+    }
+}
+
+fn open_configured_scene(
+    button: &FoundationMenuButton,
+    scene_commands: &mut MessageWriter<SceneCommand>,
+    clear_stack: bool,
+) {
+    let path = button.scene_path.trim();
+    if path.is_empty() {
+        warn!(
+            "FoundationMenuButton `{}` action has an empty scene_path",
+            button.action
+        );
+        return;
+    }
+    let mut options = OpenSceneOptions::default().with_presentation(ScenePresentation::FULLSCREEN);
+    let key = button.scene_key.trim();
+    if !key.is_empty() {
+        options = options.with_key(key);
+    }
+    if clear_stack {
+        scene_commands.write(SceneCommand::ClearAndOpen {
+            source: SceneSource::jsn_level(path),
+            options,
+        });
+    } else {
+        scene_commands.write(SceneCommand::open_with_options(
+            SceneSource::jsn_level(path),
+            options,
+        ));
     }
 }
 
@@ -568,11 +774,27 @@ mod tests {
         assert_eq!(open.action, "open_scene");
         assert_eq!(open.scene_path, "options_menu.jsn");
         assert_eq!(open.scene_key, "options-menu");
+        let clear =
+            FoundationMenuButton::clear_and_open_scene("gameplay_level.jsn", "gameplay-level");
+        assert_eq!(clear.action, "clear_and_open_scene");
+        assert_eq!(clear.scene_path, "gameplay_level.jsn");
+        assert_eq!(clear.scene_key, "gameplay-level");
         assert_eq!(
             FoundationMenuButton::close_current().action,
             "close_current"
         );
+        assert_eq!(FoundationMenuButton::resume().action, "resume");
         assert_eq!(FoundationMenuButton::exit().action, "exit");
+    }
+
+    #[test]
+    fn pause_state_defaults_to_unpaused() {
+        assert!(!FoundationPauseState::default().paused);
+    }
+
+    #[test]
+    fn simple_gameplay_level_defaults_to_two_unit_cube() {
+        assert_eq!(FoundationSimpleGameplayLevel::default().cube_size, 2.0);
     }
 
     #[test]
