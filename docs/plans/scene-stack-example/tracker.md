@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, and follow-up commits pushed to `origin/feature/scene-stack-example`; follow-up tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, and tracker push-status commits pushed to `origin/feature/scene-stack-example`.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -193,3 +193,4 @@
 - `2026-06-20`: Added persistent `splash_background.jsn`, `TemplateFullscreenBackground`, overlay splash presentations, transparent splash UI roots, and debug-blue standalone game clear color.
 - `2026-06-20`: Follow-up validation passed via `scripts/test-project.cmd` and full `scripts/validate-project.cmd`; manual startup smoke check passed with intentional timeout termination.
 - `2026-06-20`: Follow-up implementation commit `521ef2f` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: Follow-up tracker push-status commit `ad38cef` pushed to `origin/feature/scene-stack-example`.
