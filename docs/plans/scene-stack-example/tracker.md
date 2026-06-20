@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, and editor panic fix commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, and editor play integration commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -269,3 +269,4 @@
 - `2026-06-20`: Reworked editor integration so scene-stack startup runs on Jackdaw `PlayState::Playing`, runtime systems run only during play, and editor builds load scene-stack `.jsn` files through `jackdaw::scene_io::load_scene_from_jsn` instead of `JackdawSceneRoot`.
 - `2026-06-20`: Validation passed via `scripts/validate-project.cmd`; manual static editor launch check passed with `cd games/template-game && timeout 30s cargo run --bin editor --features editor`.
 - `2026-06-20`: Editor panic fix commit `bb09d96` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: Editor play scene-stack integration commit `a0e0d13` pushed to `origin/feature/scene-stack-example`.
