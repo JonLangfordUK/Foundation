@@ -10,7 +10,7 @@
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance`
+- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance after authored UI ordering fix`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 
@@ -159,6 +159,7 @@
 - `games/template-game/.jsn/project.jsn` was already modified before this planning branch was created. It appears to contain editor/project layout changes and remains uncommitted.
 - Direct `.jsn` authoring for Bevy mesh/material handles was not practical, so `gameplay_level.jsn` uses Foundation marker components and FoundationLibrary generates the cube, light, and camera at runtime.
 - Pause opener uses Escape and requires a `FoundationPauseOpener` in the gameplay scene, preventing menu scenes without that marker from opening pause.
+- User reported persistent random button/text ordering across authored UI scenes. Cause was TemplateGame's authored text completion system rebuilding parent children from a query and sorting by entity index, which is not a reliable authored-order source. Fixed by preserving Jackdaw-authored child order and only adding missing text layout components.
 
 ## Postponed Work
 - Real gameplay mechanics beyond a simple lit cube level are postponed.
@@ -175,3 +176,5 @@
 - `2026-06-20`: Implemented Foundation pause state, pause opener, clear-stack/resume menu actions, simple gameplay level generator, gameplay level asset, pause menu asset, New Game flow, and editor direct-play mapping.
 - `2026-06-20`: Full validation passed with `scripts/validate-project.cmd`. Manual smoke tests were not run in the non-interactive harness.
 - `2026-06-20`: Implementation committed and pushed to `origin/feature/gameplay-level-pause-menu` as `710b87e`.
+- `2026-06-20`: User reported random authored UI widget/text ordering across scenes; follow-up fix started to preserve Jackdaw-authored child order instead of rebuilding it from ECS query order.
+- `2026-06-20`: Removed child-list rebuilding from `complete_authored_ui_text_components`; the system now preserves Jackdaw-authored child order while adding missing text layout components. Full validation passed with `scripts/validate-project.cmd`.
