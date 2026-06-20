@@ -5,6 +5,7 @@
 //! lives in [`TemplateGamePlugin`].
 
 use bevy::{
+    camera::RenderTarget,
     prelude::*,
     text::{ComputedTextBlock, FontHinting, LineHeight, TextLayout, TextLayoutInfo},
     ui::{ContentSize, widget::TextNodeFlags},
@@ -68,12 +69,13 @@ impl Plugin for TemplateGamePlugin {
             )
             .add_systems(
                 OnExit(jackdaw::prelude::PlayState::Playing),
-                clear_scene_stack,
+                (clear_scene_stack, restore_editor_viewport_cameras),
             )
             .add_systems(
                 Update,
                 (
                     spawn_requested_jackdaw_scenes,
+                    target_editor_runtime_cameras_to_viewport,
                     detach_scene_stack_ui_roots,
                     update_scene_stack_ui_root_z_indices,
                     complete_authored_ui_text_components,
@@ -178,7 +180,7 @@ type FullscreenBackgroundQuery<'w, 's> = Query<
 type AuthoredUiNodeCompletionQuery<'w, 's> = Query<
     'w,
     's,
-    Entity,
+    (Entity, Option<&'static SceneOwner>),
     (
         Added<Node>,
         Or<(
@@ -198,6 +200,7 @@ type AuthoredUiTextCompletionQuery<'w, 's> = Query<
         &'static Text,
         Option<&'static TextFont>,
         Option<&'static ChildOf>,
+        Option<&'static SceneOwner>,
     ),
     (
         With<Text>,
@@ -211,7 +214,33 @@ type EditorGameplayUiRootTargetQuery<'w, 's> = Query<
     'w,
     's,
     (Entity, Option<&'static ChildOf>),
-    Or<(With<TemplateGameplayUiRoot>, With<FoundationSplashUiRoot>)>,
+    (
+        With<SceneOwner>,
+        Or<(With<TemplateGameplayUiRoot>, With<FoundationSplashUiRoot>)>,
+    ),
+>;
+
+#[cfg(feature = "editor")]
+type EditorViewportCameraReadQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static Camera, &'static RenderTarget),
+    With<jackdaw::viewport::MainViewportCamera>,
+>;
+
+#[cfg(feature = "editor")]
+type EditorViewportCameraWriteQuery<'w, 's> =
+    Query<'w, 's, &'static mut Camera, With<jackdaw::viewport::MainViewportCamera>>;
+
+#[cfg(feature = "editor")]
+type EditorRuntimeCameraQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static mut Camera),
+    (
+        With<SceneOwner>,
+        Without<jackdaw::viewport::MainViewportCamera>,
+    ),
 >;
 
 /// Marker for TemplateGame's press-any-button landing page scene.
@@ -463,6 +492,52 @@ fn clear_scene_stack(world: &mut World) {
     }
 }
 
+#[cfg(feature = "editor")]
+fn target_editor_runtime_cameras_to_viewport(
+    mut commands: Commands,
+    active_viewport: Option<Res<jackdaw::viewport::ActiveViewport>>,
+    mut cameras: ParamSet<(
+        EditorViewportCameraReadQuery,
+        EditorViewportCameraWriteQuery,
+        EditorRuntimeCameraQuery,
+    )>,
+) {
+    let viewport_target = {
+        let viewport_cameras = cameras.p0();
+        active_viewport
+            .as_deref()
+            .and_then(|viewport| viewport.camera)
+            .and_then(|camera| viewport_cameras.get(camera).ok())
+            .or_else(|| viewport_cameras.iter().next())
+            .map(|(_, camera, target)| (target.clone(), camera.order))
+    };
+    let Some((target, order)) = viewport_target else {
+        return;
+    };
+
+    let mut has_runtime_camera = false;
+    {
+        let mut runtime_cameras = cameras.p2();
+        for (entity, mut camera) in &mut runtime_cameras {
+            has_runtime_camera = true;
+            commands.entity(entity).insert(target.clone());
+            camera.order = order;
+            camera.is_active = true;
+        }
+    }
+
+    for mut viewport_camera in &mut cameras.p1() {
+        viewport_camera.is_active = !has_runtime_camera;
+    }
+}
+
+#[cfg(feature = "editor")]
+fn restore_editor_viewport_cameras(mut cameras: EditorViewportCameraWriteQuery) {
+    for mut camera in &mut cameras {
+        camera.is_active = true;
+    }
+}
+
 #[cfg(not(feature = "editor"))]
 fn spawn_requested_jackdaw_scenes(
     mut commands: Commands,
@@ -585,14 +660,20 @@ fn complete_authored_ui_text_components(
         Without<FoundationGeneratedMenuUi>,
     >,
 ) {
-    for entity in &ui_nodes {
+    for (entity, scene_owner) in &ui_nodes {
+        if !should_process_runtime_scene_entity(scene_owner) {
+            continue;
+        }
         commands
             .entity(entity)
             .remove::<(Transform, GlobalTransform)>();
     }
 
     let mut parents_to_rebuild = std::collections::HashSet::new();
-    for (entity, text, font, parent) in &texts {
+    for (entity, text, font, parent, scene_owner) in &texts {
+        if !should_process_runtime_scene_entity(scene_owner) {
+            continue;
+        }
         // Jackdaw runtime inserts reflected components one-by-one, which can
         // bypass Bevy's typed `Text` required-components path. Add the UI text
         // measure/layout components that `commands.spawn(Text::new(...))` would
