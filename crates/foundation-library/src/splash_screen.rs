@@ -22,6 +22,14 @@ pub struct FoundationSplashScreenPlugin;
 #[derive(Clone, Copy, Debug, Resource)]
 pub struct FoundationSplashUiTargetCamera(pub Entity);
 
+/// Optional parent entity for generated splash UI roots.
+///
+/// Editor integrations can parent generated splash UI under a viewport UI node
+/// so percentage-sized roots are laid out inside the viewport instead of the
+/// whole editor window.
+#[derive(Clone, Copy, Debug, Resource)]
+pub struct FoundationSplashUiParent(pub Entity);
+
 impl Plugin for FoundationSplashScreenPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<FoundationSplashScreen>()
@@ -156,6 +164,7 @@ fn initialize_splash_screens(
     mut commands: Commands,
     splashes: Query<(Entity, &FoundationSplashScreen), Added<FoundationSplashScreen>>,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
+    ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
     for (splash_entity, splash) in &splashes {
         let text_entity = commands
@@ -185,6 +194,9 @@ fn initialize_splash_screens(
             commands
                 .entity(ui_root)
                 .insert(UiTargetCamera(ui_target_camera.0));
+        }
+        if let Some(ui_parent) = ui_parent.as_ref() {
+            commands.entity(ui_parent.0).add_child(ui_root);
         }
 
         commands

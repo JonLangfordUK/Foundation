@@ -179,13 +179,20 @@ fn open_initial_scene(world: &mut World) {
 
 #[cfg(feature = "editor")]
 fn configure_editor_gameplay_ui_target(world: &mut World) {
-    let active_camera = world
+    let active_viewport = world
         .get_resource::<jackdaw::viewport::ActiveViewport>()
-        .and_then(|active| active.camera);
-    let target_camera = active_camera.or_else(|| {
+        .copied()
+        .unwrap_or_default();
+
+    let target_camera = active_viewport.camera.or_else(|| {
         let mut cameras =
             world.query_filtered::<Entity, With<jackdaw::viewport::MainViewportCamera>>();
         cameras.iter(world).next()
+    });
+    let viewport_parent = active_viewport.ui_node.or_else(|| {
+        let mut viewports =
+            world.query_filtered::<Entity, With<jackdaw::viewport::SceneViewport>>();
+        viewports.iter(world).next()
     });
 
     if let Some(target_camera) = target_camera {
@@ -193,6 +200,15 @@ fn configure_editor_gameplay_ui_target(world: &mut World) {
     } else {
         world.remove_resource::<FoundationSplashUiTargetCamera>();
         warn!("No Jackdaw viewport camera found; gameplay UI will use Bevy's default UI camera");
+    }
+
+    if let Some(viewport_parent) = viewport_parent {
+        world.insert_resource(FoundationSplashUiParent(viewport_parent));
+    } else {
+        world.remove_resource::<FoundationSplashUiParent>();
+        warn!(
+            "No Jackdaw viewport UI node found; gameplay UI roots will not be parented into the viewport"
+        );
     }
 }
 
@@ -249,6 +265,7 @@ fn editor_scene_key(path: &str) -> &'static str {
 fn clear_scene_stack(world: &mut World) {
     world.write_message(SceneCommand::Clear);
     world.remove_resource::<FoundationSplashUiTargetCamera>();
+    world.remove_resource::<FoundationSplashUiParent>();
 }
 
 #[cfg(not(feature = "editor"))]
@@ -329,6 +346,7 @@ fn initialize_fullscreen_backgrounds(
         Added<TemplateFullscreenBackground>,
     >,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
+    ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
     for (background_entity, background) in &backgrounds {
         let ui_root = commands
@@ -355,11 +373,12 @@ fn initialize_fullscreen_backgrounds(
             ))
             .id();
 
-        if let Some(ui_target_camera) = ui_target_camera.as_ref() {
-            commands
-                .entity(ui_root)
-                .insert(UiTargetCamera(ui_target_camera.0));
-        }
+        attach_gameplay_ui_root(
+            &mut commands,
+            ui_root,
+            ui_target_camera.as_ref().map(|target| target.0),
+            ui_parent.as_ref().map(|parent| parent.0),
+        );
 
         debug_assert_ne!(background_entity, ui_root);
     }
@@ -381,10 +400,12 @@ fn initialize_main_menus(
     mut commands: Commands,
     menus: Query<(Entity, &TemplateMainMenu), Added<TemplateMainMenu>>,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
+    ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
     let ui_target_camera = ui_target_camera.as_ref().map(|target| target.0);
+    let ui_parent = ui_parent.as_ref().map(|parent| parent.0);
     for (menu_entity, menu) in &menus {
-        let ui_root = spawn_main_menu_prompt(&mut commands, menu, ui_target_camera);
+        let ui_root = spawn_main_menu_prompt(&mut commands, menu, ui_target_camera, ui_parent);
         commands
             .entity(menu_entity)
             .insert(TemplateMainMenuRuntime {
@@ -401,6 +422,7 @@ fn advance_main_menu_prompt(
     gamepad: Option<Res<ButtonInput<GamepadButton>>>,
     mut menus: Query<(&TemplateMainMenu, &mut TemplateMainMenuRuntime)>,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
+    ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
     if !any_button_just_pressed(&keyboard, &mouse, gamepad.as_deref()) {
         return;
@@ -415,6 +437,7 @@ fn advance_main_menu_prompt(
         runtime.root = spawn_main_menu_buttons(
             &mut commands,
             ui_target_camera.as_ref().map(|target| target.0),
+            ui_parent.as_ref().map(|parent| parent.0),
         );
         runtime.state = TemplateMainMenuState::Buttons;
     }
@@ -440,10 +463,27 @@ fn any_button_just_pressed(
         || gamepad.is_some_and(|gamepad| gamepad.get_just_pressed().next().is_some())
 }
 
+fn attach_gameplay_ui_root(
+    commands: &mut Commands,
+    root: Entity,
+    ui_target_camera: Option<Entity>,
+    ui_parent: Option<Entity>,
+) {
+    if let Some(ui_target_camera) = ui_target_camera {
+        commands
+            .entity(root)
+            .insert(UiTargetCamera(ui_target_camera));
+    }
+    if let Some(ui_parent) = ui_parent {
+        commands.entity(ui_parent).add_child(root);
+    }
+}
+
 fn spawn_main_menu_prompt(
     commands: &mut Commands,
     menu: &TemplateMainMenu,
     ui_target_camera: Option<Entity>,
+    ui_parent: Option<Entity>,
 ) -> Entity {
     let title = commands
         .spawn((
@@ -477,16 +517,16 @@ fn spawn_main_menu_prompt(
         .add_child(hint)
         .id();
 
-    if let Some(ui_target_camera) = ui_target_camera {
-        commands
-            .entity(root)
-            .insert(UiTargetCamera(ui_target_camera));
-    }
+    attach_gameplay_ui_root(commands, root, ui_target_camera, ui_parent);
 
     root
 }
 
-fn spawn_main_menu_buttons(commands: &mut Commands, ui_target_camera: Option<Entity>) -> Entity {
+fn spawn_main_menu_buttons(
+    commands: &mut Commands,
+    ui_target_camera: Option<Entity>,
+    ui_parent: Option<Entity>,
+) -> Entity {
     let root = commands
         .spawn((
             Node {
@@ -502,11 +542,7 @@ fn spawn_main_menu_buttons(commands: &mut Commands, ui_target_camera: Option<Ent
         ))
         .id();
 
-    if let Some(ui_target_camera) = ui_target_camera {
-        commands
-            .entity(root)
-            .insert(UiTargetCamera(ui_target_camera));
-    }
+    attach_gameplay_ui_root(commands, root, ui_target_camera, ui_parent);
 
     for label in ["New Game", "Load Game", "Options", "Quit"] {
         let button = spawn_menu_button(commands, label);

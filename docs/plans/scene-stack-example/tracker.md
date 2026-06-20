@@ -5,15 +5,15 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Editor viewport-confined gameplay UI implemented; validation passed`
+- Overall status: `Editor viewport-parented gameplay UI implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Editor viewport-confined gameplay UI fix complete with gpt-5.4; ready for user verification`
+- Current handoff state: `Editor viewport-parented gameplay UI fix complete with gpt-5.4; ready for user verification`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, and editor viewport UI fix commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, and editor viewport UI fix commits pushed to `origin/feature/scene-stack-example`; editor viewport parenting fix commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -249,18 +249,18 @@
 
 ## Phase 8: Editor Viewport-Confined Gameplay UI
 **Status:** Complete  
-**Goal:** Ensure gameplay UI spawned by the scene-stack flow renders inside Jackdaw's viewport during editor Play instead of covering/removing editor chrome.
+**Goal:** Ensure gameplay UI spawned by the scene-stack flow is laid out inside Jackdaw's viewport during editor Play instead of covering/removing editor chrome.
 
 ### Tasks
-- [x] Add reusable support for targeting generated Foundation splash UI to a specific UI camera.
+- [x] Add reusable support for targeting and parenting generated Foundation splash UI to editor viewport context.
   - Status: Complete
-  - Notes: Added `FoundationSplashUiTargetCamera`; splash UI roots insert `UiTargetCamera` when the resource is present.
-- [x] Configure TemplateGame editor Play to target Jackdaw's viewport camera.
+  - Notes: Added `FoundationSplashUiTargetCamera` and `FoundationSplashUiParent`; splash UI roots insert `UiTargetCamera` when present and are parented under the viewport UI node when available.
+- [x] Configure TemplateGame editor Play to target Jackdaw's viewport camera and viewport UI node.
   - Status: Complete
-  - Notes: On Play enter, TemplateGame captures the active Jackdaw viewport camera, or falls back to the first `MainViewportCamera`, and stores it as the gameplay UI target.
-- [x] Apply the same viewport target to TemplateGame-generated background and main-menu UI roots.
+  - Notes: On Play enter, TemplateGame captures the active Jackdaw viewport camera/UI node, or falls back to the first `MainViewportCamera`/`SceneViewport`, and stores them as the gameplay UI target/parent.
+- [x] Apply the same viewport target and parent to TemplateGame-generated background and main-menu UI roots.
   - Status: Complete
-  - Notes: Persistent splash background, prompt menu, and button menu roots now insert `UiTargetCamera` in editor Play so they render through the viewport camera rather than the default editor-window UI camera.
+  - Notes: Persistent splash background, prompt menu, and button menu roots now insert `UiTargetCamera` and are parented under the viewport UI node in editor Play so percentage sizing is constrained to the viewport rather than the full editor window.
 
 ### Validation
 - Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
@@ -273,7 +273,7 @@
 - User confirmation: Pending final user acceptance
 
 ### Notes
-- This addresses the issue where opening `main_menu.jsn` or splash scenes and pressing Play caused gameplay UI to cover the full editor window. The scene-stack cleanup already only owns `SceneOwner` entities; the missing piece was the generated UI root camera target.
+- This addresses the issue where opening `main_menu.jsn` or splash scenes and pressing Play caused gameplay UI to cover the full editor window. `UiTargetCamera` alone was not enough for every generated root; generated UI roots are now also parented under the Jackdaw `SceneViewport` node so layout percentages resolve against the viewport.
 
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
@@ -334,3 +334,5 @@
 - `2026-06-20`: Implemented viewport camera targeting for generated Foundation splash UI and TemplateGame background/menu UI using `UiTargetCamera` with Jackdaw's active/first `MainViewportCamera` during editor Play.
 - `2026-06-20`: Viewport-confined UI fix validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
 - `2026-06-20`: Editor viewport UI fix commit `ea07064` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User clarified that all scenes except the main menu still consumed the full editor window; implemented viewport-parenting for Foundation splash UI and TemplateGame background/menu UI roots using Jackdaw's `SceneViewport` in addition to `UiTargetCamera`.
+- `2026-06-20`: Viewport-parenting validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
