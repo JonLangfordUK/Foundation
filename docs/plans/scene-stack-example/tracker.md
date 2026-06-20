@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning branch is tracking `origin/feature/scene-stack-example`; implementation commit pending.
+- Push status: Planning and implementation commits pushed to `origin/feature/scene-stack-example`; tracker push-status commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -156,3 +156,4 @@
 - `2026-06-20`: Implemented reusable Foundation splash logic, TemplateGame scene-stack startup/Jackdaw scene bridge, and three `.jsn` scene assets.
 - `2026-06-20`: Validation passed: format, lint, tests, build, documentation generation, and full `scripts/validate-project.cmd`.
 - `2026-06-20`: Manual startup smoke check opened the TemplateGame window and Jackdaw runtime without logged scene-load errors before intentional timeout termination.
+- `2026-06-20`: Implementation commit `9275efd` pushed to `origin/feature/scene-stack-example`.
