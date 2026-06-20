@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20.
-- Push status: Pending.
+- Push status: Planning commit `30c1b6b` pushed to `origin/feature/scene-stack-example`; push-status correction commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -152,3 +152,4 @@
 - `2026-06-20`: User approved the feature summary and clarified all three scenes should be Jackdaw `.jsn` scenes if possible; reusable logic should live in FoundationLibrary while concrete scene implementation should live in TemplateGame.
 - `2026-06-20`: Created planning branch `feature/scene-stack-example` from `dev`.
 - `2026-06-20`: Plan and tracker created.
+- `2026-06-20`: Planning commit `30c1b6b` pushed to `origin/feature/scene-stack-example`.

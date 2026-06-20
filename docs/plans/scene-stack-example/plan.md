@@ -5,7 +5,7 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Branch status: Created locally from `dev` on 2026-06-20; push status pending.
+- Branch status: Created locally from `dev` on 2026-06-20; planning commit `30c1b6b` pushed to `origin/feature/scene-stack-example`.
 - Status: `Planned`
 - Planning model: `gpt-5.5`
 - Implementation model: `gpt-5.4`
