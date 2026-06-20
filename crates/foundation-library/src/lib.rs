@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 pub mod scene_stack;
+pub mod splash_screen;
 
 /// Shared baseline plugin for Foundation games.
 ///
@@ -22,10 +23,13 @@ pub struct FoundationPlugin;
 
 impl Plugin for FoundationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(scene_stack::FoundationSceneStackPlugin)
-            .register_type::<FoundationSettings>()
-            .register_type::<FoundationActor>()
-            .init_resource::<FoundationSettings>();
+        app.add_plugins((
+            scene_stack::FoundationSceneStackPlugin,
+            splash_screen::FoundationSplashScreenPlugin,
+        ))
+        .register_type::<FoundationSettings>()
+        .register_type::<FoundationActor>()
+        .init_resource::<FoundationSettings>();
     }
 }
 
@@ -69,6 +73,11 @@ pub mod prelude {
         SceneFocused, SceneId, SceneKey, SceneLoadRequested, SceneOwner, ScenePresentation,
         SceneRemoved, SceneRuntimeFlags, SceneSource, SceneStack, SceneStackEntry, SceneTarget,
         SceneUnfocused,
+    };
+    pub use crate::splash_screen::{
+        FoundationSplashRuntimeSettings, FoundationSplashScreen, FoundationSplashScreenPlugin,
+        FoundationSplashText, FoundationSplashTimings, FoundationSplashUiParent,
+        FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
     };
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }
