@@ -206,6 +206,14 @@ type AuthoredUiTextCompletionQuery<'w, 's> = Query<
     ),
 >;
 
+#[cfg(feature = "editor")]
+type EditorGameplayUiRootTargetQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, Option<&'static ChildOf>),
+    Or<(With<TemplateGameplayUiRoot>, With<FoundationSplashUiRoot>)>,
+>;
+
 /// Marker for TemplateGame's press-any-button landing page scene.
 ///
 /// The marker is authored in `landing_page.jsn`. Runtime game code uses it to
@@ -298,9 +306,22 @@ fn target_editor_authored_gameplay_ui_roots(
     mut commands: Commands,
     active_viewport: Option<Res<jackdaw::viewport::ActiveViewport>>,
     cameras: Query<Entity, With<jackdaw::viewport::MainViewportCamera>>,
-    template_roots: Query<Entity, With<TemplateGameplayUiRoot>>,
-    splash_roots: Query<Entity, With<FoundationSplashUiRoot>>,
+    roots: EditorGameplayUiRootTargetQuery,
 ) {
+    let viewport_parent = active_viewport
+        .as_deref()
+        .and_then(|viewport| viewport.ui_node);
+
+    if let Some(viewport_parent) = viewport_parent {
+        for (root, child_of) in &roots {
+            commands.entity(root).remove::<UiTargetCamera>();
+            if root != viewport_parent && child_of.map(|parent| parent.0) != Some(viewport_parent) {
+                commands.entity(viewport_parent).add_child(root);
+            }
+        }
+        return;
+    }
+
     let target_camera = active_viewport
         .as_deref()
         .and_then(|viewport| viewport.camera)
@@ -309,7 +330,7 @@ fn target_editor_authored_gameplay_ui_roots(
         return;
     };
 
-    for root in template_roots.iter().chain(splash_roots.iter()) {
+    for (root, _) in &roots {
         commands.entity(root).insert(UiTargetCamera(target_camera));
     }
 }
@@ -332,20 +353,22 @@ fn configure_editor_gameplay_ui_target(world: &mut World) {
         viewports.iter(world).next()
     });
 
-    if let Some(target_camera) = target_camera {
-        world.insert_resource(FoundationSplashUiTargetCamera(target_camera));
-    } else {
-        world.remove_resource::<FoundationSplashUiTargetCamera>();
-        warn!("No Jackdaw viewport camera found; gameplay UI will use Bevy's default UI camera");
-    }
-
     if let Some(viewport_parent) = viewport_parent {
         if let Some(mut node) = world.get_mut::<Node>(viewport_parent) {
             node.overflow = Overflow::clip();
         }
         world.insert_resource(FoundationSplashUiParent(viewport_parent));
+        world.remove_resource::<FoundationSplashUiTargetCamera>();
     } else {
         world.remove_resource::<FoundationSplashUiParent>();
+        if let Some(target_camera) = target_camera {
+            world.insert_resource(FoundationSplashUiTargetCamera(target_camera));
+        } else {
+            world.remove_resource::<FoundationSplashUiTargetCamera>();
+            warn!(
+                "No Jackdaw viewport camera found; gameplay UI will use Bevy's default UI camera"
+            );
+        }
         warn!(
             "No Jackdaw viewport UI node found; gameplay UI roots will not be parented into the viewport"
         );
@@ -354,15 +377,11 @@ fn configure_editor_gameplay_ui_target(world: &mut World) {
 
 #[cfg(feature = "editor")]
 fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
-    let current_scene = world
-        .get_resource::<jackdaw::scene_io::SceneFilePath>()
-        .and_then(|scene_file| scene_file.path.as_deref())
-        .and_then(scene_asset_name)
-        .unwrap_or(PIXEL_PERFECT_SPLASH_SCENE);
+    let current_scene = editor_current_scene_asset_path(world);
 
-    match current_scene {
-        SPLASH_BACKGROUND_SCENE => initial_scene_commands().into_iter().collect(),
-        PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE => vec![
+    match current_scene.as_deref() {
+        None | Some(SPLASH_BACKGROUND_SCENE) => initial_scene_commands().into_iter().collect(),
+        Some(splash_scene @ (PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE)) => vec![
             SceneCommand::open_with_options(
                 SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
                 OpenSceneOptions::default()
@@ -370,39 +389,48 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
                     .with_presentation(ScenePresentation::FULLSCREEN),
             ),
             SceneCommand::open_with_options(
-                SceneSource::jsn_level(current_scene),
+                SceneSource::jsn_level(splash_scene),
                 OpenSceneOptions::default()
-                    .with_key(editor_scene_key(current_scene))
+                    .with_key(editor_scene_key(splash_scene))
                     .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
             ),
         ],
-        LANDING_PAGE_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            LANDING_PAGE_SCENE,
+        Some(scene_path) => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            scene_path,
         ))],
-        MAIN_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            MAIN_MENU_SCENE,
-        ))],
-        OPTIONS_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            OPTIONS_MENU_SCENE,
-        ))],
-        LOAD_GAME_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            LOAD_GAME_SCENE,
-        ))],
-        GAMEPLAY_LEVEL_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            GAMEPLAY_LEVEL_SCENE,
-        ))],
-        PAUSE_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            PAUSE_MENU_SCENE,
-        ))],
-        _ => initial_scene_commands().into_iter().collect(),
     }
 }
 
 #[cfg(feature = "editor")]
-fn scene_asset_name(path: &str) -> Option<&str> {
-    std::path::Path::new(path)
-        .file_name()
-        .and_then(|file_name| file_name.to_str())
+fn editor_current_scene_asset_path(world: &World) -> Option<String> {
+    let raw_path = world
+        .get_resource::<jackdaw::scene_io::SceneFilePath>()
+        .and_then(|scene_file| scene_file.path.as_deref())?;
+    let asset_root = std::env::current_dir().unwrap_or_default().join("assets");
+    scene_asset_path_from_path(raw_path, &asset_root)
+}
+
+#[cfg(feature = "editor")]
+fn scene_asset_path_from_path(path: &str, asset_root: &std::path::Path) -> Option<String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let scene_path = std::path::Path::new(trimmed);
+    let relative = scene_path
+        .strip_prefix(asset_root)
+        .ok()
+        .or_else(|| scene_path.strip_prefix("assets").ok())
+        .unwrap_or_else(|| {
+            scene_path
+                .file_name()
+                .and_then(|file_name| file_name.to_str())
+                .map(std::path::Path::new)
+                .unwrap_or(scene_path)
+        });
+
+    Some(relative.to_string_lossy().replace('\\', "/"))
 }
 
 #[cfg(feature = "editor")]
@@ -759,12 +787,13 @@ fn attach_gameplay_ui_root(
     ui_target_camera: Option<Entity>,
     ui_parent: Option<Entity>,
 ) {
-    if let Some(ui_target_camera) = ui_target_camera {
+    if let Some(ui_parent) = ui_parent {
+        commands.entity(root).remove::<UiTargetCamera>();
+        commands.entity(ui_parent).add_child(root);
+    } else if let Some(ui_target_camera) = ui_target_camera {
         commands
             .entity(root)
             .insert(UiTargetCamera(ui_target_camera));
-    } else if let Some(ui_parent) = ui_parent {
-        commands.entity(ui_parent).add_child(root);
     }
 }
 
@@ -877,6 +906,43 @@ mod tests {
     fn default_main_menu_has_menu_title() {
         let menu = TemplateMainMenu::default();
         assert_eq!(menu.title, "Main Menu");
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn editor_scene_asset_path_prefers_asset_relative_paths() {
+        let asset_root = std::path::Path::new("C:/project/assets");
+
+        assert_eq!(
+            scene_asset_path_from_path("C:/project/assets/menus/custom.jsn", asset_root),
+            Some("menus/custom.jsn".to_string())
+        );
+        assert_eq!(
+            scene_asset_path_from_path("assets/main_menu.jsn", asset_root),
+            Some("main_menu.jsn".to_string())
+        );
+        assert_eq!(
+            scene_asset_path_from_path("D:/other/custom_scene.jsn", asset_root),
+            Some("custom_scene.jsn".to_string())
+        );
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn editor_play_command_opens_unknown_current_scene_directly() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<jackdaw::scene_io::SceneFilePath>();
+        app.world_mut()
+            .resource_mut::<jackdaw::scene_io::SceneFilePath>()
+            .path = Some("assets/custom_scene.jsn".to_string());
+
+        assert_eq!(
+            editor_play_scene_commands(app.world()),
+            vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+                "custom_scene.jsn"
+            ))]
+        );
     }
 
     #[test]
