@@ -63,17 +63,25 @@ impl Plugin for TemplateGamePlugin {
             target_editor_open_scene_ui_roots_to_viewport.run_if(play_gate::is_not_playing),
         )
         .add_systems(Update, target_editor_authored_gameplay_ui_roots)
+        .add_observer(mark_editor_runtime_scene_entity)
         .insert_resource(FoundationSplashRuntimeSettings {
             enabled: false,
             require_scene_owner: true,
         })
+        .insert_resource(FoundationMenuRuntimeSettings {
+            require_scene_owner: true,
+        })
         .add_systems(
             OnEnter(jackdaw::prelude::PlayState::Playing),
-            open_initial_scene,
+            (hide_editor_authored_scene_for_play, open_initial_scene).chain(),
         )
         .add_systems(
             OnExit(jackdaw::prelude::PlayState::Playing),
-            (clear_scene_stack, restore_editor_viewport_cameras),
+            (
+                clear_scene_stack,
+                restore_editor_viewport_cameras,
+                restore_editor_authored_scene_after_play,
+            ),
         )
         .add_systems(
             Update,
@@ -270,6 +278,12 @@ type EditorRuntimeCameraQuery<'w, 's> = Query<
     ),
 >;
 
+#[cfg(feature = "editor")]
+#[derive(Component)]
+struct EditorAuthoredSceneHiddenForPlay {
+    previous_visibility: Option<Visibility>,
+}
+
 /// Marker for TemplateGame's press-any-button landing page scene.
 ///
 /// The marker is authored in `landing_page.jsn`. Runtime game code uses it to
@@ -343,6 +357,46 @@ fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
 }
 
 #[cfg(feature = "editor")]
+fn hide_editor_authored_scene_for_play(world: &mut World) {
+    let mut roots = world.query_filtered::<(Entity, Option<&Visibility>), (
+        Without<SceneOwner>,
+        Without<EditorAuthoredSceneHiddenForPlay>,
+        Or<(With<TemplateGameplayUiRoot>, With<FoundationSplashUiRoot>)>,
+    )>();
+    let roots = roots
+        .iter(world)
+        .map(|(entity, visibility)| (entity, visibility.copied()))
+        .collect::<Vec<_>>();
+
+    for (entity, previous_visibility) in roots {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.insert((
+                Visibility::Hidden,
+                EditorAuthoredSceneHiddenForPlay {
+                    previous_visibility,
+                },
+            ));
+        }
+    }
+}
+
+#[cfg(feature = "editor")]
+fn restore_editor_authored_scene_after_play(
+    mut commands: Commands,
+    hidden_roots: Query<(Entity, &EditorAuthoredSceneHiddenForPlay)>,
+) {
+    for (entity, hidden) in &hidden_roots {
+        let mut entity_commands = commands.entity(entity);
+        entity_commands.remove::<EditorAuthoredSceneHiddenForPlay>();
+        if let Some(previous_visibility) = hidden.previous_visibility {
+            entity_commands.insert(previous_visibility);
+        } else {
+            entity_commands.remove::<Visibility>();
+        }
+    }
+}
+
+#[cfg(feature = "editor")]
 fn open_initial_scene(world: &mut World) {
     configure_editor_gameplay_ui_target(world);
     world.insert_resource(FoundationSplashRuntimeSettings {
@@ -354,6 +408,19 @@ fn open_initial_scene(world: &mut World) {
     world.write_message(SceneCommand::Clear);
     for command in commands {
         world.write_message(command);
+    }
+}
+
+#[cfg(feature = "editor")]
+fn mark_editor_runtime_scene_entity(
+    trigger: On<Add, SceneOwner>,
+    mut commands: Commands,
+    mut cameras: Query<&mut Camera>,
+) {
+    let entity = trigger.event_target();
+    commands.entity(entity).insert(jackdaw::EditorHidden);
+    if let Ok(mut camera) = cameras.get_mut(entity) {
+        camera.is_active = false;
     }
 }
 
@@ -647,6 +714,10 @@ fn spawn_requested_jackdaw_scenes(
 
         let scene_id = request.scene_id;
         let path = path.clone();
+        info!(
+            "Editor Play loading scene-stack scene `{path}` for scene {}",
+            scene_id.0
+        );
         commands.queue(move |world: &mut World| {
             let scene_path = std::env::current_dir()
                 .unwrap_or_default()
@@ -670,19 +741,47 @@ fn spawn_requested_jackdaw_scenes(
             let parent_path = scene_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new(""));
-            let local_assets = std::collections::HashMap::new();
+            let local_assets =
+                jackdaw::scene_io::load_inline_assets(world, &jsn.assets, parent_path);
+            let original_parents = jsn
+                .scene
+                .iter()
+                .map(|entity| entity.parent)
+                .collect::<Vec<_>>();
+            let mut root_scene = jsn.scene.clone();
+            for entity in &mut root_scene {
+                entity.parent = None;
+            }
+
             let spawned = jackdaw::scene_io::load_scene_from_jsn(
                 world,
-                &jsn.scene,
+                &root_scene,
                 parent_path,
                 &local_assets,
             );
-            for entity in spawned {
+            info!(
+                "Editor Play spawned {} entities for scene-stack scene `{path}`",
+                spawned.len()
+            );
+            for entity in spawned.iter().copied() {
                 if let Ok(mut entity) = world.get_entity_mut(entity) {
+                    entity.insert((SceneOwner { scene_id }, jackdaw::EditorHidden));
                     if let Some(mut camera) = entity.get_mut::<Camera>() {
                         camera.is_active = false;
                     }
-                    entity.insert(SceneOwner { scene_id });
+                }
+            }
+            for (child_index, parent_index) in original_parents.into_iter().enumerate() {
+                let Some(parent_index) = parent_index else {
+                    continue;
+                };
+                let (Some(&child), Some(&parent)) =
+                    (spawned.get(child_index), spawned.get(parent_index))
+                else {
+                    continue;
+                };
+                if world.get_entity(child).is_ok() && world.get_entity(parent).is_ok() {
+                    world.entity_mut(child).insert(ChildOf(parent));
                 }
             }
         });

@@ -20,6 +20,7 @@ pub struct FoundationMenuPlugin;
 impl Plugin for FoundationMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FoundationPauseState>()
+            .init_resource::<FoundationMenuRuntimeSettings>()
             .add_message::<FoundationExitRequested>()
             .register_type::<FoundationMenuButton>()
             .register_type::<FoundationOptionsMenu>()
@@ -67,6 +68,19 @@ pub fn foundation_is_paused(pause: Res<FoundationPauseState>) -> bool {
 /// Returns true when Foundation gameplay is not currently paused.
 pub fn foundation_is_not_paused(pause: Res<FoundationPauseState>) -> bool {
     !pause.paused
+}
+
+/// Runtime policy for reusable Foundation menu systems.
+///
+/// Standalone games use the default policy: menu systems process any authored
+/// menu entity. Editors that keep the authored scene alive during Play should
+/// require [`SceneOwner`] so menu actions only run for scene-stack runtime
+/// copies, not the open editor scene.
+#[derive(Clone, Copy, Debug, Default, Reflect, Resource)]
+#[reflect(Resource)]
+pub struct FoundationMenuRuntimeSettings {
+    /// If true, menu systems ignore entities that are not owned by the scene stack.
+    pub require_scene_owner: bool,
 }
 
 /// Message emitted when reusable menu UI requests application exit.
@@ -306,6 +320,7 @@ const OPTIONS_TABS: [&str; 4] = ["Gameplay", "Display", "Graphics", "Accessibili
 
 fn initialize_simple_gameplay_levels(
     mut commands: Commands,
+    settings: Res<FoundationMenuRuntimeSettings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     levels: Query<
@@ -314,6 +329,12 @@ fn initialize_simple_gameplay_levels(
     >,
 ) {
     for (level_entity, level, scene_owner) in &levels {
+        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+            continue;
+        }
+        info!(
+            "Initializing FoundationSimpleGameplayLevel on {level_entity:?} with scene_owner={scene_owner:?}"
+        );
         let scene_owner = scene_owner.copied();
         let cube = commands
             .spawn((
@@ -370,12 +391,16 @@ fn spin_foundation_entities(
 
 fn initialize_options_menus(
     mut commands: Commands,
+    settings: Res<FoundationMenuRuntimeSettings>,
     menus: Query<
         (Entity, &FoundationOptionsMenu, Option<&SceneOwner>),
         Without<FoundationOptionsRuntime>,
     >,
 ) {
     for (menu_entity, menu, scene_owner) in &menus {
+        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+            continue;
+        }
         if spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
             .is_none()
         {
@@ -389,12 +414,16 @@ fn initialize_options_menus(
 
 fn initialize_placeholder_menus(
     mut commands: Commands,
+    settings: Res<FoundationMenuRuntimeSettings>,
     menus: Query<
         (Entity, &FoundationPlaceholderMenu, Option<&SceneOwner>),
         Added<FoundationPlaceholderMenu>,
     >,
 ) {
     for (menu_entity, menu, scene_owner) in &menus {
+        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+            continue;
+        }
         spawn_placeholder_menu_children(&mut commands, menu_entity, menu, scene_owner.copied());
     }
 }
@@ -609,21 +638,26 @@ type FoundationMenuButtonInteractionQuery<'w, 's> = Query<
         &'static Interaction,
         &'static FoundationMenuButton,
         &'static mut BackgroundColor,
+        Option<&'static SceneOwner>,
     ),
     (Changed<Interaction>, With<Button>),
 >;
 
 fn open_pause_menus(
     keyboard: Res<ButtonInput<KeyCode>>,
+    settings: Res<FoundationMenuRuntimeSettings>,
     mut pause_state: ResMut<FoundationPauseState>,
-    pause_openers: Query<&FoundationPauseOpener>,
+    pause_openers: Query<(&FoundationPauseOpener, Option<&SceneOwner>)>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     if pause_state.paused || !keyboard.just_pressed(KeyCode::Escape) {
         return;
     }
 
-    let Some(opener) = pause_openers.iter().next() else {
+    let Some((opener, _)) = pause_openers
+        .iter()
+        .find(|(_, scene_owner)| !should_skip_menu_runtime_entity(&settings, *scene_owner))
+    else {
         return;
     };
     let path = opener.pause_scene_path.trim();
@@ -646,12 +680,16 @@ fn open_pause_menus(
 }
 
 fn update_foundation_menu_button_interactions(
+    settings: Res<FoundationMenuRuntimeSettings>,
     mut buttons: FoundationMenuButtonInteractionQuery,
     mut scene_commands: MessageWriter<SceneCommand>,
     mut exit_requested: MessageWriter<FoundationExitRequested>,
     mut pause_state: ResMut<FoundationPauseState>,
 ) {
-    for (interaction, button, mut background) in &mut buttons {
+    for (interaction, button, mut background, scene_owner) in &mut buttons {
+        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+            continue;
+        }
         background.0 = match *interaction {
             Interaction::Pressed => {
                 perform_menu_action(
@@ -723,6 +761,10 @@ fn open_configured_scene(
     if !key.is_empty() {
         options = options.with_key(key);
     }
+    info!(
+        "FoundationMenuButton `{}` opening scene `{path}` (clear_stack={clear_stack})",
+        button.action
+    );
     if clear_stack {
         scene_commands.write(SceneCommand::ClearAndOpen {
             source: SceneSource::jsn_level(path),
@@ -743,6 +785,7 @@ type OptionsTabInteractionQuery<'w, 's> = Query<
         &'static Interaction,
         &'static FoundationOptionsTabButton,
         &'static mut BackgroundColor,
+        Option<&'static SceneOwner>,
     ),
     (Changed<Interaction>, With<Button>),
 >;
@@ -770,11 +813,15 @@ type OptionsSettingTextQuery<'w, 's> = Query<
 >;
 
 fn update_options_tab_button_interactions(
+    settings: Res<FoundationMenuRuntimeSettings>,
     mut buttons: OptionsTabInteractionQuery,
     mut menus: Query<(&mut FoundationOptionsRuntime, Option<&SceneOwner>)>,
     mut setting_texts: OptionsSettingTextQuery,
 ) {
-    for (interaction, tab_button, mut background) in &mut buttons {
+    for (interaction, tab_button, mut background, scene_owner) in &mut buttons {
+        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+            continue;
+        }
         let mut selected = false;
         if *interaction == Interaction::Pressed {
             for (mut runtime, scene_owner) in &mut menus {
@@ -835,14 +882,27 @@ fn inherit_scene_owner_to_generated_menu_ui(
 
 fn close_on_escape(
     keyboard: Res<ButtonInput<KeyCode>>,
-    close_markers: Query<(), With<FoundationCloseOnEscape>>,
+    settings: Res<FoundationMenuRuntimeSettings>,
+    close_markers: Query<Option<&SceneOwner>, With<FoundationCloseOnEscape>>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
-    if close_markers.is_empty() || !keyboard.just_pressed(KeyCode::Escape) {
+    if !keyboard.just_pressed(KeyCode::Escape) {
         return;
     }
 
-    scene_commands.write(SceneCommand::CloseCurrent);
+    let has_close_marker = close_markers
+        .iter()
+        .any(|scene_owner| !should_skip_menu_runtime_entity(&settings, scene_owner));
+    if has_close_marker {
+        scene_commands.write(SceneCommand::CloseCurrent);
+    }
+}
+
+fn should_skip_menu_runtime_entity(
+    settings: &FoundationMenuRuntimeSettings,
+    scene_owner: Option<&SceneOwner>,
+) -> bool {
+    settings.require_scene_owner && scene_owner.is_none()
 }
 
 #[cfg(test)]
