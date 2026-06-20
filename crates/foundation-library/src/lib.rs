@@ -71,8 +71,9 @@ pub struct FoundationActor {
 /// Common imports for games using FoundationLibrary.
 pub mod prelude {
     pub use crate::menu::{
-        FoundationCloseOnEscape, FoundationExitRequested, FoundationMenuButton,
-        FoundationMenuPlugin, FoundationOptionsMenu, FoundationPlaceholderMenu,
+        FoundationCloseOnEscape, FoundationExitRequested, FoundationGeneratedMenuUi,
+        FoundationMenuButton, FoundationMenuPlugin, FoundationOptionsMenu,
+        FoundationPlaceholderMenu,
     };
     pub use crate::scene_stack::{
         FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,

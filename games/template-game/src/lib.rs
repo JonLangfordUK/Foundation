@@ -175,6 +175,7 @@ type AuthoredUiNodeCompletionQuery<'w, 's> = Query<
             With<FoundationSplashUiRoot>,
             With<Text>,
         )>,
+        Without<FoundationGeneratedMenuUi>,
     ),
 >;
 
@@ -187,7 +188,11 @@ type AuthoredUiTextCompletionQuery<'w, 's> = Query<
         Option<&'static TextFont>,
         Option<&'static ChildOf>,
     ),
-    (With<Text>, Without<TemplateUiTextCompleted>),
+    (
+        With<Text>,
+        Without<TemplateUiTextCompleted>,
+        Without<FoundationGeneratedMenuUi>,
+    ),
 >;
 
 /// Marker for TemplateGame's press-any-button landing page scene.

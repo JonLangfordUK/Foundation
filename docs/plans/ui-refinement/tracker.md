@@ -10,7 +10,7 @@
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance after runtime panic fix`
+- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance after generated ordering fix`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 
@@ -213,6 +213,7 @@
 - Initial validation issue: `scripts/validate-project.cmd` failed on `clippy::type_complexity` for `GeneratedMenuUiWithoutOwnerQuery`; fixed by adding the type alias and rerunning successfully.
 - User reported follow-up UI issues: generated load-game/options scene elements can change vertical order each time the scene opens, and options tab changes have an undesirable flash. Follow-up fixed by replacing generated menu child lists in deterministic order and updating existing option setting text in place instead of despawning/recreating rows on tab changes.
 - Runtime panic reported after follow-up: `update_options_tab_button_interactions` had two mutable `Text` queries, triggering Bevy B0001 conflicting query access. Fixed by merging label/value text updates into one disjoint-safe query with optional marker components.
+- User reported generated options/load-game element order still flips after reopening a menu. Likely cause: TemplateGame's authored text completion system was also processing Foundation-generated menu text and rebuilding generated parents sorted by entity index, overriding explicit child order on later opens. Fixed by making `FoundationGeneratedMenuUi` a public marker and excluding those entities from TemplateGame authored-UI completion queries.
 
 ## Postponed Work
 - Real gameplay settings persistence is postponed; options values are intentionally dummy placeholders.
@@ -235,3 +236,5 @@
 - `2026-06-20`: Fixed generated menu child ordering with explicit `replace_children` calls and removed tab-change flash by updating existing setting row text in place. Full validation passed again with `scripts/validate-project.cmd`.
 - `2026-06-20`: User reported runtime Bevy B0001 panic from conflicting mutable `Text` queries in `update_options_tab_button_interactions`; runtime panic fix started.
 - `2026-06-20`: Fixed Bevy B0001 panic by replacing separate mutable label/value `Text` queries with one `OptionsSettingTextQuery`; `cargo run -p template-game -- --help` no longer panicked during startup window, and full validation passed with `scripts/validate-project.cmd`.
+- `2026-06-20`: User reported generated UI ordering still flips on the second menu open; investigated TemplateGame text-completion interaction with Foundation-generated menu UI.
+- `2026-06-20`: Exposed `FoundationGeneratedMenuUi` marker and excluded Foundation-generated menu UI from TemplateGame authored UI completion/reparenting queries. Full validation passed with `scripts/validate-project.cmd`.
