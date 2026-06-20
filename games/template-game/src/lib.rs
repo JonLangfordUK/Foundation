@@ -158,10 +158,69 @@ pub fn initial_scene_commands() -> [SceneCommand; 2] {
     ]
 }
 
+#[cfg(not(feature = "editor"))]
 fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
     scene_commands.write(SceneCommand::Clear);
     for command in initial_scene_commands() {
         scene_commands.write(command);
+    }
+}
+
+#[cfg(feature = "editor")]
+fn open_initial_scene(world: &mut World) {
+    let commands = editor_play_scene_commands(world);
+    world.write_message(SceneCommand::Clear);
+    for command in commands {
+        world.write_message(command);
+    }
+}
+
+#[cfg(feature = "editor")]
+fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
+    let current_scene = world
+        .get_resource::<jackdaw::scene_io::SceneFilePath>()
+        .and_then(|scene_file| scene_file.path.as_deref())
+        .and_then(scene_asset_name)
+        .unwrap_or(PIXEL_PERFECT_SPLASH_SCENE);
+
+    match current_scene {
+        SPLASH_BACKGROUND_SCENE => initial_scene_commands().into_iter().collect(),
+        PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE => vec![
+            SceneCommand::open_with_options(
+                SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
+                OpenSceneOptions::default()
+                    .with_key("splash-background")
+                    .with_presentation(ScenePresentation::FULLSCREEN),
+            ),
+            SceneCommand::open_with_options(
+                SceneSource::jsn_level(current_scene),
+                OpenSceneOptions::default()
+                    .with_key(editor_scene_key(current_scene))
+                    .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
+            ),
+        ],
+        MAIN_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            MAIN_MENU_SCENE,
+        ))],
+        _ => initial_scene_commands().into_iter().collect(),
+    }
+}
+
+#[cfg(feature = "editor")]
+fn scene_asset_name(path: &str) -> Option<&str> {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|file_name| file_name.to_str())
+}
+
+#[cfg(feature = "editor")]
+fn editor_scene_key(path: &str) -> &'static str {
+    match path {
+        SPLASH_BACKGROUND_SCENE => "splash-background",
+        PIXEL_PERFECT_SPLASH_SCENE => "pixel-perfect-splash",
+        BEVY_SPLASH_SCENE => "bevy-splash",
+        MAIN_MENU_SCENE => "main-menu",
+        _ => "editor-scene",
     }
 }
 

@@ -5,15 +5,15 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Editor play scene stack integration implemented; validation passed`
+- Overall status: `Editor play current-scene support implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Editor play scene stack integration complete with gpt-5.4; ready for user verification`
+- Current handoff state: `Editor play current-scene support complete with gpt-5.4; ready for user verification`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, and editor play integration commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, and editor play integration commits pushed to `origin/feature/scene-stack-example`; editor current-scene support commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -219,6 +219,34 @@
 - Root cause: `TemplateGamePlugin` runtime startup emitted scene-stack `.jsn` load requests in the static editor. The standalone game-side bridge spawned `JackdawSceneRoot(asset_server.load(...))`, but the static editor app does not initialize the `jackdaw_runtime::JackdawScene` asset type through `JackdawPlugin`.
 - Adding `JackdawPlugin` to the static editor was attempted and rejected because it duplicated Jackdaw's `JsnPlugin`, causing a plugin-already-added panic. The final fix uses Jackdaw editor scene loading APIs for editor builds instead.
 
+## Phase 7: Editor Play Current Scene Support
+**Status:** Complete  
+**Goal:** Let designers open any TemplateGame `.jsn` scene in the editor, click Play, and continue from that scene through the Foundation scene stack without the scene system removing editor UI.
+
+### Tasks
+- [x] Detect the currently open Jackdaw scene when Play starts.
+  - Status: Complete
+  - Notes: Editor Play startup now reads `jackdaw::scene_io::SceneFilePath`, extracts the asset file name, and starts the scene stack from that scene when it is a known TemplateGame scene.
+- [x] Start from the opened scene rather than always restarting the full splash flow.
+  - Status: Complete
+  - Notes: Opening `splash_bevy.jsn` starts with the persistent background plus Bevy splash, allowing it to transition to `main_menu.jsn`. Opening `main_menu.jsn` starts directly at main menu. Unknown scenes fall back to the full startup flow.
+- [x] Ensure editor UI is not owned or cleared by the scene stack.
+  - Status: Complete
+  - Notes: Scene stack cleanup only targets entities explicitly tagged with `SceneOwner`; editor UI is not tagged. The editor `.jsn` bridge only tags entities spawned from scene-stack loads, not Jackdaw editor chrome.
+
+### Validation
+- Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Manual editor launch check: Passed via `cd games/template-game && timeout 25s cargo run --bin editor --features editor`; editor opened without panic.
+- User confirmation: Pending final user acceptance
+
+### Notes
+- The editor can still only infer a continuation point for known TemplateGame scenes: `splash_background.jsn`, `splash_pixel_perfect.jsn`, `splash_bevy.jsn`, and `main_menu.jsn`. Other scenes intentionally fall back to the default startup flow until a generic per-scene continuation contract exists.
+
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
 - Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
@@ -270,3 +298,6 @@
 - `2026-06-20`: Validation passed via `scripts/validate-project.cmd`; manual static editor launch check passed with `cd games/template-game && timeout 30s cargo run --bin editor --features editor`.
 - `2026-06-20`: Editor panic fix commit `bb09d96` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: Editor play scene-stack integration commit `a0e0d13` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User clarified editor Play should start from whichever `.jsn` scene is open, so `splash_bevy.jsn` can continue to `main_menu.jsn`, and editor UI must never be removed by the scene stack.
+- `2026-06-20`: Implemented editor current-scene detection from `SceneFilePath`; known TemplateGame scenes now start at the opened scene during Play while scene-stack ownership remains limited to runtime-spawned scene entities.
+- `2026-06-20`: Current-scene editor support validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
