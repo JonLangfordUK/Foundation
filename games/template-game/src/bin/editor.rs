@@ -16,12 +16,16 @@ fn main() -> AppExit {
 
     let project_root = std::env::var_os("JACKDAW_PROJECT")
         .map(PathBuf::from)
-        .or_else(|| std::env::current_dir().ok());
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
 
-    let asset_root = project_root
-        .as_ref()
-        .map(|p| p.join("assets").to_string_lossy().to_string())
-        .unwrap_or_else(|| "assets".to_string());
+    if let Err(error) = std::env::set_current_dir(&project_root) {
+        error!(
+            "Failed to set TemplateGame editor working directory to {}: {error}",
+            project_root.display()
+        );
+    }
+
+    let asset_root = project_root.join("assets").to_string_lossy().to_string();
 
     let mut app = App::new();
     app.set_error_handler(bevy::ecs::error::error)
@@ -45,9 +49,9 @@ fn main() -> AppExit {
         .add_plugins(FoundationPlugin)
         .add_plugins(template_game::TemplateGamePlugin);
 
-    if let Some(root) = project_root.filter(|p| p.is_dir()) {
+    if project_root.is_dir() {
         app.insert_resource(PendingAutoOpen {
-            path: root,
+            path: project_root,
             skip_build: true,
         });
     }
