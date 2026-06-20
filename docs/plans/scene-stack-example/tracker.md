@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Editor panic fix implemented; validation passed`
+- Overall status: `Editor play scene stack integration implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Editor panic fix complete with gpt-5.4; ready for user verification`
+- Current handoff state: `Editor play scene stack integration complete with gpt-5.4; ready for user verification`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
@@ -192,15 +192,18 @@
 
 ## Phase 6: Static Editor Scene Stack Startup Fix
 **Status:** Complete  
-**Goal:** Prevent TemplateGame runtime scene-stack startup systems from running inside the Jackdaw static editor where Jackdaw runtime scene asset loading is not initialized by `JackdawPlugin`.
+**Goal:** Keep TemplateGame scene-stack and splash systems available during Jackdaw Play mode without running standalone startup in editor edit mode or requiring `JackdawPlugin` in the static editor.
 
 ### Tasks
-- [x] Disable runtime scene-stack startup/loading/menu systems for the `editor` feature.
+- [x] Run runtime scene-stack startup/loading/menu systems only when the static editor enters Play mode.
   - Status: Complete
-  - Notes: `TemplateGamePlugin` still registers reflected components and gameplay systems, but startup scene commands and runtime `.jsn` bridge systems now only compile/register for non-editor builds.
+  - Notes: `TemplateGamePlugin` now opens the startup scene stack on `OnEnter(PlayState::Playing)`, clears it on `OnExit(PlayState::Playing)`, and runs runtime scene-stack/menu systems only while `play_gate::is_playing` is true.
+- [x] Add an editor-compatible `.jsn` scene-stack bridge.
+  - Status: Complete
+  - Notes: Editor builds parse requested `.jsn` files through `jackdaw_jsn`/`serde_json` and spawn them with `jackdaw::scene_io::load_scene_from_jsn`, avoiding the `JackdawSceneRoot` asset path that requires `jackdaw_runtime::JackdawScene` asset initialization.
 - [x] Validate the static TemplateGame editor opens without the `jackdaw_runtime::JackdawScene` asset-type panic.
   - Status: Complete
-  - Notes: `cd games/template-game && timeout 30s cargo run --bin editor --features editor` opened the editor, loaded `assets/scene.jsn`, and exited cleanly when the window closed; no `JackdawScene` asset initialization panic occurred.
+  - Notes: `cd games/template-game && timeout 30s cargo run --bin editor --features editor` opened the editor and loaded `assets/scene.jsn` without plugin duplication or `JackdawScene` asset initialization panic.
 
 ### Validation
 - Format: Passed via `cargo fmt --all` and `scripts/validate-project.cmd` on 2026-06-20
@@ -213,7 +216,8 @@
 - User confirmation: Pending final user acceptance
 
 ### Notes
-- Root cause: `TemplateGamePlugin` runtime startup emitted scene-stack `.jsn` load requests in the static editor. The game-side bridge then spawned `JackdawSceneRoot(asset_server.load(...))`, but the static editor app does not initialize the `jackdaw_runtime::JackdawScene` asset type through `JackdawPlugin`.
+- Root cause: `TemplateGamePlugin` runtime startup emitted scene-stack `.jsn` load requests in the static editor. The standalone game-side bridge spawned `JackdawSceneRoot(asset_server.load(...))`, but the static editor app does not initialize the `jackdaw_runtime::JackdawScene` asset type through `JackdawPlugin`.
+- Adding `JackdawPlugin` to the static editor was attempted and rejected because it duplicated Jackdaw's `JsnPlugin`, causing a plugin-already-added panic. The final fix uses Jackdaw editor scene loading APIs for editor builds instead.
 
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
@@ -260,6 +264,8 @@
 - `2026-06-20`: Main menu stub commit `712ed94` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: Main menu tracker push-status commit `55d0ddc` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: User reported the Jackdaw launcher/static editor panicked in `template_game::spawn_requested_jackdaw_scenes` because `jackdaw_runtime::JackdawScene` asset type was not initialized.
-- `2026-06-20`: Fixed static editor panic by gating TemplateGame runtime scene-stack startup/loading/menu systems out of `feature = "editor"` builds while preserving reflected component registration.
+- `2026-06-20`: Initially fixed the panic by gating TemplateGame runtime scene-stack startup/loading/menu systems out of `feature = "editor"` builds while preserving reflected component registration.
+- `2026-06-20`: User clarified that Foundation runtime libraries must function while playing through the editor, including scene stack and splash screens.
+- `2026-06-20`: Reworked editor integration so scene-stack startup runs on Jackdaw `PlayState::Playing`, runtime systems run only during play, and editor builds load scene-stack `.jsn` files through `jackdaw::scene_io::load_scene_from_jsn` instead of `JackdawSceneRoot`.
 - `2026-06-20`: Validation passed via `scripts/validate-project.cmd`; manual static editor launch check passed with `cd games/template-game && timeout 30s cargo run --bin editor --features editor`.
 - `2026-06-20`: Editor panic fix commit `bb09d96` pushed to `origin/feature/scene-stack-example`.

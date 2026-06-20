@@ -28,6 +28,28 @@ impl Plugin for TemplateGamePlugin {
             .register_type::<TemplateMainMenu>()
             .add_systems(Update, spin_cube.run_if(play_gate::is_playing));
 
+        #[cfg(feature = "editor")]
+        app.add_systems(
+            OnEnter(jackdaw::prelude::PlayState::Playing),
+            open_initial_scene,
+        )
+        .add_systems(
+            OnExit(jackdaw::prelude::PlayState::Playing),
+            clear_scene_stack,
+        )
+        .add_systems(
+            Update,
+            (
+                spawn_requested_jackdaw_scenes,
+                initialize_fullscreen_backgrounds,
+                cleanup_orphaned_fullscreen_backgrounds,
+                initialize_main_menus,
+                advance_main_menu_prompt,
+                update_main_menu_button_interactions,
+            )
+                .run_if(play_gate::is_playing),
+        );
+
         #[cfg(not(feature = "editor"))]
         app.add_systems(Startup, open_initial_scene).add_systems(
             Update,
@@ -68,31 +90,26 @@ impl Default for TemplateFullscreenBackground {
     }
 }
 
-#[cfg(not(feature = "editor"))]
 #[derive(Component)]
 struct GeneratedFullscreenBackground {
     source: Entity,
 }
 
-#[cfg(not(feature = "editor"))]
 #[derive(Component)]
 struct TemplateMainMenuRuntime {
     root: Entity,
     state: TemplateMainMenuState,
 }
 
-#[cfg(not(feature = "editor"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TemplateMainMenuState {
     Prompt,
     Buttons,
 }
 
-#[cfg(not(feature = "editor"))]
 #[derive(Component)]
 struct TemplateMenuButton;
 
-#[cfg(not(feature = "editor"))]
 type MenuButtonInteractionQuery<'w, 's> = Query<
     'w,
     's,
@@ -141,11 +158,16 @@ pub fn initial_scene_commands() -> [SceneCommand; 2] {
     ]
 }
 
-#[cfg(not(feature = "editor"))]
 fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
+    scene_commands.write(SceneCommand::Clear);
     for command in initial_scene_commands() {
         scene_commands.write(command);
     }
+}
+
+#[cfg(feature = "editor")]
+fn clear_scene_stack(mut scene_commands: MessageWriter<SceneCommand>) {
+    scene_commands.write(SceneCommand::Clear);
 }
 
 #[cfg(not(feature = "editor"))]
@@ -168,7 +190,57 @@ fn spawn_requested_jackdaw_scenes(
     }
 }
 
-#[cfg(not(feature = "editor"))]
+#[cfg(feature = "editor")]
+fn spawn_requested_jackdaw_scenes(
+    mut commands: Commands,
+    mut load_requests: MessageReader<SceneLoadRequested>,
+) {
+    for request in load_requests.read() {
+        let SceneSource::JsnLevel { path } = &request.source else {
+            continue;
+        };
+
+        let scene_id = request.scene_id;
+        let path = path.clone();
+        commands.queue(move |world: &mut World| {
+            let scene_path = std::env::current_dir()
+                .unwrap_or_default()
+                .join("assets")
+                .join(&path);
+            let Ok(json) = std::fs::read_to_string(&scene_path) else {
+                warn!(
+                    "Failed to read scene stack .jsn scene {}",
+                    scene_path.display()
+                );
+                return;
+            };
+            let Ok(jsn) = serde_json::from_str::<jackdaw_jsn::format::JsnScene>(&json) else {
+                warn!(
+                    "Failed to parse scene stack .jsn scene {}",
+                    scene_path.display()
+                );
+                return;
+            };
+
+            let parent_path = scene_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new(""));
+            let local_assets = std::collections::HashMap::new();
+            let spawned = jackdaw::scene_io::load_scene_from_jsn(
+                world,
+                &jsn.scene,
+                parent_path,
+                &local_assets,
+            );
+            for entity in spawned {
+                if let Ok(mut entity) = world.get_entity_mut(entity) {
+                    entity.insert(SceneOwner { scene_id });
+                }
+            }
+        });
+    }
+}
+
 fn initialize_fullscreen_backgrounds(
     mut commands: Commands,
     backgrounds: Query<
@@ -205,7 +277,6 @@ fn initialize_fullscreen_backgrounds(
     }
 }
 
-#[cfg(not(feature = "editor"))]
 fn cleanup_orphaned_fullscreen_backgrounds(
     mut commands: Commands,
     generated_backgrounds: Query<(Entity, &GeneratedFullscreenBackground)>,
@@ -218,7 +289,6 @@ fn cleanup_orphaned_fullscreen_backgrounds(
     }
 }
 
-#[cfg(not(feature = "editor"))]
 fn initialize_main_menus(
     mut commands: Commands,
     menus: Query<(Entity, &TemplateMainMenu), Added<TemplateMainMenu>>,
@@ -234,7 +304,6 @@ fn initialize_main_menus(
     }
 }
 
-#[cfg(not(feature = "editor"))]
 fn advance_main_menu_prompt(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -257,7 +326,6 @@ fn advance_main_menu_prompt(
     }
 }
 
-#[cfg(not(feature = "editor"))]
 fn update_main_menu_button_interactions(mut buttons: MenuButtonInteractionQuery) {
     for (interaction, mut background) in &mut buttons {
         background.0 = match *interaction {
@@ -268,7 +336,6 @@ fn update_main_menu_button_interactions(mut buttons: MenuButtonInteractionQuery)
     }
 }
 
-#[cfg(not(feature = "editor"))]
 fn any_button_just_pressed(
     keyboard: &ButtonInput<KeyCode>,
     mouse: &ButtonInput<MouseButton>,
@@ -279,7 +346,6 @@ fn any_button_just_pressed(
         || gamepad.is_some_and(|gamepad| gamepad.get_just_pressed().next().is_some())
 }
 
-#[cfg(not(feature = "editor"))]
 fn spawn_main_menu_prompt(commands: &mut Commands, menu: &TemplateMainMenu) -> Entity {
     let title = commands
         .spawn((
@@ -314,7 +380,6 @@ fn spawn_main_menu_prompt(commands: &mut Commands, menu: &TemplateMainMenu) -> E
         .id()
 }
 
-#[cfg(not(feature = "editor"))]
 fn spawn_main_menu_buttons(commands: &mut Commands) -> Entity {
     let root = commands
         .spawn((
@@ -339,7 +404,6 @@ fn spawn_main_menu_buttons(commands: &mut Commands) -> Entity {
     root
 }
 
-#[cfg(not(feature = "editor"))]
 fn spawn_menu_button(commands: &mut Commands, label: &str) -> Entity {
     let text = commands
         .spawn((
