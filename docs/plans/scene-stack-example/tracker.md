@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, and tracker push-status commits pushed to `origin/feature/scene-stack-example`; base background fill adjustment commit pending after validation.
+- Push status: Planning, implementation, follow-up, tracker push-status, and base background fill adjustment commits pushed to `origin/feature/scene-stack-example`.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -196,3 +196,4 @@
 - `2026-06-20`: Follow-up tracker push-status commit `ad38cef` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: User confirmed the flow and clarified the base splash background should be black and fill the screen; adjusted the background UI node to be absolute full-screen black behind splash overlays.
 - `2026-06-20`: Base background fill adjustment validation passed via `scripts/test-project.cmd` and full `scripts/validate-project.cmd`.
+- `2026-06-20`: Base background fill adjustment commit `a45281f` pushed to `origin/feature/scene-stack-example`.
