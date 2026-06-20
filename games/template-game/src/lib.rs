@@ -217,8 +217,6 @@ type AuthoredUiTextCompletionQuery<'w, 's> = Query<
     's,
     (
         Entity,
-        &'static Text,
-        Option<&'static TextFont>,
         Option<&'static ChildOf>,
         Option<&'static SceneOwner>,
     ),
@@ -849,7 +847,7 @@ fn complete_authored_ui_text_components(
     }
 
     let mut parents_to_rebuild = std::collections::HashSet::new();
-    for (entity, text, font, parent, scene_owner) in &texts {
+    for (entity, parent, scene_owner) in &texts {
         if !should_process_runtime_scene_entity(scene_owner) {
             continue;
         }
@@ -857,19 +855,13 @@ fn complete_authored_ui_text_components(
         // bypass Bevy's typed `Text` required-components path. Add the UI text
         // measure/layout components that `commands.spawn(Text::new(...))` would
         // normally provide, while preserving the authored Text/TextFont/TextColor.
-        let font_size = font.map(|font| font.font_size).unwrap_or(20.0);
-        let width = (text.0.chars().count() as f32 * font_size * 0.7).max(font_size);
         if let Some(parent) = parent {
             parents_to_rebuild.insert(parent.0);
         }
         commands.entity(entity).insert((
             TemplateUiTextCompleted,
-            Node {
-                width: Val::Px(width),
-                height: Val::Px(font_size * 1.4),
-                ..default()
-            },
-            TextLayout::default(),
+            Node::default(),
+            TextLayout::new_with_justify(Justify::Center),
             ComputedTextBlock::default(),
             TextLayoutInfo::default(),
             LineHeight::default(),
