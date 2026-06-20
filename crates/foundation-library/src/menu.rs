@@ -462,31 +462,25 @@ type GeneratedMenuUiWithoutOwnerQuery<'w, 's> = Query<
     (With<FoundationGeneratedMenuUi>, Without<SceneOwner>),
 >;
 
-type OptionsSettingLabelQuery<'w, 's> = Query<
+type OptionsSettingTextQuery<'w, 's> = Query<
     'w,
     's,
     (
         &'static mut Text,
-        &'static FoundationOptionsSettingLabel,
+        Option<&'static FoundationOptionsSettingLabel>,
+        Option<&'static FoundationOptionsSettingValue>,
         Option<&'static SceneOwner>,
     ),
->;
-
-type OptionsSettingValueQuery<'w, 's> = Query<
-    'w,
-    's,
-    (
-        &'static mut Text,
-        &'static FoundationOptionsSettingValue,
-        Option<&'static SceneOwner>,
-    ),
+    Or<(
+        With<FoundationOptionsSettingLabel>,
+        With<FoundationOptionsSettingValue>,
+    )>,
 >;
 
 fn update_options_tab_button_interactions(
     mut buttons: OptionsTabInteractionQuery,
     mut menus: Query<(&mut FoundationOptionsRuntime, Option<&SceneOwner>)>,
-    mut labels: OptionsSettingLabelQuery,
-    mut values: OptionsSettingValueQuery,
+    mut setting_texts: OptionsSettingTextQuery,
 ) {
     for (interaction, tab_button, mut background) in &mut buttons {
         let mut selected = false;
@@ -494,12 +488,7 @@ fn update_options_tab_button_interactions(
             for (mut runtime, scene_owner) in &mut menus {
                 runtime.active_tab = tab_button.tab;
                 selected = true;
-                update_setting_texts(
-                    tab_button.tab,
-                    scene_owner.copied(),
-                    &mut labels,
-                    &mut values,
-                );
+                update_setting_texts(tab_button.tab, scene_owner.copied(), &mut setting_texts);
             }
         }
 
@@ -515,17 +504,17 @@ fn update_options_tab_button_interactions(
 fn update_setting_texts(
     tab: usize,
     scene_owner: Option<SceneOwner>,
-    labels: &mut OptionsSettingLabelQuery,
-    values: &mut OptionsSettingValueQuery,
+    setting_texts: &mut OptionsSettingTextQuery,
 ) {
     let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
-    for (mut text, label, owner) in labels.iter_mut() {
-        if scene_owners_match(scene_owner, owner.copied()) {
-            text.0 = format!("{tab_name} Property {}", label.index);
+    for (mut text, label, value, owner) in setting_texts.iter_mut() {
+        if !scene_owners_match(scene_owner, owner.copied()) {
+            continue;
         }
-    }
-    for (mut text, value, owner) in values.iter_mut() {
-        if scene_owners_match(scene_owner, owner.copied()) {
+
+        if let Some(label) = label {
+            text.0 = format!("{tab_name} Property {}", label.index);
+        } else if let Some(value) = value {
             text.0 = format!("< Value {} >", value.index);
         }
     }
