@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, editor viewport UI fix, and editor viewport parenting fix commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, editor viewport UI fix, and editor viewport parenting fix commits pushed to `origin/feature/scene-stack-example`; editor cargo alias commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -275,6 +275,23 @@
 ### Notes
 - This addresses the issue where opening `main_menu.jsn` or splash scenes and pressing Play caused gameplay UI to cover the full editor window. `UiTargetCamera` alone was not enough for every generated root; generated UI roots are now also parented under the Jackdaw `SceneViewport` node so layout percentages resolve against the viewport.
 
+## Phase 9: Editor Cargo Alias
+**Status:** Complete  
+**Goal:** Provide a short repository-local Cargo command for launching the TemplateGame editor.
+
+### Tasks
+- [x] Add a repository Cargo alias for the TemplateGame editor.
+  - Status: Complete
+  - Notes: Added `.cargo/config.toml` aliases: `cargo editor` and `cargo template-editor`, both expanding to `cargo run -p template-game --bin editor --features editor`.
+
+### Validation
+- Alias expansion: Passed via `cargo editor --help` on 2026-06-20.
+- Full validation wrapper: Not rerun; alias-only config change does not affect Rust compilation.
+- User confirmation: Pending final user acceptance
+
+### Notes
+- Cargo does not support adding a custom `--editor` flag to `cargo run`, so `cargo run -p template-game --editor` is not a valid Cargo shape. A Cargo alias is the closest idiomatic command.
+
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
 - Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
@@ -337,3 +354,4 @@
 - `2026-06-20`: User clarified that all scenes except the main menu still consumed the full editor window; implemented viewport-parenting for Foundation splash UI and TemplateGame background/menu UI roots using Jackdaw's `SceneViewport` in addition to `UiTargetCamera`.
 - `2026-06-20`: Viewport-parenting validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
 - `2026-06-20`: Editor viewport parenting fix commit `b94fdd5` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: Added repository Cargo aliases `cargo editor` and `cargo template-editor` for launching the TemplateGame editor; verified alias expansion with `cargo editor --help`.
