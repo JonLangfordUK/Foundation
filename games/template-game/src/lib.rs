@@ -58,36 +58,40 @@ impl Plugin for TemplateGamePlugin {
         app.add_systems(Update, stop_editor_play_on_foundation_exit_request);
 
         #[cfg(feature = "editor")]
-        app.add_systems(Update, target_editor_authored_gameplay_ui_roots)
-            .insert_resource(FoundationSplashRuntimeSettings {
-                enabled: false,
-                require_scene_owner: true,
-            })
-            .add_systems(
-                OnEnter(jackdaw::prelude::PlayState::Playing),
-                open_initial_scene,
+        app.add_systems(
+            Update,
+            target_editor_open_scene_ui_roots_to_viewport.run_if(play_gate::is_not_playing),
+        )
+        .add_systems(Update, target_editor_authored_gameplay_ui_roots)
+        .insert_resource(FoundationSplashRuntimeSettings {
+            enabled: false,
+            require_scene_owner: true,
+        })
+        .add_systems(
+            OnEnter(jackdaw::prelude::PlayState::Playing),
+            open_initial_scene,
+        )
+        .add_systems(
+            OnExit(jackdaw::prelude::PlayState::Playing),
+            (clear_scene_stack, restore_editor_viewport_cameras),
+        )
+        .add_systems(
+            Update,
+            (
+                spawn_requested_jackdaw_scenes,
+                target_editor_runtime_cameras_to_viewport,
+                detach_scene_stack_ui_roots,
+                update_scene_stack_ui_root_z_indices,
+                complete_authored_ui_text_components,
+                initialize_fullscreen_backgrounds,
+                cleanup_orphaned_fullscreen_backgrounds,
+                initialize_landing_pages,
+                advance_landing_pages,
+                initialize_main_menus,
+                update_main_menu_button_interactions,
             )
-            .add_systems(
-                OnExit(jackdaw::prelude::PlayState::Playing),
-                (clear_scene_stack, restore_editor_viewport_cameras),
-            )
-            .add_systems(
-                Update,
-                (
-                    spawn_requested_jackdaw_scenes,
-                    target_editor_runtime_cameras_to_viewport,
-                    detach_scene_stack_ui_roots,
-                    update_scene_stack_ui_root_z_indices,
-                    complete_authored_ui_text_components,
-                    initialize_fullscreen_backgrounds,
-                    cleanup_orphaned_fullscreen_backgrounds,
-                    initialize_landing_pages,
-                    advance_landing_pages,
-                    initialize_main_menus,
-                    update_main_menu_button_interactions,
-                )
-                    .run_if(play_gate::is_playing),
-            );
+                .run_if(play_gate::is_playing),
+        );
 
         #[cfg(not(feature = "editor"))]
         app.add_systems(Startup, open_initial_scene).add_systems(
@@ -221,6 +225,17 @@ type EditorGameplayUiRootTargetQuery<'w, 's> = Query<
 >;
 
 #[cfg(feature = "editor")]
+type EditorOpenSceneUiRootTargetQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, Option<&'static ChildOf>),
+    (
+        Without<SceneOwner>,
+        Or<(With<TemplateGameplayUiRoot>, With<FoundationSplashUiRoot>)>,
+    ),
+>;
+
+#[cfg(feature = "editor")]
 type EditorViewportCameraReadQuery<'w, 's> = Query<
     'w,
     's,
@@ -327,6 +342,29 @@ fn open_initial_scene(world: &mut World) {
     world.write_message(SceneCommand::Clear);
     for command in commands {
         world.write_message(command);
+    }
+}
+
+#[cfg(feature = "editor")]
+fn target_editor_open_scene_ui_roots_to_viewport(
+    mut commands: Commands,
+    active_viewport: Option<Res<jackdaw::viewport::ActiveViewport>>,
+    viewports: Query<Entity, With<jackdaw::viewport::SceneViewport>>,
+    roots: EditorOpenSceneUiRootTargetQuery,
+) {
+    let viewport_parent = active_viewport
+        .as_deref()
+        .and_then(|viewport| viewport.ui_node)
+        .or_else(|| viewports.iter().next());
+    let Some(viewport_parent) = viewport_parent else {
+        return;
+    };
+
+    for (root, child_of) in &roots {
+        commands.entity(root).remove::<UiTargetCamera>();
+        if root != viewport_parent && child_of.map(|parent| parent.0) != Some(viewport_parent) {
+            commands.entity(viewport_parent).add_child(root);
+        }
     }
 }
 
@@ -929,6 +967,13 @@ pub mod play_gate {
         state: bevy::prelude::Res<bevy::state::state::State<jackdaw::prelude::PlayState>>,
     ) -> bool {
         matches!(*state.get(), jackdaw::prelude::PlayState::Playing)
+    }
+
+    #[cfg(feature = "editor")]
+    pub fn is_not_playing(
+        state: bevy::prelude::Res<bevy::state::state::State<jackdaw::prelude::PlayState>>,
+    ) -> bool {
+        !matches!(*state.get(), jackdaw::prelude::PlayState::Playing)
     }
 
     #[cfg(not(feature = "editor"))]
