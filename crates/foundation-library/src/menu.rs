@@ -79,6 +79,7 @@ pub struct FoundationExitRequested;
 /// Supported `action` values are:
 /// - `none`
 /// - `open_scene`
+/// - `open_overlay_scene`
 /// - `clear_and_open_scene`
 /// - `close_current`
 /// - `resume`
@@ -108,6 +109,15 @@ impl FoundationMenuButton {
     pub fn open_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
         Self {
             action: "open_scene".to_string(),
+            scene_path: path.into(),
+            scene_key: key.into(),
+        }
+    }
+
+    /// Creates a button that opens an input-blocking overlay scene on the stack.
+    pub fn open_overlay_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
+        Self {
+            action: "open_overlay_scene".to_string(),
             scene_path: path.into(),
             scene_key: key.into(),
         }
@@ -614,10 +624,18 @@ fn perform_menu_action(
     pause_state: &mut FoundationPauseState,
 ) {
     match button.action.trim().to_ascii_lowercase().as_str() {
-        "open_scene" => open_configured_scene(button, scene_commands, false),
+        "open_scene" => {
+            open_configured_scene(button, scene_commands, false, ScenePresentation::FULLSCREEN)
+        }
+        "open_overlay_scene" => open_configured_scene(
+            button,
+            scene_commands,
+            false,
+            ScenePresentation::INPUT_BLOCKING_OVERLAY,
+        ),
         "clear_and_open_scene" => {
             pause_state.paused = false;
-            open_configured_scene(button, scene_commands, true);
+            open_configured_scene(button, scene_commands, true, ScenePresentation::FULLSCREEN);
         }
         "close_current" => {
             scene_commands.write(SceneCommand::CloseCurrent);
@@ -639,6 +657,7 @@ fn open_configured_scene(
     button: &FoundationMenuButton,
     scene_commands: &mut MessageWriter<SceneCommand>,
     clear_stack: bool,
+    presentation: ScenePresentation,
 ) {
     let path = button.scene_path.trim();
     if path.is_empty() {
@@ -648,7 +667,7 @@ fn open_configured_scene(
         );
         return;
     }
-    let mut options = OpenSceneOptions::default().with_presentation(ScenePresentation::FULLSCREEN);
+    let mut options = OpenSceneOptions::default().with_presentation(presentation);
     let key = button.scene_key.trim();
     if !key.is_empty() {
         options = options.with_key(key);
@@ -786,6 +805,10 @@ mod tests {
         assert_eq!(open.action, "open_scene");
         assert_eq!(open.scene_path, "options_menu.jsn");
         assert_eq!(open.scene_key, "options-menu");
+        let overlay = FoundationMenuButton::open_overlay_scene("options_menu.jsn", "options-menu");
+        assert_eq!(overlay.action, "open_overlay_scene");
+        assert_eq!(overlay.scene_path, "options_menu.jsn");
+        assert_eq!(overlay.scene_key, "options-menu");
         let clear =
             FoundationMenuButton::clear_and_open_scene("gameplay_level.jsn", "gameplay-level");
         assert_eq!(clear.action, "clear_and_open_scene");
