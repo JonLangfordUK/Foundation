@@ -13,7 +13,7 @@
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
-- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, and editor viewport UI fix commits pushed to `origin/feature/scene-stack-example`; editor viewport parenting fix commit pending.
+- Push status: Planning, implementation, follow-up, tracker push-status, base background fill adjustment, detached background root adjustment, main menu stub, tracker push-status, editor panic fix, editor play integration, editor current-scene support, editor viewport UI fix, and editor viewport parenting fix commits pushed to `origin/feature/scene-stack-example`; final tracker push-status commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -336,3 +336,4 @@
 - `2026-06-20`: Editor viewport UI fix commit `ea07064` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: User clarified that all scenes except the main menu still consumed the full editor window; implemented viewport-parenting for Foundation splash UI and TemplateGame background/menu UI roots using Jackdaw's `SceneViewport` in addition to `UiTargetCamera`.
 - `2026-06-20`: Viewport-parenting validation passed via `scripts/validate-project.cmd`; manual editor launch check passed without panic.
+- `2026-06-20`: Editor viewport parenting fix commit `b94fdd5` pushed to `origin/feature/scene-stack-example`.
