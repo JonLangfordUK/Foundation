@@ -32,6 +32,7 @@ impl Plugin for TemplateGamePlugin {
                 (
                     spawn_requested_jackdaw_scenes,
                     initialize_fullscreen_backgrounds,
+                    cleanup_orphaned_fullscreen_backgrounds,
                     initialize_main_menus,
                     spin_cube.run_if(play_gate::is_playing),
                 ),
@@ -62,6 +63,11 @@ impl Default for TemplateFullscreenBackground {
             blue: 0.0,
         }
     }
+}
+
+#[derive(Component)]
+struct GeneratedFullscreenBackground {
+    source: Entity,
 }
 
 /// Marker for TemplateGame's example main menu scene.
@@ -156,10 +162,25 @@ fn initialize_fullscreen_backgrounds(
                     background.blue,
                 )),
                 GlobalZIndex(-1000),
+                GeneratedFullscreenBackground {
+                    source: background_entity,
+                },
             ))
             .id();
 
-        commands.entity(background_entity).add_child(ui_root);
+        debug_assert_ne!(background_entity, ui_root);
+    }
+}
+
+fn cleanup_orphaned_fullscreen_backgrounds(
+    mut commands: Commands,
+    generated_backgrounds: Query<(Entity, &GeneratedFullscreenBackground)>,
+    background_sources: Query<(), With<TemplateFullscreenBackground>>,
+) {
+    for (generated_entity, generated_background) in &generated_backgrounds {
+        if background_sources.get(generated_background.source).is_err() {
+            commands.entity(generated_entity).despawn();
+        }
     }
 }
 
