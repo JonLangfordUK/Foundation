@@ -6,11 +6,11 @@
 - Primary area: `engine`
 - Foundation area: `Foundation Library`
 - Branch: `feature/foundation-scene-stack`
-- Overall status: `In progress`
+- Overall status: `Complete; ready for optional final review`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation in progress with gpt-5.4`
+- Current handoff state: `Ready for gpt-5.5 sanity review`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 
@@ -114,34 +114,35 @@
 - Phase 3 implementation is ready to commit and push.
 
 ## Phase 4: Documentation, full validation, and handoff
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Finalize docs, run full validation, update tracker, and prepare for optional sanity review.
 
 ### Tasks
-- [ ] Complete Rustdoc for all public scene stack APIs.
-  - Status: Planned
-  - Notes: Include schedule/lifecycle caveats.
-- [ ] Add feature-level documentation if Rustdoc alone is insufficient.
-  - Status: Planned
-  - Notes: Document command ordering, presentation policy, focus model, cleanup, and `.jsn` bridge.
-- [ ] Run full project validation and record results.
-  - Status: Planned
-  - Notes: Use `scripts/validate-project.cmd` plus individual command results if needed.
-- [ ] Commit completed phase work and record push status.
-  - Status: Planned
-  - Notes: Repository currently has an `origin`; push will be required after commits unless remote state changes.
+- [x] Complete Rustdoc for all public scene stack APIs.
+  - Status: Complete
+  - Notes: Public scene stack types, messages, ownership component, and command helpers have Rustdoc.
+- [x] Add feature-level documentation if Rustdoc alone is insufficient.
+  - Status: Complete
+  - Notes: Added `docs/foundation-scene-stack.md` covering command ordering, presentation policy, focus model, cleanup, and `.jsn` bridge.
+- [x] Run full project validation and record results.
+  - Status: Complete
+  - Notes: `scripts/validate-project.cmd` passed on 2026-06-20.
+- [x] Commit completed phase work and record push status.
+  - Status: Complete after final phase commit
+  - Notes: Final phase commit pending at time of this tracker edit; push required to `origin/feature/foundation-scene-stack`.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- User confirmation: Pending
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-20)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-20)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-20; 14 FoundationLibrary tests plus workspace tests)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-20)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-20; generated FoundationLibrary docs)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-20)
+- User confirmation: Pending optional final review decision
 
 ### Notes
 - Final optional review should use `gpt-5.5` and record findings here.
+- Implementation is complete and ready for optional sanity review.
 
 ## Implementation / Review Handoff Notes
 - Implementation model: `gpt-5.4`.
@@ -166,3 +167,4 @@
 - `2026-06-20`: Completed Phase 2 command processing, lifecycle messages, focus restoration, runtime flags, and validation.
 - `2026-06-20`: Phase 2 commit `e3d8a41` pushed to `origin/feature/foundation-scene-stack`; started Phase 3 cleanup and `.jsn` bridge work.
 - `2026-06-20`: Completed Phase 3 scene ownership cleanup, `SceneLoadRequested` `.jsn` bridge, and validation.
+- `2026-06-20`: Phase 3 commit `3a14477` pushed to `origin/feature/foundation-scene-stack`; added feature docs and ran full validation successfully.
