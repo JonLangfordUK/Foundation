@@ -5,15 +5,15 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Planned`
+- Overall status: `Implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.4 implementation after user approval`
+- Current handoff state: `Implementation complete with gpt-5.4; ready for optional gpt-5.5 sanity review`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
-- Branch creation: Created locally from `dev` on 2026-06-20.
-- Push status: Planning branch is tracking `origin/feature/scene-stack-example`; planning and push-status update commits have been pushed.
+- Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
+- Push status: Planning branch is tracking `origin/feature/scene-stack-example`; implementation commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -28,96 +28,96 @@
   - `scripts/validate-project.cmd`
 
 ## Phase 1: Foundation Reusable Splash Primitives
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Add reusable, reflected FoundationLibrary splash-screen configuration and timing/fade logic that can be driven by Jackdaw `.jsn` scenes.
 
 ### Tasks
-- [ ] Add a Foundation splash module with reflected config components/resources for splash text, fade-in duration, hold duration, fade-out duration, and next-scene behavior.
-  - Status: Planned
-  - Notes: Defaults should match `1.5s / 2.0s / 1.5s`; values must be adjustable through serialized data or a documented config path.
-- [ ] Add reusable systems for splash phase progression, alpha/fade updates, and final scene-stack command emission.
-  - Status: Planned
-  - Notes: Must avoid duplicating per-splash logic.
-- [ ] Register and re-export public Foundation splash types from `FoundationPlugin` and `foundation_library::prelude`.
-  - Status: Planned
-  - Notes: Public types need Rustdoc comments.
-- [ ] Add tests for timing phase behavior and next-scene command selection where practical.
-  - Status: Planned
-  - Notes: Prefer non-window tests.
+- [x] Add a Foundation splash module with reflected config components/resources for splash text, fade-in duration, hold duration, fade-out duration, and next-scene behavior.
+  - Status: Complete
+  - Notes: Added `FoundationSplashScreen`, `FoundationSplashTimings`, configurable next-scene path, reset-stack flag, and replace-current flag in `crates/foundation-library/src/splash_screen.rs`.
+- [x] Add reusable systems for splash phase progression, alpha/fade updates, and final scene-stack command emission.
+  - Status: Complete
+  - Notes: Added shared systems that spawn centered UI text, drive fade/hold/fade-out alpha, and emit `SceneCommand` on completion.
+- [x] Register and re-export public Foundation splash types from `FoundationPlugin` and `foundation_library::prelude`.
+  - Status: Complete
+  - Notes: Public types include Rustdoc comments and are registered through `FoundationSplashScreenPlugin`.
+- [x] Add tests for timing phase behavior and next-scene command selection where practical.
+  - Status: Complete
+  - Notes: Added Foundation unit tests for default timings, phase alpha behavior, replace-current transition command, and reset-stack transition command.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending / Not required yet
-- User confirmation: Pending / Not required yet
+- Format: Passed via `scripts/format-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/lint-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/test-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/compile-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/doc-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- User confirmation: Not required for phase completion
 
 ### Notes
 - Reusable logic belongs in `crates/foundation-library`.
 - Concrete scene files and sequence choices belong in `games/template-game`.
 
 ## Phase 2: TemplateGame Jackdaw Scene Stack Bridge And Startup
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Make TemplateGame load Jackdaw `.jsn` scene sources through the Foundation scene stack instead of spawning the initial scene directly.
 
 ### Tasks
-- [ ] Replace direct startup spawning of `scene.jsn` with opening the first splash scene through the scene stack.
-  - Status: Planned
-  - Notes: First scene should be a `SceneSource::JsnLevel` for the Pixel Perfect splash.
-- [ ] Add a TemplateGame bridge that consumes `SceneLoadRequested` and spawns `JackdawSceneRoot(asset_server.load(path))` for `.jsn` scene sources.
-  - Status: Planned
-  - Notes: Spawned scene roots should be tagged with `SceneOwner` for cleanup.
-- [ ] Verify scene stack replacement/clear behavior for splash transitions and final main menu transition.
-  - Status: Planned
-  - Notes: First splash should transition to second; final splash should clear/reset stack before main menu.
-- [ ] Add tests for scene path constants, startup command behavior, and bridge behavior where practical.
-  - Status: Planned
-  - Notes: Tests should avoid opening a GPU window.
+- [x] Replace direct startup spawning of `scene.jsn` with opening the first splash scene through the scene stack.
+  - Status: Complete
+  - Notes: `TemplateGamePlugin` now emits an initial `SceneCommand` for `splash_pixel_perfect.jsn`; `src/main.rs` no longer spawns `scene.jsn` directly.
+- [x] Add a TemplateGame bridge that consumes `SceneLoadRequested` and spawns `JackdawSceneRoot(asset_server.load(path))` for `.jsn` scene sources.
+  - Status: Complete
+  - Notes: `spawn_requested_jackdaw_scenes` spawns `JackdawSceneRoot` and tags roots with `SceneOwner`.
+- [x] Verify scene stack replacement/clear behavior for splash transitions and final main menu transition.
+  - Status: Complete
+  - Notes: Pixel Perfect `.jsn` uses replace-current transition to Bevy; Bevy `.jsn` uses reset-stack transition to `main_menu.jsn`.
+- [x] Add tests for scene path constants, startup command behavior, and bridge behavior where practical.
+  - Status: Complete
+  - Notes: Added TemplateGame tests for scene path constants, initial stack command, and reflected menu marker registration. Bridge behavior is covered indirectly by scene stack load-request tests and compile validation.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending / Not required yet
-- User confirmation: Pending / Not required yet
+- Format: Passed via `scripts/format-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/lint-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/test-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/compile-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/doc-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- User confirmation: Not required for phase completion
 
 ### Notes
-- The exact implementation should keep the Jackdaw editor launcher generic and avoid putting game-specific sequence logic in `crates/jackdaw-editor`.
+- The implementation keeps the Jackdaw editor launcher generic and avoids game-specific sequence logic in `crates/jackdaw-editor`.
 
 ## Phase 3: Concrete `.jsn` Splash And Main Menu Scenes
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Add three TemplateGame Jackdaw scenes and verify the requested visible flow/timings.
 
 ### Tasks
-- [ ] Add Pixel Perfect splash `.jsn` scene.
-  - Status: Planned
-  - Notes: Should display centered `Pixel Perfect` text and use default timing `1.5s fade-in / 2.0s hold / 1.5s fade-out` unless data overrides are documented.
-- [ ] Add Bevy splash `.jsn` scene.
-  - Status: Planned
-  - Notes: Should display centered `Bevy` text and reuse the same Foundation splash logic.
-- [ ] Add main menu `.jsn` scene.
-  - Status: Planned
-  - Notes: Minimal visible main menu is acceptable unless user expands scope to interactive buttons.
-- [ ] Ensure final transition uses stack reset/clear-and-open so main menu is the only active stack entry.
-  - Status: Planned
-  - Notes: Record observed stack behavior in this tracker.
-- [ ] Run/manual-check TemplateGame long enough to observe the splash-to-menu sequence if practical.
-  - Status: Planned
-  - Notes: If a window cannot be opened in the environment, record the blocker.
+- [x] Add Pixel Perfect splash `.jsn` scene.
+  - Status: Complete
+  - Notes: Added `games/template-game/assets/splash_pixel_perfect.jsn` with centered `Pixel Perfect` text config and `1.5 / 2.0 / 1.5` timings.
+- [x] Add Bevy splash `.jsn` scene.
+  - Status: Complete
+  - Notes: Added `games/template-game/assets/splash_bevy.jsn` with centered `Bevy` text config and shared Foundation splash logic.
+- [x] Add main menu `.jsn` scene.
+  - Status: Complete
+  - Notes: Added `games/template-game/assets/main_menu.jsn` with `TemplateMainMenu` marker; game code generates the visible menu UI from that scene data.
+- [x] Ensure final transition uses stack reset/clear-and-open so main menu is the only active stack entry.
+  - Status: Complete
+  - Notes: Bevy splash sets `reset_stack_for_next_scene = true`; Foundation splash logic emits `SceneCommand::ClearAndOpen` for `main_menu.jsn`.
+- [x] Run/manual-check TemplateGame long enough to observe the splash-to-menu sequence if practical.
+  - Status: Complete
+  - Notes: `timeout 35s cargo run -p template-game` compiled, opened the `template-game` window, logged Jackdaw runtime startup, and was then intentionally terminated by timeout with exit code 143. No scene-load errors were logged before timeout.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- Manual launch check: Pending
-- User confirmation: Pending / Not required yet
+- Format: Passed via `scripts/format-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/lint-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/test-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/compile-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/doc-project.cmd` and `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Manual launch check: Passed startup smoke check; process intentionally killed by timeout after window creation
+- User confirmation: Pending final user acceptance
 
 ### Notes
 - Desired runtime flow:
@@ -132,24 +132,27 @@
 - Default total splash time before main menu is `10.0s`.
 
 ## Implementation / Review Handoff Notes
-- Implementation must use `gpt-5.4`; never use Anthropic models.
-- Before implementation, read `.pi/skills/feature-tracker-update/SKILL.md`, this tracker, and `plan.md`.
-- Confirm active branch is `feature/scene-stack-example` before implementation edits.
-- Keep reusable splash behavior in FoundationLibrary and TemplateGame-specific scene assets/sequence implementation in `games/template-game`.
-- Preserve Jackdaw `.jsn` as the data/source format for all three scenes. If direct Bevy text UI serialization in `.jsn` is brittle, use `.jsn` to hold reflected Foundation splash config and have reusable Foundation systems spawn the UI text at runtime; document that compromise here.
-- Commit each completed task/phase and push to `origin` when available.
+- Implementation used `gpt-5.4`; never use Anthropic models.
+- Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
+- Reusable splash behavior lives in FoundationLibrary and TemplateGame-specific scene assets/sequence implementation lives in `games/template-game`.
+- Jackdaw `.jsn` is preserved as the data/source format for all three scenes. Direct Bevy UI/text serialization in `.jsn` was avoided; `.jsn` scenes hold reflected Foundation/TemplateGame config components and runtime systems spawn UI text from that data.
+- Commit implementation and push to `origin` when available.
 
 ## Postponed Work
 - Full interactive main menu navigation is postponed unless the user expands the example menu scope.
-- Generic Foundation-owned Jackdaw `.jsn` load bridge is postponed unless implementation proves it should be reusable across games.
+- Generic Foundation-owned Jackdaw `.jsn` load bridge is postponed because this feature kept the concrete bridge in TemplateGame as requested.
 - Advanced transition effects beyond alpha fade are postponed.
 
 ## Open Issues / Questions
-- Pending implementation verification: exact Jackdaw `.jsn` serialization shape for Bevy 0.18 UI/text or reflected Foundation splash config components.
-- Pending decision: whether the first splash closes/replaces itself when opening the second splash. Proposed default is replacement/close-current behavior so old splash entities are cleaned up.
+- Resolved: direct Bevy UI/text was not serialized in `.jsn`; `.jsn` scenes hold reflected Foundation/TemplateGame config components and runtime systems spawn UI. This keeps all three scenes as Jackdaw `.jsn` data sources while avoiding brittle UI serialization.
+- Resolved: first splash replaces/closes itself when opening the second splash; final splash resets the stack before opening main menu.
 
 ## Progress Log
 - `2026-06-20`: User approved the feature summary and clarified all three scenes should be Jackdaw `.jsn` scenes if possible; reusable logic should live in FoundationLibrary while concrete scene implementation should live in TemplateGame.
 - `2026-06-20`: Created planning branch `feature/scene-stack-example` from `dev`.
 - `2026-06-20`: Plan and tracker created.
 - `2026-06-20`: Planning commit `30c1b6b` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User approved implementation. Confirmed active branch `feature/scene-stack-example` and verified `dev` is an ancestor; implementation started with `gpt-5.4`.
+- `2026-06-20`: Implemented reusable Foundation splash logic, TemplateGame scene-stack startup/Jackdaw scene bridge, and three `.jsn` scene assets.
+- `2026-06-20`: Validation passed: format, lint, tests, build, documentation generation, and full `scripts/validate-project.cmd`.
+- `2026-06-20`: Manual startup smoke check opened the TemplateGame window and Jackdaw runtime without logged scene-load errors before intentional timeout termination.

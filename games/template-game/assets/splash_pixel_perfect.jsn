@@ -1,0 +1,35 @@
+{
+  "jsn": {
+    "format_version": [3, 0, 0],
+    "editor_version": "0.4.1",
+    "bevy_version": "0.18"
+  },
+  "metadata": {
+    "name": "Pixel Perfect Splash",
+    "description": "TemplateGame startup splash driven by FoundationLibrary reusable splash logic.",
+    "author": "",
+    "created": "2026-06-20T00:00:00Z",
+    "modified": "2026-06-20T00:00:00Z"
+  },
+  "assets": {},
+  "editor": null,
+  "scene": [
+    {
+      "components": {
+        "bevy_ecs::name::Name": "Pixel Perfect Splash",
+        "foundation_library::splash_screen::FoundationSplashScreen": {
+          "text": "Pixel Perfect",
+          "timings": {
+            "fade_in_seconds": 1.5,
+            "hold_seconds": 2.0,
+            "fade_out_seconds": 1.5
+          },
+          "font_size": 72.0,
+          "next_scene_path": "splash_bevy.jsn",
+          "reset_stack_for_next_scene": false,
+          "replace_current_scene": true
+        }
+      }
+    }
+  ]
+}

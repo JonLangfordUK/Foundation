@@ -1,0 +1,27 @@
+{
+  "jsn": {
+    "format_version": [3, 0, 0],
+    "editor_version": "0.4.1",
+    "bevy_version": "0.18"
+  },
+  "metadata": {
+    "name": "Example Main Menu",
+    "description": "TemplateGame scene-stack example main menu.",
+    "author": "",
+    "created": "2026-06-20T00:00:00Z",
+    "modified": "2026-06-20T00:00:00Z"
+  },
+  "assets": {},
+  "editor": null,
+  "scene": [
+    {
+      "components": {
+        "bevy_ecs::name::Name": "Example Main Menu",
+        "template_game::TemplateMainMenu": {
+          "title": "Main Menu",
+          "hint": "Scene stack reset complete"
+        }
+      }
+    }
+  ]
+}
