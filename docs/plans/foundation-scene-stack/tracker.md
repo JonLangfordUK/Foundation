@@ -83,34 +83,35 @@
 - Phase 2 implementation is ready to commit and push.
 
 ## Phase 3: Scene ownership cleanup and Jackdaw `.jsn` integration bridge
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Ensure scene memory lifetime semantics are enforced and Jackdaw `.jsn` scenes have a clear ECS integration path.
 
 ### Tasks
-- [ ] Add `SceneOwner` component and cleanup system for removed scenes.
-  - Status: Planned
-  - Notes: Removing a scene must clear scene-owned entities from memory; stacked scenes remain resident.
-- [ ] Add tests proving cleanup only affects entities tagged with the removed scene id.
-  - Status: Planned
-  - Notes: Non-scene-owned entities must survive cleanup.
-- [ ] Define the `.jsn` level scene source bridge and document how Jackdaw runtime loading systems should consume scene stack lifecycle/source data.
-  - Status: Planned
-  - Notes: Verify exact Jackdaw runtime API during implementation before deciding how much loading FoundationLibrary should perform directly.
-- [ ] Add or update example/template usage only if it clarifies the public API without coupling TemplateGame to test-only behavior.
-  - Status: Planned
-  - Notes: Keep FoundationLibrary reusable.
+- [x] Add `SceneOwner` component and cleanup system for removed scenes.
+  - Status: Complete
+  - Notes: `cleanup_removed_scene_entities` despawns entities tagged with removed scene ids after command processing.
+- [x] Add tests proving cleanup only affects entities tagged with the removed scene id.
+  - Status: Complete
+  - Notes: Added test proving entities owned by other scenes and global entities survive cleanup.
+- [x] Define the `.jsn` level scene source bridge and document how Jackdaw runtime loading systems should consume scene stack lifecycle/source data.
+  - Status: Complete
+  - Notes: Added `SceneLoadRequested` message emitted for opened scenes; bridge systems should load the requested `SceneSource` and tag spawned entities with `SceneOwner`.
+- [x] Add or update example/template usage only if it clarifies the public API without coupling TemplateGame to test-only behavior.
+  - Status: Complete
+  - Notes: No TemplateGame edits were needed; FoundationLibrary API and tests are sufficient for this phase.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
+- Format: Passed (`scripts/format-project.cmd`, 2026-06-20; applied `cargo fmt --all` first)
+- Lint: Passed (`scripts/lint-project.cmd`, 2026-06-20)
+- Tests: Passed (`scripts/test-project.cmd`, 2026-06-20; 14 FoundationLibrary tests passed plus workspace tests)
+- Build: Passed (`scripts/compile-project.cmd`, 2026-06-20)
+- Documentation generation: Passed (`scripts/doc-project.cmd`, 2026-06-20; generated FoundationLibrary docs)
 - Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes
 - Ownership tagging is the key memory-lifetime rule.
+- Phase 3 implementation is ready to commit and push.
 
 ## Phase 4: Documentation, full validation, and handoff
 **Status:** Planned  
@@ -163,3 +164,5 @@
 - `2026-06-20`: Completed Phase 1 ECS scene stack API foundation and recorded validation results.
 - `2026-06-20`: Phase 1 commit `d73c8f9` pushed to `origin/feature/foundation-scene-stack`; started Phase 2 command processing work.
 - `2026-06-20`: Completed Phase 2 command processing, lifecycle messages, focus restoration, runtime flags, and validation.
+- `2026-06-20`: Phase 2 commit `e3d8a41` pushed to `origin/feature/foundation-scene-stack`; started Phase 3 cleanup and `.jsn` bridge work.
+- `2026-06-20`: Completed Phase 3 scene ownership cleanup, `SceneLoadRequested` `.jsn` bridge, and validation.

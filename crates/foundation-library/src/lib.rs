@@ -66,8 +66,9 @@ pub struct FoundationActor {
 pub mod prelude {
     pub use crate::scene_stack::{
         FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,
-        SceneFocused, SceneId, SceneKey, SceneOwner, ScenePresentation, SceneRemoved,
-        SceneRuntimeFlags, SceneSource, SceneStack, SceneStackEntry, SceneTarget, SceneUnfocused,
+        SceneFocused, SceneId, SceneKey, SceneLoadRequested, SceneOwner, ScenePresentation,
+        SceneRemoved, SceneRuntimeFlags, SceneSource, SceneStack, SceneStackEntry, SceneTarget,
+        SceneUnfocused,
     };
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }

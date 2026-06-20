@@ -20,8 +20,12 @@ impl Plugin for FoundationSceneStackPlugin {
             .add_message::<SceneRemoved>()
             .add_message::<SceneFocused>()
             .add_message::<SceneUnfocused>()
+            .add_message::<SceneLoadRequested>()
             .register_type::<SceneOwner>()
-            .add_systems(PostUpdate, process_scene_commands);
+            .add_systems(
+                PostUpdate,
+                (process_scene_commands, cleanup_removed_scene_entities).chain(),
+            );
     }
 }
 
@@ -357,6 +361,19 @@ pub struct SceneUnfocused {
     pub scene_id: SceneId,
 }
 
+/// Message emitted when scene content should be loaded or assembled.
+///
+/// Systems that bridge to Jackdaw `.jsn` loading should listen for this message,
+/// load the requested [`SceneSource`], and tag spawned entities with
+/// [`SceneOwner`] using the supplied scene id.
+#[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
+pub struct SceneLoadRequested {
+    /// Scene that should receive the loaded content.
+    pub scene_id: SceneId,
+    /// Source that describes what content should be loaded or assembled.
+    pub source: SceneSource,
+}
+
 /// Tags entities that are owned by a scene stack entry.
 ///
 /// Scene-owned entities should remain alive while their owning scene is in the
@@ -443,6 +460,7 @@ fn process_scene_commands(
     mut removed: MessageWriter<SceneRemoved>,
     mut focused: MessageWriter<SceneFocused>,
     mut unfocused: MessageWriter<SceneUnfocused>,
+    mut load_requested: MessageWriter<SceneLoadRequested>,
 ) {
     let scene_commands = commands.read().cloned().collect::<Vec<_>>();
 
@@ -454,6 +472,7 @@ fn process_scene_commands(
             &mut removed,
             &mut focused,
             &mut unfocused,
+            &mut load_requested,
         );
     }
 }
@@ -465,6 +484,7 @@ fn apply_scene_command(
     removed: &mut MessageWriter<SceneRemoved>,
     focused: &mut MessageWriter<SceneFocused>,
     unfocused: &mut MessageWriter<SceneUnfocused>,
+    load_requested: &mut MessageWriter<SceneLoadRequested>,
 ) {
     match command {
         SceneCommand::Open { source, options } => {
@@ -473,14 +493,14 @@ fn apply_scene_command(
             } else if options.close_current {
                 close_current(stack, removed);
             }
-            open_scene(source, options, stack, added);
+            open_scene(source, options, stack, added, load_requested);
         }
         SceneCommand::CloseCurrent => close_current(stack, removed),
         SceneCommand::Close(target) => close_target(target, stack, removed),
         SceneCommand::Clear => clear_stack(stack, removed),
         SceneCommand::ClearAndOpen { source, options } => {
             clear_stack(stack, removed);
-            open_scene(source, options, stack, added);
+            open_scene(source, options, stack, added, load_requested);
         }
     }
 
@@ -492,16 +512,21 @@ fn open_scene(
     options: OpenSceneOptions,
     stack: &mut SceneStack,
     added: &mut MessageWriter<SceneAdded>,
+    load_requested: &mut MessageWriter<SceneLoadRequested>,
 ) {
     let id = stack.allocate_id();
     stack.entries.push(SceneStackEntry {
         id,
         key: options.key,
-        source,
+        source: source.clone(),
         presentation: options.presentation,
         flags: SceneRuntimeFlags::default(),
     });
     added.write(SceneAdded { scene_id: id });
+    load_requested.write(SceneLoadRequested {
+        scene_id: id,
+        source,
+    });
 }
 
 fn close_current(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>) {
@@ -532,6 +557,27 @@ fn close_target(
 fn clear_stack(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>) {
     while let Some(entry) = stack.entries.pop() {
         removed.write(SceneRemoved { scene_id: entry.id });
+    }
+}
+
+fn cleanup_removed_scene_entities(
+    mut commands: Commands,
+    mut removed: MessageReader<SceneRemoved>,
+    owned_entities: Query<(Entity, &SceneOwner)>,
+) {
+    let removed_scene_ids = removed
+        .read()
+        .map(|message| message.scene_id)
+        .collect::<Vec<_>>();
+
+    if removed_scene_ids.is_empty() {
+        return;
+    }
+
+    for (entity, owner) in &owned_entities {
+        if removed_scene_ids.contains(&owner.scene_id) {
+            commands.entity(entity).despawn();
+        }
     }
 }
 
@@ -793,6 +839,55 @@ mod tests {
         assert_eq!(stack.get_by_key(&SceneKey::new("pause")), None);
     }
 
+    #[test]
+    fn removing_scene_despawns_only_owned_entities() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("menu")));
+        app.update();
+
+        let gameplay_entity = app
+            .world_mut()
+            .spawn(SceneOwner {
+                scene_id: SceneId(1),
+            })
+            .id();
+        let menu_entity = app
+            .world_mut()
+            .spawn(SceneOwner {
+                scene_id: SceneId(2),
+            })
+            .id();
+        let global_entity = app.world_mut().spawn_empty().id();
+
+        app.world_mut()
+            .write_message(SceneCommand::Close(SceneTarget::Id(SceneId(2))));
+        app.update();
+
+        assert!(app.world().get_entity(gameplay_entity).is_ok());
+        assert!(app.world().get_entity(menu_entity).is_err());
+        assert!(app.world().get_entity(global_entity).is_ok());
+    }
+
+    #[test]
+    fn open_scene_emits_load_request_for_jsn_bridge() {
+        let mut app = test_app();
+        app.init_resource::<LoadRequestLog>();
+        app.add_systems(Last, collect_load_requests);
+
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::jsn_level("levels/one.jsn")));
+        app.update();
+
+        let log = app.world().resource::<LoadRequestLog>();
+        assert_eq!(
+            log.0,
+            vec![(SceneId(1), SceneSource::jsn_level("levels/one.jsn"))]
+        );
+    }
+
     fn test_app() -> App {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -802,6 +897,9 @@ mod tests {
 
     #[derive(Default, Resource)]
     struct LifecycleLog(Vec<String>);
+
+    #[derive(Default, Resource)]
+    struct LoadRequestLog(Vec<(SceneId, SceneSource)>);
 
     fn collect_lifecycle_messages(
         mut added: MessageReader<SceneAdded>,
@@ -821,6 +919,15 @@ mod tests {
         }
         for message in focused.read() {
             log.0.push(format!("focused:{}", message.scene_id.0));
+        }
+    }
+
+    fn collect_load_requests(
+        mut load_requests: MessageReader<SceneLoadRequested>,
+        mut log: ResMut<LoadRequestLog>,
+    ) {
+        for message in load_requests.read() {
+            log.0.push((message.scene_id, message.source.clone()));
         }
     }
 }
