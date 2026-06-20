@@ -375,7 +375,6 @@ fn initialize_simple_gameplay_levels(
                 commands.entity(entity).insert(scene_owner);
             }
         }
-        safe_add_children(&mut commands, level_entity, vec![cube, light, camera]);
     }
 }
 
