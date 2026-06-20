@@ -10,7 +10,7 @@
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance after pause options integration fix`
+- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance after camera ambiguity fix`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 
@@ -160,6 +160,7 @@
 - Direct `.jsn` authoring for Bevy mesh/material handles was not practical, so `gameplay_level.jsn` uses Foundation marker components and FoundationLibrary generates the cube, light, and camera at runtime.
 - Pause opener uses Escape and requires a `FoundationPauseOpener` in the gameplay scene, preventing menu scenes without that marker from opening pause.
 - User reported options menu needs to work properly from the pause menu. Added reusable `open_overlay_scene` action so pause-menu Options opens as an input-blocking overlay over the pause stack without changing pause state or hiding the pause context.
+- User reported Bevy camera order ambiguity warnings across scenes. Fixed likely cause by moving the standalone default 2D UI camera to render order 100 with `ClearColorConfig::None`, avoiding order-0 ambiguity with the generated gameplay 3D camera while preserving UI rendering over gameplay.
 - User reported persistent random button/text ordering across authored UI scenes. First attempt to preserve Jackdaw child order broke splash loading because runtime repair still needs to rebuild `Children` from reflected `ChildOf` data. Final fix adds explicit `FoundationUiOrder` metadata to authored assets and rebuilds child lists using that stable order rather than query/entity order.
 
 ## Postponed Work
@@ -182,3 +183,5 @@
 - `2026-06-20`: Added `FoundationUiOrder` reflected component, wrote authored scene-order metadata into TemplateGame `.jsn` assets, and restored child-list rebuilding sorted by explicit authored order. Full validation passed with `scripts/validate-project.cmd`.
 - `2026-06-20`: User reported the options menu still needs proper pause-menu integration; follow-up started to add an overlay scene action for pause-menu Options.
 - `2026-06-20`: Added `FoundationMenuButton::open_overlay_scene` / `open_overlay_scene` action and updated pause-menu Options to use it for `options_menu.jsn`. Full validation passed with `scripts/validate-project.cmd`.
+- `2026-06-20`: User reported repeated Bevy camera order ambiguity warnings; investigated default UI camera vs gameplay camera ordering.
+- `2026-06-20`: Updated standalone `Camera2d` to order 100 and no clear color to avoid conflict with gameplay `Camera3d` order 0. Full validation passed with `scripts/validate-project.cmd`. A short `cargo run` smoke command was attempted but timed out during relink after 10s, so runtime warning verification remains manual.
