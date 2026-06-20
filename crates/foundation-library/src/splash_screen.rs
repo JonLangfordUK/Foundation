@@ -8,7 +8,9 @@
 use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
-use crate::scene_stack::{OpenSceneOptions, SceneCommand, ScenePresentation, SceneSource};
+use crate::scene_stack::{
+    OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource,
+};
 
 /// Installs reusable Foundation splash-screen types and systems.
 #[derive(Default)]
@@ -24,19 +26,68 @@ pub struct FoundationSplashUiTargetCamera(pub Entity);
 
 /// Optional parent entity for generated splash UI roots.
 ///
-/// Editor integrations can parent generated splash UI under a viewport UI node
-/// so percentage-sized roots are laid out inside the viewport instead of the
-/// whole editor window.
+/// This is a fallback for integrations that do not provide a UI target camera.
+/// If [`FoundationSplashUiTargetCamera`] is present, generated splash UI remains
+/// a root UI tree and targets that camera directly because Bevy only honors
+/// [`UiTargetCamera`] on root UI nodes.
 #[derive(Clone, Copy, Debug, Resource)]
 pub struct FoundationSplashUiParent(pub Entity);
 
+/// Marks the authored UI root controlled by a [`FoundationSplashScreen`].
+///
+/// Add this to a root UI entity in a Jackdaw `.jsn` splash scene when the scene
+/// should be visually editable. Runtime systems target this root to the editor
+/// viewport or standalone game window and fade the marked text child.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Splash"))]
+pub struct FoundationSplashUiRoot;
+
+/// Marks the authored text entity faded by a [`FoundationSplashScreen`].
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Splash"))]
+pub struct FoundationSplashText;
+
+/// Runtime policy for reusable Foundation splash systems.
+///
+/// Standalone games use the default policy: splash systems are enabled and any
+/// authored [`FoundationSplashScreen`] component may drive runtime UI. Editors
+/// should disable this while authoring and enable it only during Play. Editors
+/// that keep the authoring scene alive during Play should also require
+/// [`SceneOwner`] so systems process only scene-stack runtime copies.
+#[derive(Clone, Copy, Debug, Resource)]
+pub struct FoundationSplashRuntimeSettings {
+    /// Whether splash systems may spawn/update gameplay UI and transitions.
+    pub enabled: bool,
+    /// Whether splash systems should ignore splash components without
+    /// [`SceneOwner`]. This is useful in editors where the authoring scene and
+    /// runtime scene-stack copy coexist.
+    pub require_scene_owner: bool,
+}
+
+impl Default for FoundationSplashRuntimeSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            require_scene_owner: false,
+        }
+    }
+}
+
 impl Plugin for FoundationSplashScreenPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<FoundationSplashScreen>()
+        app.init_resource::<FoundationSplashRuntimeSettings>()
+            .register_type::<FoundationSplashScreen>()
             .register_type::<FoundationSplashTimings>()
+            .register_type::<FoundationSplashUiRoot>()
+            .register_type::<FoundationSplashText>()
             .add_systems(
                 Update,
-                (initialize_splash_screens, advance_splash_screens).chain(),
+                (
+                    cleanup_disabled_splash_screens,
+                    (initialize_splash_screens, advance_splash_screens)
+                        .chain()
+                        .run_if(splash_runtime_enabled),
+                ),
             );
     }
 }
@@ -155,53 +206,76 @@ struct FoundationSplashRuntime {
     phase_elapsed: f32,
     ui_root: Entity,
     text_entity: Entity,
+    generated_ui: bool,
 }
 
 #[derive(Component, Debug)]
 struct FoundationSplashGeneratedUi;
 
+fn splash_runtime_enabled(settings: Res<FoundationSplashRuntimeSettings>) -> bool {
+    settings.enabled
+}
+
+fn cleanup_disabled_splash_screens(
+    mut commands: Commands,
+    settings: Res<FoundationSplashRuntimeSettings>,
+    runtimes: Query<(Entity, &FoundationSplashRuntime)>,
+) {
+    if settings.enabled {
+        return;
+    }
+
+    for (splash_entity, runtime) in &runtimes {
+        if runtime.generated_ui {
+            commands.entity(runtime.ui_root).despawn();
+        }
+        commands
+            .entity(splash_entity)
+            .remove::<FoundationSplashRuntime>();
+    }
+}
+
 fn initialize_splash_screens(
     mut commands: Commands,
-    splashes: Query<(Entity, &FoundationSplashScreen), Added<FoundationSplashScreen>>,
+    settings: Res<FoundationSplashRuntimeSettings>,
+    splashes: Query<
+        (Entity, &FoundationSplashScreen, Option<&SceneOwner>),
+        Without<FoundationSplashRuntime>,
+    >,
+    authored_roots: Query<(Entity, Option<&SceneOwner>), With<FoundationSplashUiRoot>>,
+    authored_texts: Query<(Entity, Option<&SceneOwner>), With<FoundationSplashText>>,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
     ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
-    for (splash_entity, splash) in &splashes {
-        let text_entity = commands
-            .spawn((
-                Text::new(splash.text.clone()),
-                TextFont::from_font_size(splash.font_size),
-                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.0)),
-                FoundationSplashGeneratedUi,
-            ))
-            .id();
+    for (splash_entity, splash, scene_owner) in &splashes {
+        if settings.require_scene_owner && scene_owner.is_none() {
+            continue;
+        }
 
-        let ui_root = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    right: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(0.0),
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    overflow: Overflow::clip(),
-                    ..default()
-                },
-                FoundationSplashGeneratedUi,
-            ))
-            .add_child(text_entity)
-            .id();
+        let scene_owner = scene_owner.copied();
+        let authored_root = matching_authored_entity(scene_owner, &authored_roots);
+        let authored_text = matching_authored_entity(scene_owner, &authored_texts);
+        let (ui_root, text_entity, generated_ui) =
+            if let (Some(ui_root), Some(text_entity)) = (authored_root, authored_text) {
+                (ui_root, text_entity, false)
+            } else {
+                spawn_generated_splash_ui(
+                    &mut commands,
+                    splash,
+                    scene_owner,
+                    ui_target_camera.as_deref(),
+                    ui_parent.as_deref(),
+                )
+            };
 
-        if let Some(ui_parent) = ui_parent.as_ref() {
-            commands.entity(ui_parent.0).add_child(ui_root);
-        } else if let Some(ui_target_camera) = ui_target_camera.as_ref() {
+        if let Some(ui_target_camera) = ui_target_camera.as_ref() {
             commands
                 .entity(ui_root)
                 .insert(UiTargetCamera(ui_target_camera.0));
+        } else if generated_ui {
+            if let Some(ui_parent) = ui_parent.as_ref() {
+                commands.entity(ui_parent.0).add_child(ui_root);
+            }
         }
 
         commands
@@ -211,8 +285,78 @@ fn initialize_splash_screens(
                 phase_elapsed: 0.0,
                 ui_root,
                 text_entity,
+                generated_ui,
             });
     }
+}
+
+fn matching_authored_entity<F: bevy::ecs::query::QueryFilter>(
+    scene_owner: Option<SceneOwner>,
+    query: &Query<(Entity, Option<&SceneOwner>), F>,
+) -> Option<Entity> {
+    query
+        .iter()
+        .find(|(_, owner)| match (scene_owner, owner.copied()) {
+            (Some(expected), Some(actual)) => expected == actual,
+            (None, None) => true,
+            (None, Some(_)) => true,
+            (Some(_), None) => false,
+        })
+        .map(|(entity, _)| entity)
+}
+
+fn spawn_generated_splash_ui(
+    commands: &mut Commands,
+    splash: &FoundationSplashScreen,
+    scene_owner: Option<SceneOwner>,
+    ui_target_camera: Option<&FoundationSplashUiTargetCamera>,
+    ui_parent: Option<&FoundationSplashUiParent>,
+) -> (Entity, Entity, bool) {
+    let text_entity = commands
+        .spawn((
+            Text::new(splash.text.clone()),
+            TextFont::from_font_size(splash.font_size),
+            TextColor(Color::srgba(1.0, 1.0, 1.0, 0.0)),
+            FoundationSplashText,
+            FoundationSplashGeneratedUi,
+        ))
+        .id();
+
+    let ui_root = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            FoundationSplashUiRoot,
+            FoundationSplashGeneratedUi,
+        ))
+        .add_child(text_entity)
+        .id();
+
+    if let Some(scene_owner) = scene_owner {
+        commands.entity(text_entity).insert(scene_owner);
+        commands.entity(ui_root).insert(scene_owner);
+    }
+
+    if let Some(ui_target_camera) = ui_target_camera {
+        commands
+            .entity(ui_root)
+            .insert(UiTargetCamera(ui_target_camera.0));
+    } else if let Some(ui_parent) = ui_parent {
+        commands.entity(ui_parent.0).add_child(ui_root);
+    }
+
+    (ui_root, text_entity, true)
 }
 
 fn advance_splash_screens(
@@ -238,7 +382,9 @@ fn advance_splash_screens(
         }
 
         if runtime.phase == SplashPhase::Complete {
-            commands.entity(runtime.ui_root).despawn();
+            if runtime.generated_ui {
+                commands.entity(runtime.ui_root).despawn();
+            }
             if let Some(command) = splash.completion_command() {
                 scene_commands.write(command);
             }

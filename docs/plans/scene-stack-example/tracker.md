@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/scene-stack-example`
-- Overall status: `Editor viewport-parented gameplay UI implemented; validation passed`
+- Overall status: `Standalone and editor authored visual .jsn scene flow implemented; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Editor viewport-parented gameplay UI fix complete with gpt-5.4; ready for user verification`
+- Current handoff state: `Standalone main-menu child-order fix implemented; validation passed with gpt-5.4; awaiting user verification/commit approval`
 - Created: `2026-06-20`
 - Last updated: `2026-06-20`
 - Branch creation: Created locally from `dev` on 2026-06-20; verified `dev` is an ancestor of the active branch before implementation on 2026-06-20.
@@ -293,6 +293,95 @@
 - Cargo does not support adding a custom `--editor` flag to `cargo run`, so `cargo run -p template-game --editor` is not a valid Cargo shape. A Cargo alias is the closest idiomatic command.
 - Follow-up fix: when launched from workspace root, the TemplateGame editor binary now defaults its Jackdaw project root and working directory to `CARGO_MANIFEST_DIR` (`games/template-game`) instead of the shell current directory. `JACKDAW_PROJECT` still overrides this for explicit project selection.
 
+## Phase 10: Editor Runtime Scene Isolation And Viewport Surface
+**Status:** Complete  
+**Goal:** Replace viewport-confinement hacks with a stable runtime/editor separation: gameplay systems only act on scene-stack-owned runtime scene entities during editor Play, and generated gameplay UI targets the Jackdaw viewport render camera rather than the editor UI tree.
+
+### Tasks
+- [x] Gate Foundation splash runtime systems so opening `.jsn` files in editor edit mode cannot spawn gameplay UI over Jackdaw chrome.
+  - Status: Complete
+  - Notes: Added `FoundationSplashRuntimeSettings`; TemplateGame editor disables splash runtime while editing and enables it only on Play enter.
+- [x] Require scene-stack ownership for TemplateGame runtime scene processors while in editor Play.
+  - Status: Complete
+  - Notes: Editor Play now requires `SceneOwner` for Foundation splash initialization and TemplateGame background/menu generation, so authoring-scene components are ignored while scene-stack runtime copies drive gameplay.
+- [x] Use viewport camera targeting as the primary editor gameplay UI surface and remove parent/rectangle fallbacks from the accepted path.
+  - Status: Complete
+  - Notes: Generated gameplay UI roots now prefer `UiTargetCamera(viewport_camera)` and only parent to a viewport UI node if no target camera exists. Generated roots are also tagged with `SceneOwner` so scene-stack cleanup can remove them.
+
+### Validation
+- Format: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- User confirmation: Passed on 2026-06-20; user reported viewport behavior is working perfectly.
+
+### Notes
+- Screenshots `ref/001.png` and `ref/002.png` demonstrate the failure: `Bevy` text is centered in the editor window and overlaps editor panels instead of being rendered inside the Jackdaw viewport.
+- Jackdaw's viewport is a `SceneViewport` UI node containing a `ViewportNode` for a camera whose `RenderTarget` is an off-screen image. Bevy UI can target a camera render target with `UiTargetCamera`, but only when that component is on a root UI node.
+- Previous attempts mixed `UiTargetCamera`, UI parenting, and window-space rectangles. That is fragile because it does not address edit-mode runtime systems and can invalidate `UiTargetCamera` by making gameplay roots children of editor UI.
+
+## Phase 11: Separate Landing Page And Main Menu Scenes
+**Status:** Awaiting full validation  
+**Goal:** Split the `Press any button` landing page and the stub main menu into separate Jackdaw `.jsn` scenes.
+
+### Tasks
+- [x] Add a dedicated landing page `.jsn` scene.
+  - Status: Complete
+  - Notes: Added `games/template-game/assets/landing_page.jsn` with `TemplateLandingPage` data: `Template Game`, `Press any button`, and next scene `main_menu.jsn`.
+- [x] Change the Bevy splash to transition to the landing page instead of directly to the main menu.
+  - Status: Complete
+  - Notes: Updated `splash_bevy.jsn` `next_scene_path` to `landing_page.jsn`.
+- [x] Convert `main_menu.jsn` to represent only the main menu.
+  - Status: Complete
+  - Notes: `main_menu.jsn` now contains `TemplateMainMenu` with title `Main Menu`; runtime code spawns the stub buttons immediately when the main-menu scene loads.
+- [x] Update editor Play known-scene routing and tests for the new landing page scene.
+  - Status: Complete
+  - Notes: Added `LANDING_PAGE_SCENE`, editor scene key/routing, reflected `TemplateLandingPage`, and updated TemplateGame unit tests.
+
+### Validation
+- Format: Passed via `cargo fmt --all` on 2026-06-20
+- Lint: Passed during `scripts/validate-project.cmd` before the test phase blocked on locked `target/debug/editor.exe`
+- Tests: Partial pass: `cargo test -p template-game --lib --features editor` and `cargo test -p foundation-library --lib` passed on 2026-06-20
+- Build: `cargo check -p template-game --features editor` passed on 2026-06-20
+- Documentation generation: Pending full validation rerun
+- Full validation wrapper: Initially blocked because `target/debug/editor.exe` was locked/running; later validation passed after the editor lock cleared during Phase 12 work
+- User confirmation: Pending
+
+### Notes
+- Close the running editor before rerunning `scripts/validate-project.cmd`.
+
+## Phase 12: Authored Visual `.jsn` Scene Content
+**Status:** Complete  
+**Goal:** Move splash, background, landing page, and main-menu visual UI into the `.jsn` scene files so they can be edited visually, while keeping runtime behavior disabled in edit mode and enabled only during Play.
+
+### Tasks
+- [x] Add authorable Foundation splash UI markers.
+  - Status: Complete
+  - Notes: Added reflected `FoundationSplashUiRoot` and `FoundationSplashText`. Splash runtime now finds authored root/text entities and fades the authored text instead of spawning duplicate UI.
+- [x] Add authorable TemplateGame gameplay UI markers.
+  - Status: Complete
+  - Notes: Added reflected `TemplateGameplayUiRoot` and reflected `TemplateMenuButton`. Editor builds retarget authored gameplay UI roots to the Jackdaw viewport camera in edit mode and Play mode.
+- [x] Update all authored `.jsn` scene files to contain visible UI content.
+  - Status: Complete
+  - Notes: `splash_background.jsn`, `splash_pixel_perfect.jsn`, `splash_bevy.jsn`, `landing_page.jsn`, and `main_menu.jsn` now include Bevy UI `Node`/`Text`/`TextFont`/`TextColor`/`BackgroundColor`/`Button` content as appropriate.
+- [x] Keep runtime behavior separate from edit-mode visuals.
+  - Status: Complete
+  - Notes: Foundation splash runtime remains disabled in editor edit mode. During Play, scene-stack-owned authored entities receive fades/transitions/input behavior. Standalone still uses the full game window.
+
+### Validation
+- Format: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Build: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-06-20
+- User confirmation: Pending
+
+### Notes
+- `.jsn` visuals are now authored scene content. Rust systems provide behavior only: fade, transitions, input, hover, and editor viewport targeting.
+
 ## Implementation / Review Handoff Notes
 - Implementation used `gpt-5.4`; never use Anthropic models.
 - Active branch was confirmed as `feature/scene-stack-example` before implementation edits.
@@ -361,3 +450,10 @@
 - `2026-06-20`: Editor default project root fix commit `5888ec5` pushed to `origin/feature/scene-stack-example`.
 - `2026-06-20`: User reported splash text was still centered on the editor window rather than the viewport and requested viewport clipping. Updated generated splash/menu/background UI roots to be absolute fill roots with `Overflow::clip()`, set the Jackdaw `SceneViewport` node to clip during Play setup, and avoided inserting `UiTargetCamera` when roots are parented under the editor viewport so they inherit editor UI layout/camera context. Validation passed via `scripts/validate-project.cmd`; manual `timeout 20s cargo editor` opened the editor and loaded `splash_bevy.jsn` without panic.
 - `2026-06-20`: Viewport-centered/clipped UI fix commit `954c624` pushed to `origin/feature/scene-stack-example`.
+- `2026-06-20`: User screenshots showed Bevy splash text still rendered over editor UI. Reassessed the architecture and identified two root causes: Foundation splash systems ran in editor edit mode on authoring-scene components, and previous viewport parenting made gameplay UI non-root so `UiTargetCamera` could be ignored. Implemented runtime scene isolation and root-node viewport camera targeting. Full validation passed via `scripts/validate-project.cmd`. No commit made pending user verification.
+- `2026-06-20`: User confirmed viewport behavior is working perfectly, then requested the `Press any button` landing page and stub main menu become separate `.jsn` scenes. Added `landing_page.jsn`, changed Bevy splash to transition to landing page, changed landing page input to clear/open `main_menu.jsn`, and made `main_menu.jsn` spawn menu buttons directly. `cargo check -p template-game --features editor`, `cargo test -p template-game --lib --features editor`, and `cargo test -p foundation-library --lib` passed. Full validation blocked by a running/locked `target/debug/editor.exe`.
+- `2026-06-20`: User clarified that all scenes should be visually editable in `.jsn`, with fades/behavior disabled in edit mode and active during Play. Refactored splash/background/landing/menu scenes to contain authored Bevy UI entities and changed runtime systems to target/mutate authored scene entities rather than constructing visible UI at runtime. Full validation passed via `scripts/validate-project.cmd`.
+- `2026-06-20`: User reported standalone `cargo run -p template-game` showed only a black screen even though scene-stack transitions were occurring. Debug overlay/logging confirmed the scenes loaded, authored UI roots had valid full-window layout, and splash fade alpha advanced, but Jackdaw-runtime-reflected UI text had zero computed size because reflected insertion bypassed Bevy UI text required-component setup.
+- `2026-06-20`: Fixed standalone authored UI text by completing reflected UI text components at runtime (`Node`, text layout/cache/measure components, line height, content size, font hinting) and forcing the reflected `ChildOf` relationship back through Bevy hierarchy commands so UI layout includes the text child. Removed temporary debug overlay/logging after user confirmed the splash/menu flow is visible in standalone.
+- `2026-06-20`: Post-cleanup validation passed via `scripts/validate-project.cmd` after `cargo fmt --all`.
+- `2026-06-20`: User reported the main-menu title was correct in edit mode but moved to the bottom during Play. Root cause was the standalone authored text completion using `add_child` per text entity, which appended the title to the end of the parent child list. Changed completion to rebuild affected parent `Children` collections in original entity/scene order so authored column order is preserved. Validation passed via `scripts/validate-project.cmd`.

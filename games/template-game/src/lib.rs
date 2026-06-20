@@ -4,7 +4,11 @@
 //! Scene content lives in `.jsn` files authored in Jackdaw Editor. Game behavior
 //! lives in [`TemplateGamePlugin`].
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    text::{ComputedTextBlock, FontHinting, LineHeight, TextLayout, TextLayoutInfo},
+    ui::{ContentSize, widget::TextNodeFlags},
+};
 use foundation_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
@@ -14,6 +18,8 @@ pub const SPLASH_BACKGROUND_SCENE: &str = "splash_background.jsn";
 pub const PIXEL_PERFECT_SPLASH_SCENE: &str = "splash_pixel_perfect.jsn";
 /// Jackdaw scene path for the second startup splash screen.
 pub const BEVY_SPLASH_SCENE: &str = "splash_bevy.jsn";
+/// Jackdaw scene path for the press-any-button landing page.
+pub const LANDING_PAGE_SCENE: &str = "landing_page.jsn";
 /// Jackdaw scene path for the example main menu.
 pub const MAIN_MENU_SCENE: &str = "main_menu.jsn";
 
@@ -25,40 +31,54 @@ impl Plugin for TemplateGamePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<SpinningCube>()
             .register_type::<TemplateFullscreenBackground>()
+            .register_type::<TemplateGameplayUiRoot>()
+            .register_type::<TemplateLandingPage>()
             .register_type::<TemplateMainMenu>()
+            .register_type::<TemplateMenuButton>()
             .add_systems(Update, spin_cube.run_if(play_gate::is_playing));
 
         #[cfg(feature = "editor")]
-        app.add_systems(
-            OnEnter(jackdaw::prelude::PlayState::Playing),
-            open_initial_scene,
-        )
-        .add_systems(
-            OnExit(jackdaw::prelude::PlayState::Playing),
-            clear_scene_stack,
-        )
-        .add_systems(
-            Update,
-            (
-                spawn_requested_jackdaw_scenes,
-                initialize_fullscreen_backgrounds,
-                cleanup_orphaned_fullscreen_backgrounds,
-                initialize_main_menus,
-                advance_main_menu_prompt,
-                update_main_menu_button_interactions,
+        app.add_systems(Update, target_editor_authored_gameplay_ui_roots)
+            .insert_resource(FoundationSplashRuntimeSettings {
+                enabled: false,
+                require_scene_owner: true,
+            })
+            .add_systems(
+                OnEnter(jackdaw::prelude::PlayState::Playing),
+                open_initial_scene,
             )
-                .run_if(play_gate::is_playing),
-        );
+            .add_systems(
+                OnExit(jackdaw::prelude::PlayState::Playing),
+                clear_scene_stack,
+            )
+            .add_systems(
+                Update,
+                (
+                    spawn_requested_jackdaw_scenes,
+                    detach_scene_stack_ui_roots,
+                    complete_authored_ui_text_components,
+                    initialize_fullscreen_backgrounds,
+                    cleanup_orphaned_fullscreen_backgrounds,
+                    initialize_landing_pages,
+                    advance_landing_pages,
+                    initialize_main_menus,
+                    update_main_menu_button_interactions,
+                )
+                    .run_if(play_gate::is_playing),
+            );
 
         #[cfg(not(feature = "editor"))]
         app.add_systems(Startup, open_initial_scene).add_systems(
             Update,
             (
                 spawn_requested_jackdaw_scenes,
+                detach_scene_stack_ui_roots,
+                complete_authored_ui_text_components,
                 initialize_fullscreen_backgrounds,
                 cleanup_orphaned_fullscreen_backgrounds,
+                initialize_landing_pages,
+                advance_landing_pages,
                 initialize_main_menus,
-                advance_main_menu_prompt,
                 update_main_menu_button_interactions,
             ),
         );
@@ -96,19 +116,24 @@ struct GeneratedFullscreenBackground {
 }
 
 #[derive(Component)]
-struct TemplateMainMenuRuntime {
-    root: Entity,
-    state: TemplateMainMenuState,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TemplateMainMenuState {
-    Prompt,
-    Buttons,
-}
+struct TemplateLandingPageRuntime;
 
 #[derive(Component)]
-struct TemplateMenuButton;
+struct TemplateUiTextCompleted;
+
+/// Marks a gameplay UI root that should fill the game surface.
+///
+/// In standalone runs this is a normal root UI node. In Jackdaw edit/play mode
+/// TemplateGame retargets these roots to the active editor viewport camera so
+/// authored UI remains contained in the viewport.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("TemplateGame/UI"))]
+pub struct TemplateGameplayUiRoot;
+
+/// Marker for a TemplateGame main-menu button authored in `.jsn`.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("TemplateGame/UI"))]
+pub struct TemplateMenuButton;
 
 type MenuButtonInteractionQuery<'w, 's> = Query<
     'w,
@@ -117,25 +142,86 @@ type MenuButtonInteractionQuery<'w, 's> = Query<
     (Changed<Interaction>, With<TemplateMenuButton>),
 >;
 
+type FullscreenBackgroundQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static TemplateFullscreenBackground,
+        Option<&'static SceneOwner>,
+        Has<TemplateGameplayUiRoot>,
+    ),
+    Added<TemplateFullscreenBackground>,
+>;
+
+type AuthoredUiNodeCompletionQuery<'w, 's> = Query<
+    'w,
+    's,
+    Entity,
+    (
+        Added<Node>,
+        Or<(
+            With<TemplateGameplayUiRoot>,
+            With<FoundationSplashUiRoot>,
+            With<Text>,
+        )>,
+    ),
+>;
+
+type AuthoredUiTextCompletionQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static Text,
+        Option<&'static TextFont>,
+        Option<&'static ChildOf>,
+    ),
+    (With<Text>, Without<TemplateUiTextCompleted>),
+>;
+
+/// Marker for TemplateGame's press-any-button landing page scene.
+///
+/// The marker is authored in `landing_page.jsn`. Runtime game code uses it to
+/// create the visible prompt while the scene stack owns when the page is loaded
+/// and cleaned up.
+#[derive(Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("TemplateGame"))]
+pub struct TemplateLandingPage {
+    /// Title text shown in the middle of the landing page.
+    pub title: String,
+    /// Smaller prompt text shown under the title.
+    pub hint: String,
+    /// Jackdaw `.jsn` scene path to open when any button is pressed.
+    pub next_scene_path: String,
+}
+
+impl Default for TemplateLandingPage {
+    fn default() -> Self {
+        Self {
+            title: "Template Game".to_string(),
+            hint: "Press any button".to_string(),
+            next_scene_path: MAIN_MENU_SCENE.to_string(),
+        }
+    }
+}
+
 /// Marker for TemplateGame's example main menu scene.
 ///
-/// The marker is authored in the main-menu `.jsn` file. Runtime game code uses
-/// it to create the visible menu UI while the scene stack owns when the menu is
+/// The marker is authored in `main_menu.jsn`. Runtime game code uses it to
+/// create the visible menu buttons while the scene stack owns when the menu is
 /// loaded and cleaned up.
 #[derive(Component, Reflect)]
 #[reflect(Component, @EditorCategory::new("TemplateGame"))]
 pub struct TemplateMainMenu {
-    /// Title text shown in the middle of the example menu.
+    /// Title text shown above the menu buttons.
     pub title: String,
-    /// Smaller hint text shown under the title.
-    pub hint: String,
 }
 
 impl Default for TemplateMainMenu {
     fn default() -> Self {
         Self {
-            title: "Template Game".to_string(),
-            hint: "Press any button".to_string(),
+            title: "Main Menu".to_string(),
         }
     }
 }
@@ -169,11 +255,36 @@ fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
 #[cfg(feature = "editor")]
 fn open_initial_scene(world: &mut World) {
     configure_editor_gameplay_ui_target(world);
+    world.insert_resource(FoundationSplashRuntimeSettings {
+        enabled: true,
+        require_scene_owner: true,
+    });
 
     let commands = editor_play_scene_commands(world);
     world.write_message(SceneCommand::Clear);
     for command in commands {
         world.write_message(command);
+    }
+}
+
+#[cfg(feature = "editor")]
+fn target_editor_authored_gameplay_ui_roots(
+    mut commands: Commands,
+    active_viewport: Option<Res<jackdaw::viewport::ActiveViewport>>,
+    cameras: Query<Entity, With<jackdaw::viewport::MainViewportCamera>>,
+    template_roots: Query<Entity, With<TemplateGameplayUiRoot>>,
+    splash_roots: Query<Entity, With<FoundationSplashUiRoot>>,
+) {
+    let target_camera = active_viewport
+        .as_deref()
+        .and_then(|viewport| viewport.camera)
+        .or_else(|| cameras.iter().next());
+    let Some(target_camera) = target_camera else {
+        return;
+    };
+
+    for root in template_roots.iter().chain(splash_roots.iter()) {
+        commands.entity(root).insert(UiTargetCamera(target_camera));
     }
 }
 
@@ -239,6 +350,9 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
                     .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
             ),
         ],
+        LANDING_PAGE_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            LANDING_PAGE_SCENE,
+        ))],
         MAIN_MENU_SCENE => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
             MAIN_MENU_SCENE,
         ))],
@@ -259,6 +373,7 @@ fn editor_scene_key(path: &str) -> &'static str {
         SPLASH_BACKGROUND_SCENE => "splash-background",
         PIXEL_PERFECT_SPLASH_SCENE => "pixel-perfect-splash",
         BEVY_SPLASH_SCENE => "bevy-splash",
+        LANDING_PAGE_SCENE => "landing-page",
         MAIN_MENU_SCENE => "main-menu",
         _ => "editor-scene",
     }
@@ -267,6 +382,10 @@ fn editor_scene_key(path: &str) -> &'static str {
 #[cfg(feature = "editor")]
 fn clear_scene_stack(world: &mut World) {
     world.write_message(SceneCommand::Clear);
+    world.insert_resource(FoundationSplashRuntimeSettings {
+        enabled: false,
+        require_scene_owner: true,
+    });
     world.remove_resource::<FoundationSplashUiTargetCamera>();
     world.remove_resource::<FoundationSplashUiParent>();
 }
@@ -342,40 +461,121 @@ fn spawn_requested_jackdaw_scenes(
     }
 }
 
+type GameplayUiRootQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static ChildOf),
+    Or<(With<TemplateGameplayUiRoot>, With<FoundationSplashUiRoot>)>,
+>;
+
+fn detach_scene_stack_ui_roots(
+    mut commands: Commands,
+    roots: GameplayUiRootQuery,
+    owners: Query<&SceneOwner>,
+) {
+    for (root, child_of) in &roots {
+        if let Ok(owner) = owners.get(child_of.0) {
+            commands.entity(root).insert(*owner).remove::<ChildOf>();
+        }
+    }
+}
+
+fn complete_authored_ui_text_components(
+    mut commands: Commands,
+    ui_nodes: AuthoredUiNodeCompletionQuery,
+    texts: AuthoredUiTextCompletionQuery,
+    child_links: Query<(Entity, &ChildOf)>,
+) {
+    for entity in &ui_nodes {
+        commands
+            .entity(entity)
+            .remove::<(Transform, GlobalTransform)>();
+    }
+
+    let mut parents_to_rebuild = std::collections::HashSet::new();
+    for (entity, text, font, parent) in &texts {
+        // Jackdaw runtime inserts reflected components one-by-one, which can
+        // bypass Bevy's typed `Text` required-components path. Add the UI text
+        // measure/layout components that `commands.spawn(Text::new(...))` would
+        // normally provide, while preserving the authored Text/TextFont/TextColor.
+        let font_size = font.map(|font| font.font_size).unwrap_or(20.0);
+        let width = (text.0.chars().count() as f32 * font_size * 0.7).max(font_size);
+        if let Some(parent) = parent {
+            parents_to_rebuild.insert(parent.0);
+        }
+        commands.entity(entity).insert((
+            TemplateUiTextCompleted,
+            Node {
+                width: Val::Px(width),
+                height: Val::Px(font_size * 1.4),
+                ..default()
+            },
+            TextLayout::default(),
+            ComputedTextBlock::default(),
+            TextLayoutInfo::default(),
+            LineHeight::default(),
+            TextNodeFlags::default(),
+            ContentSize::default(),
+            FontHinting::Disabled,
+        ));
+    }
+
+    for parent in parents_to_rebuild {
+        let mut children = child_links
+            .iter()
+            .filter_map(|(child, child_of)| (child_of.0 == parent).then_some(child))
+            .collect::<Vec<_>>();
+        children.sort_by_key(|child| child.index_u32());
+        commands.entity(parent).replace_children(&children);
+    }
+}
+
 fn initialize_fullscreen_backgrounds(
     mut commands: Commands,
-    backgrounds: Query<
-        (Entity, &TemplateFullscreenBackground),
-        Added<TemplateFullscreenBackground>,
-    >,
+    backgrounds: FullscreenBackgroundQuery,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
     ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
-    for (background_entity, background) in &backgrounds {
-        let ui_root = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    right: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(0.0),
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    overflow: Overflow::clip(),
-                    ..default()
-                },
-                BackgroundColor(Color::srgb(
-                    background.red,
-                    background.green,
-                    background.blue,
-                )),
-                GlobalZIndex(-1000),
-                GeneratedFullscreenBackground {
-                    source: background_entity,
-                },
-            ))
-            .id();
+    for (background_entity, background, scene_owner, has_authored_root) in &backgrounds {
+        if !should_process_runtime_scene_entity(scene_owner) {
+            continue;
+        }
+
+        let ui_root = if has_authored_root {
+            background_entity
+        } else {
+            let ui_root = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(0.0),
+                        right: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        bottom: Val::Px(0.0),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(
+                        background.red,
+                        background.green,
+                        background.blue,
+                    )),
+                    GlobalZIndex(-1000),
+                    GeneratedFullscreenBackground {
+                        source: background_entity,
+                    },
+                    TemplateGameplayUiRoot,
+                ))
+                .id();
+
+            if let Some(scene_owner) = scene_owner.copied() {
+                commands.entity(ui_root).insert(scene_owner);
+            }
+            debug_assert_ne!(background_entity, ui_root);
+            ui_root
+        };
 
         attach_gameplay_ui_root(
             &mut commands,
@@ -383,8 +583,6 @@ fn initialize_fullscreen_backgrounds(
             ui_target_camera.as_ref().map(|target| target.0),
             ui_parent.as_ref().map(|parent| parent.0),
         );
-
-        debug_assert_ne!(background_entity, ui_root);
     }
 }
 
@@ -400,50 +598,60 @@ fn cleanup_orphaned_fullscreen_backgrounds(
     }
 }
 
-fn initialize_main_menus(
+fn initialize_landing_pages(
     mut commands: Commands,
-    menus: Query<(Entity, &TemplateMainMenu), Added<TemplateMainMenu>>,
+    landing_pages: Query<(Entity, Option<&SceneOwner>), Added<TemplateLandingPage>>,
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
     ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
     let ui_target_camera = ui_target_camera.as_ref().map(|target| target.0);
     let ui_parent = ui_parent.as_ref().map(|parent| parent.0);
-    for (menu_entity, menu) in &menus {
-        let ui_root = spawn_main_menu_prompt(&mut commands, menu, ui_target_camera, ui_parent);
+    for (landing_entity, scene_owner) in &landing_pages {
+        if !should_process_runtime_scene_entity(scene_owner) {
+            continue;
+        }
+        attach_gameplay_ui_root(&mut commands, landing_entity, ui_target_camera, ui_parent);
         commands
-            .entity(menu_entity)
-            .insert(TemplateMainMenuRuntime {
-                root: ui_root,
-                state: TemplateMainMenuState::Prompt,
-            });
+            .entity(landing_entity)
+            .insert(TemplateLandingPageRuntime);
     }
 }
 
-fn advance_main_menu_prompt(
+fn advance_landing_pages(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     gamepad: Option<Res<ButtonInput<GamepadButton>>>,
-    mut menus: Query<(&TemplateMainMenu, &mut TemplateMainMenuRuntime)>,
-    ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
-    ui_parent: Option<Res<FoundationSplashUiParent>>,
+    landing_pages: Query<(Entity, &TemplateLandingPage), With<TemplateLandingPageRuntime>>,
+    mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     if !any_button_just_pressed(&keyboard, &mouse, gamepad.as_deref()) {
         return;
     }
 
-    for (_menu, mut runtime) in &mut menus {
-        if runtime.state != TemplateMainMenuState::Prompt {
+    for (landing_entity, landing_page) in &landing_pages {
+        commands
+            .entity(landing_entity)
+            .remove::<TemplateLandingPageRuntime>();
+        scene_commands.write(SceneCommand::clear_and_open(SceneSource::jsn_level(
+            landing_page.next_scene_path.trim(),
+        )));
+    }
+}
+
+fn initialize_main_menus(
+    mut commands: Commands,
+    menus: Query<(Entity, Option<&SceneOwner>), Added<TemplateMainMenu>>,
+    ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
+    ui_parent: Option<Res<FoundationSplashUiParent>>,
+) {
+    let ui_target_camera = ui_target_camera.as_ref().map(|target| target.0);
+    let ui_parent = ui_parent.as_ref().map(|parent| parent.0);
+    for (menu_entity, scene_owner) in &menus {
+        if !should_process_runtime_scene_entity(scene_owner) {
             continue;
         }
-
-        commands.entity(runtime.root).despawn();
-        runtime.root = spawn_main_menu_buttons(
-            &mut commands,
-            ui_target_camera.as_ref().map(|target| target.0),
-            ui_parent.as_ref().map(|parent| parent.0),
-        );
-        runtime.state = TemplateMainMenuState::Buttons;
+        attach_gameplay_ui_root(&mut commands, menu_entity, ui_target_camera, ui_parent);
     }
 }
 
@@ -473,125 +681,21 @@ fn attach_gameplay_ui_root(
     ui_target_camera: Option<Entity>,
     ui_parent: Option<Entity>,
 ) {
-    if let Some(ui_parent) = ui_parent {
-        commands.entity(ui_parent).add_child(root);
-    } else if let Some(ui_target_camera) = ui_target_camera {
+    if let Some(ui_target_camera) = ui_target_camera {
         commands
             .entity(root)
             .insert(UiTargetCamera(ui_target_camera));
+    } else if let Some(ui_parent) = ui_parent {
+        commands.entity(ui_parent).add_child(root);
     }
 }
 
-fn spawn_main_menu_prompt(
-    commands: &mut Commands,
-    menu: &TemplateMainMenu,
-    ui_target_camera: Option<Entity>,
-    ui_parent: Option<Entity>,
-) -> Entity {
-    let title = commands
-        .spawn((
-            Text::new(menu.title.clone()),
-            TextFont::from_font_size(72.0),
-            TextColor(Color::WHITE),
-        ))
-        .id();
-    let hint = commands
-        .spawn((
-            Text::new(menu.hint.clone()),
-            TextFont::from_font_size(24.0),
-            TextColor(Color::srgb(0.75, 0.8, 1.0)),
-        ))
-        .id();
-
-    let root = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
-        ))
-        .add_child(title)
-        .add_child(hint)
-        .id();
-
-    attach_gameplay_ui_root(commands, root, ui_target_camera, ui_parent);
-
-    root
-}
-
-fn spawn_main_menu_buttons(
-    commands: &mut Commands,
-    ui_target_camera: Option<Entity>,
-    ui_parent: Option<Entity>,
-) -> Entity {
-    let root = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(18.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.02, 0.025, 0.04)),
-        ))
-        .id();
-
-    attach_gameplay_ui_root(commands, root, ui_target_camera, ui_parent);
-
-    for label in ["New Game", "Load Game", "Options", "Quit"] {
-        let button = spawn_menu_button(commands, label);
-        commands.entity(root).add_child(button);
+fn should_process_runtime_scene_entity(scene_owner: Option<&SceneOwner>) -> bool {
+    if cfg!(feature = "editor") {
+        scene_owner.is_some()
+    } else {
+        true
     }
-
-    root
-}
-
-fn spawn_menu_button(commands: &mut Commands, label: &str) -> Entity {
-    let text = commands
-        .spawn((
-            Text::new(label),
-            TextFont::from_font_size(28.0),
-            TextColor(Color::WHITE),
-        ))
-        .id();
-
-    commands
-        .spawn((
-            Button,
-            Node {
-                width: Val::Px(260.0),
-                height: Val::Px(56.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(Val::Px(8.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.12, 0.14, 0.25)),
-            TemplateMenuButton,
-        ))
-        .add_child(text)
-        .id()
 }
 
 /// Spin-rate in radians per second. Attach in the inspector while authoring.
@@ -634,6 +738,7 @@ mod tests {
         assert_eq!(SPLASH_BACKGROUND_SCENE, "splash_background.jsn");
         assert_eq!(PIXEL_PERFECT_SPLASH_SCENE, "splash_pixel_perfect.jsn");
         assert_eq!(BEVY_SPLASH_SCENE, "splash_bevy.jsn");
+        assert_eq!(LANDING_PAGE_SCENE, "landing_page.jsn");
         assert_eq!(MAIN_MENU_SCENE, "main_menu.jsn");
     }
 
@@ -659,10 +764,17 @@ mod tests {
     }
 
     #[test]
-    fn default_main_menu_starts_with_template_game_prompt() {
+    fn default_landing_page_leads_to_main_menu() {
+        let landing_page = TemplateLandingPage::default();
+        assert_eq!(landing_page.title, "Template Game");
+        assert_eq!(landing_page.hint, "Press any button");
+        assert_eq!(landing_page.next_scene_path, MAIN_MENU_SCENE);
+    }
+
+    #[test]
+    fn default_main_menu_has_menu_title() {
         let menu = TemplateMainMenu::default();
-        assert_eq!(menu.title, "Template Game");
-        assert_eq!(menu.hint, "Press any button");
+        assert_eq!(menu.title, "Main Menu");
     }
 
     #[test]
@@ -676,6 +788,7 @@ mod tests {
             .resource::<bevy::ecs::reflect::AppTypeRegistry>()
             .read();
         assert!(registry.contains(std::any::TypeId::of::<TemplateFullscreenBackground>()));
+        assert!(registry.contains(std::any::TypeId::of::<TemplateLandingPage>()));
         assert!(registry.contains(std::any::TypeId::of::<TemplateMainMenu>()));
     }
 }

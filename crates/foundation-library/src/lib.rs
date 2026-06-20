@@ -75,8 +75,9 @@ pub mod prelude {
         SceneUnfocused,
     };
     pub use crate::splash_screen::{
-        FoundationSplashScreen, FoundationSplashScreenPlugin, FoundationSplashTimings,
-        FoundationSplashUiParent, FoundationSplashUiTargetCamera,
+        FoundationSplashRuntimeSettings, FoundationSplashScreen, FoundationSplashScreenPlugin,
+        FoundationSplashText, FoundationSplashTimings, FoundationSplashUiParent,
+        FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
     };
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }

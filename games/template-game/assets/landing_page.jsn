@@ -9,8 +9,8 @@
     "bevy_version": "0.18"
   },
   "metadata": {
-    "name": "Bevy Splash",
-    "description": "TemplateGame startup splash with authored UI and Foundation runtime fade behavior.",
+    "name": "Template Game Landing Page",
+    "description": "TemplateGame press-any-button landing page before the main menu.",
     "author": "",
     "created": "2026-06-20T00:00:00Z",
     "modified": "2026-06-20T00:00:00Z"
@@ -20,18 +20,21 @@
   "scene": [
     {
       "components": {
-        "foundation_library::splash_screen::FoundationSplashScreen": {
-          "font_size": 72.0,
-          "next_scene_path": "landing_page.jsn",
-          "replace_current_scene": true,
-          "reset_stack_for_next_scene": true,
-          "text": "Bevy",
-          "timings": {
-            "fade_in_seconds": 1.5,
-            "fade_out_seconds": 1.5,
-            "hold_seconds": 2.0
+        "template_game::TemplateGameplayUiRoot": {},
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.03999999910593033,
+            "green": 0.02500000037252903,
+            "red": 0.019999999552965164
           }
         },
+        "template_game::TemplateLandingPage": {
+          "hint": "Press any button",
+          "next_scene_path": "main_menu.jsn",
+          "title": "Template Game"
+        },
+        "bevy_ecs::name::Name": "Landing Page UI Root",
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -147,7 +150,7 @@
             "Px": 0.0
           },
           "row_gap": {
-            "Px": 0.0
+            "Px": 20.0
           },
           "scrollbar_width": 0.0,
           "top": {
@@ -156,16 +159,13 @@
           "width": {
             "Percent": 100.0
           }
-        },
-        "bevy_ecs::name::Name": "Bevy Splash UI Root",
-        "foundation_library::splash_screen::FoundationSplashUiRoot": {}
+        }
       }
     },
     {
       "parent": 0,
       "components": {
-        "foundation_library::splash_screen::FoundationSplashText": {},
-        "bevy_ui::widget::text::Text": "Bevy",
+        "bevy_ui::widget::text::Text": "Template Game",
         "bevy_text::text::TextColor": {
           "LinearRgba": {
             "alpha": 1.0,
@@ -174,12 +174,35 @@
             "red": 1.0
           }
         },
-        "bevy_ecs::name::Name": "Bevy Splash Text",
+        "bevy_ecs::name::Name": "Landing Page Title",
         "bevy_text::text::TextFont": {
           "font_features": {
             "features": []
           },
           "font_size": 72.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        }
+      }
+    },
+    {
+      "parent": 0,
+      "components": {
+        "bevy_text::text::TextColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 0.800000011920929,
+            "red": 0.75
+          }
+        },
+        "bevy_ecs::name::Name": "Landing Page Prompt",
+        "bevy_ui::widget::text::Text": "Press any button",
+        "bevy_text::text::TextFont": {
+          "font_features": {
+            "features": []
+          },
+          "font_size": 24.0,
           "font_smoothing": "AntiAliased",
           "weight": 400
         }
