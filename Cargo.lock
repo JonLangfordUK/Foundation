@@ -3153,7 +3153,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "foundation-library"
+name = "foundation-runtime-library"
 version = "0.1.0"
 dependencies = [
  "bevy",
@@ -6440,7 +6440,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "ctrlc",
- "foundation-library",
+ "foundation-runtime-library",
  "jackdaw",
  "jackdaw_jsn",
  "jackdaw_runtime",

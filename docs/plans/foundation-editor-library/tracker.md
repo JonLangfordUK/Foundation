@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `editor`
 - Branch: `feature/foundation-editor-library`
-- Overall status: `Planned`
+- Overall status: `Implementation in progress`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for user review before gpt-5.4 implementation`
+- Current handoff state: `Implementation in progress with gpt-5.4`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -17,7 +17,7 @@
 - Active planning branch: `feature/foundation-editor-library`
 - Branch base: created locally from `dev` on `2026-06-21`; `dev` verified as an ancestor of `HEAD`.
 - Remote: `origin` configured at `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: pending; no feature commits have been created yet.
+- Push status: Planning docs commit `e12d73b` pushed to `origin/feature/foundation-editor-library`; implementation commits pending.
 - Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. Do not commit it unless explicitly requested.
 
 ## Validation Rules
@@ -32,33 +32,33 @@
   - `scripts/validate-project.cmd`
 
 ## Phase 1: Runtime Library Rename
-**Status:** Planned  
+**Status:** In progress  
 **Goal:** Rename the existing reusable runtime crate from `foundation-library` to `foundation-runtime-library` without changing behavior.
 
 ### Tasks
-- [ ] Verify implementation branch and protect pre-existing editor-local project state.
-  - Status: Planned
-  - Notes: Confirm `feature/foundation-editor-library`, verify `dev` ancestry, and keep `games/template-game/.jsn/project.jsn` out of commits.
-- [ ] Move `crates/foundation-library` to `crates/foundation-runtime-library`.
-  - Status: Planned
-  - Notes: Update workspace member path and package metadata.
-- [ ] Rename Rust references from `foundation_library` to `foundation_runtime_library` where a real crate rename is used.
-  - Status: Planned
-  - Notes: Includes TemplateGame Rust imports, tests, docs, and command examples.
-- [ ] Migrate `.jsn` serialized component type paths from `foundation_library::...` to `foundation_runtime_library::...` if the implementation changes the Rust crate name.
-  - Status: Planned
-  - Notes: Required for authored Jackdaw scenes to keep loading reflected runtime components.
-- [ ] Update active documentation references for the runtime crate rename.
-  - Status: Planned
-  - Notes: README and `docs/scene-system.md` are expected; historical plan docs should generally remain historical.
+- [x] Verify implementation branch and protect pre-existing editor-local project state.
+  - Status: Complete
+  - Notes: Confirmed active branch `feature/foundation-editor-library`; verified `dev` is an ancestor of `HEAD`; `games/template-game/.jsn/project.jsn` remains a pre-existing local modification and must stay out of commits.
+- [x] Move `crates/foundation-library` to `crates/foundation-runtime-library`.
+  - Status: Awaiting full validation
+  - Notes: Moved the crate directory, updated root workspace membership, changed the package name to `foundation-runtime-library`, and regenerated the workspace lock entry through `cargo check`.
+- [x] Rename Rust references from `foundation_library` to `foundation_runtime_library` where a real crate rename is used.
+  - Status: Awaiting full validation
+  - Notes: Updated TemplateGame Rust imports and active runtime docs; focused `cargo check -p foundation-runtime-library -p template-game --all-features` passed.
+- [x] Migrate `.jsn` serialized component type paths from `foundation_library::...` to `foundation_runtime_library::...` if the implementation changes the Rust crate name.
+  - Status: Awaiting full validation
+  - Notes: Updated TemplateGame `.jsn` assets so reflected Foundation runtime components use the new crate path.
+- [x] Update active documentation references for the runtime crate rename.
+  - Status: Awaiting full validation
+  - Notes: Updated README and `docs/scene-system.md` for the runtime crate name. Broader runtime/editor split docs and skill updates remain planned for Phase 6.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed (`scripts/format-project.cmd`, 2026-06-21)
+- Lint: Pending full feature validation
+- Tests: Focused pass (`cargo test -p foundation-runtime-library`; `cargo test -p template-game --lib --all-features`, 2026-06-21)
+- Build: Focused pass (`cargo check -p foundation-runtime-library -p template-game --all-features`, 2026-06-21)
+- Documentation generation: Focused pass (`cargo doc -p foundation-runtime-library --no-deps`, 2026-06-21)
+- Full validation wrapper: Pending full feature validation
 - User confirmation: Not required after implementation approval
 
 ## Phase 2: Foundation Editor Library Crate
@@ -233,3 +233,5 @@
 - `2026-06-21`: Created branch `feature/foundation-editor-library` from `dev` and verified `dev` is an ancestor.
 - `2026-06-21`: Created plan and tracker for the Foundation runtime/editor library split and Game Settings window feature.
 - `2026-06-21`: User approved the plan direction and asked to also update project skills because this creates a new area; plan and tracker updated to include `AGENTS.md` and relevant `.pi/skills/*` updates.
+- `2026-06-21`: Planning docs committed as `e12d73b` and pushed to `origin/feature/foundation-editor-library`; implementation started with gpt-5.4.
+- `2026-06-21`: Completed the runtime crate rename from `foundation-library`/`foundation_library` to `foundation-runtime-library`/`foundation_runtime_library`, updated TemplateGame Rust imports and `.jsn` type paths, and recorded focused validation passes.

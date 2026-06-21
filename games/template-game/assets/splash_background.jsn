@@ -161,7 +161,7 @@
           "red": 0.0
         },
         "bevy_ui::ui_node::GlobalZIndex": -1000,
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
         }
       }

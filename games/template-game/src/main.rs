@@ -5,7 +5,7 @@ use bevy::{
     image::{ImageAddressMode, ImagePlugin, ImageSamplerDescriptor},
     prelude::*,
 };
-use foundation_library::prelude::*;
+use foundation_runtime_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 fn main() -> AppExit {

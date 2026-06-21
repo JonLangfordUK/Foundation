@@ -14,7 +14,7 @@ Use it to:
 
 The system has two halves:
 
-1. **FoundationLibrary** owns the generic scene stack model.
+1. **FoundationRuntimeLibrary** owns the generic scene stack model.
 2. **TemplateGame** bridges stack requests to Jackdaw scene loading and editor/runtime UI behavior.
 
 ```text
@@ -45,7 +45,7 @@ Top    [ Pause Menu Overlay ]  interactive, visible
 Bottom [ Background         ]  hidden or visible depending on presentation
 ```
 
-The stack is stored in `SceneStack` from `foundation_library::scene_stack`.
+The stack is stored in `SceneStack` from `foundation_runtime_library::scene_stack`.
 
 ### SceneCommand
 
@@ -101,7 +101,7 @@ Jackdaw remains the scene-authoring format and editor. Foundation does not repla
 The intended split is:
 
 - **Jackdaw** authors and serializes scene files under `games/template-game/assets/*.jsn`.
-- **FoundationLibrary** decides which scene is on the stack and when it should load/unload.
+- **FoundationRuntimeLibrary** decides which scene is on the stack and when it should load/unload.
 - **TemplateGame** receives `SceneLoadRequested` and performs the actual Jackdaw `.jsn` load.
 
 This keeps scene data editable in Jackdaw while allowing game code to use a predictable stack API.
@@ -322,7 +322,7 @@ Use `NON_BLOCKING_OVERLAY` only for tools/debug UI that should not block the gam
 
 ## Best Practices
 
-- Keep reusable behavior in `foundation-library`.
+- Keep reusable behavior in `foundation-runtime-library`.
 - Keep TemplateGame-specific asset paths and editor glue in `games/template-game`.
 - Prefer Jackdaw `.jsn` scenes for authored content instead of hard-coding complete scenes in Rust.
 - Always tag runtime-spawned scene content with `SceneOwner`.

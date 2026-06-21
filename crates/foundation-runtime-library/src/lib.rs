@@ -1,7 +1,7 @@
-//! FoundationLibrary provides reusable Bevy building blocks for Foundation games.
+//! FoundationRuntimeLibrary provides reusable Bevy building blocks for Foundation games.
 //!
 //! The crate is intentionally small at this baseline stage. Jackdaw supplies the
-//! editor and scene-authoring layer; FoundationLibrary supplies shared game and
+//! editor and scene-authoring layer; FoundationRuntimeLibrary supplies shared game and
 //! editor-compatible code that multiple Jackdaw-style games can compose.
 //!
 //! Game crates should add [`FoundationPlugin`] before their game-specific plugin
@@ -52,14 +52,14 @@ pub struct FoundationSettings {
 impl Default for FoundationSettings {
     fn default() -> Self {
         Self {
-            display_name: "FoundationLibrary".to_string(),
+            display_name: "FoundationRuntimeLibrary".to_string(),
         }
     }
 }
 
 /// Baseline shared component for Foundation-authored actors.
 ///
-/// This component demonstrates the pattern reusable FoundationLibrary components
+/// This component demonstrates the pattern reusable FoundationRuntimeLibrary components
 /// should follow to be available to both games and Jackdaw editor binaries:
 /// derive [`Component`] and [`Reflect`], add Jackdaw editor metadata, and
 /// register the type from [`FoundationPlugin`].
@@ -70,7 +70,7 @@ pub struct FoundationActor {
     pub label: String,
 }
 
-/// Common imports for games using FoundationLibrary.
+/// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
     pub use crate::menu::{
         foundation_is_not_paused, foundation_is_paused, FoundationCloseOnEscape,
@@ -104,7 +104,7 @@ mod tests {
         app.add_plugins(FoundationPlugin);
 
         let settings = app.world().resource::<FoundationSettings>();
-        assert_eq!(settings.display_name, "FoundationLibrary");
+        assert_eq!(settings.display_name, "FoundationRuntimeLibrary");
 
         let registry = app
             .world()

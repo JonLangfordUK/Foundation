@@ -7,7 +7,7 @@ use bevy::{
     image::{ImageAddressMode, ImagePlugin, ImageSamplerDescriptor},
     prelude::*,
 };
-use foundation_library::prelude::*;
+use foundation_runtime_library::prelude::*;
 use jackdaw::prelude::*;
 use jackdaw::project_select::PendingAutoOpen;
 

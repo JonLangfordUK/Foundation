@@ -160,7 +160,7 @@
             "Percent": 100.0
           }
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
         }
       }
@@ -186,7 +186,7 @@
           "font_smoothing": "AntiAliased",
           "weight": 400
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 1
         }
       }
@@ -212,7 +212,7 @@
           "font_smoothing": "AntiAliased",
           "weight": 400
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 2
         }
       }

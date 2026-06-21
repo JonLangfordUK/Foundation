@@ -158,7 +158,7 @@
         },
         "bevy_ecs::name::Name": "Main Menu UI Root",
         "template_game::TemplateGameplayUiRoot": {},
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
         }
       }
@@ -184,7 +184,7 @@
           "weight": 400
         },
         "bevy_ecs::name::Name": "Main Menu Title",
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 1
         }
       }
@@ -319,12 +319,12 @@
             "Px": 260.0
           }
         },
-        "foundation_library::menu::FoundationMenuButton": {
+        "foundation_runtime_library::menu::FoundationMenuButton": {
           "action": "clear_and_open_scene",
           "scene_path": "gameplay_level.jsn",
           "scene_key": "gameplay-level"
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 2
         }
       }
@@ -350,7 +350,7 @@
             "red": 1.0
           }
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 3
         }
       }
@@ -485,12 +485,12 @@
             "red": 0.11999999731779099
           }
         },
-        "foundation_library::menu::FoundationMenuButton": {
+        "foundation_runtime_library::menu::FoundationMenuButton": {
           "action": "open_scene",
           "scene_path": "load_game.jsn",
           "scene_key": "load-game"
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 4
         }
       }
@@ -516,7 +516,7 @@
           "font_smoothing": "AntiAliased",
           "weight": 400
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 5
         }
       }
@@ -651,12 +651,12 @@
           }
         },
         "bevy_ecs::name::Name": "Options Button",
-        "foundation_library::menu::FoundationMenuButton": {
+        "foundation_runtime_library::menu::FoundationMenuButton": {
           "action": "open_scene",
           "scene_path": "options_menu.jsn",
           "scene_key": "options-menu"
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 6
         }
       }
@@ -682,7 +682,7 @@
           "font_smoothing": "AntiAliased",
           "weight": 400
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 7
         }
       }
@@ -817,12 +817,12 @@
             "red": 0.11999999731779099
           }
         },
-        "foundation_library::menu::FoundationMenuButton": {
+        "foundation_runtime_library::menu::FoundationMenuButton": {
           "action": "exit",
           "scene_path": "",
           "scene_key": ""
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 8
         }
       }
@@ -848,7 +848,7 @@
         },
         "bevy_ecs::name::Name": "Exit Button Label",
         "bevy_ui::widget::text::Text": "Exit",
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 9
         }
       }

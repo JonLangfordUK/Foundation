@@ -11,7 +11,7 @@ use bevy::{
     text::{ComputedTextBlock, FontHinting, LineHeight, TextLayout, TextLayoutInfo},
     ui::{ContentSize, widget::TextNodeFlags},
 };
-use foundation_library::prelude::*;
+use foundation_runtime_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 /// Jackdaw scene path for the persistent startup background.

@@ -224,7 +224,7 @@
         },
         "bevy_ecs::name::Name": "Brush",
         "bevy_camera::visibility::Visibility": "Inherited",
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
         }
       }
@@ -276,7 +276,7 @@
             10.0
           ]
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 1
         }
       }

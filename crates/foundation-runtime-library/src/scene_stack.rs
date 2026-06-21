@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-/// Installs FoundationLibrary scene stack resources and message types.
+/// Installs FoundationRuntimeLibrary scene stack resources and message types.
 #[derive(Default)]
 pub struct FoundationSceneStackPlugin;
 
@@ -63,7 +63,7 @@ impl From<String> for SceneKey {
 
 /// Describes where scene content comes from.
 ///
-/// `.jsn` level files are first-class sources so FoundationLibrary can cooperate
+/// `.jsn` level files are first-class sources so FoundationRuntimeLibrary can cooperate
 /// with Jackdaw-authored levels without defining a second level format.
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum SceneSource {

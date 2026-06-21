@@ -1,11 +1,11 @@
 # PiGame
 
-PiGame is a multi-project Rust repository for Jackdaw Editor, reusable FoundationLibrary code, and Jackdaw-style games.
+PiGame is a multi-project Rust repository for Jackdaw Editor, reusable FoundationRuntimeLibrary code, and Jackdaw-style games.
 
 ## Repository layout
 - `Cargo.toml` - root workspace manifest for tooling/editor crates
 - `crates/jackdaw-editor` - Jackdaw Editor, a Jackdaw launcher/editor subproject
-- `crates/foundation-library` - FoundationLibrary, reusable shared Bevy/Jackdaw-compatible game code
+- `crates/foundation-runtime-library` - FoundationRuntimeLibrary, reusable shared Bevy/Jackdaw-compatible game code
 - `games/template-game` - a Jackdaw static-game subproject shaped like Jackdaw's generated game template
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
@@ -17,7 +17,7 @@ The current architecture is **Editor / Game / Library**:
 
 - **Editor**: `crates/jackdaw-editor` launches Jackdaw.
 - **Game**: `games/template-game` is a concrete Jackdaw-style game project.
-- **Library**: `crates/foundation-library` contains reusable code shared by games and their game-specific editor binaries. It depends on `jackdaw_runtime` so shared components can expose Jackdaw-compatible editor metadata without depending on the full Jackdaw editor app.
+- **Library**: `crates/foundation-runtime-library` contains reusable code shared by games and their game-specific editor binaries. It depends on `jackdaw_runtime` so shared components can expose Jackdaw-compatible editor metadata without depending on the full Jackdaw editor app.
 
 `games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
 
@@ -78,10 +78,10 @@ TemplateGame follows Jackdaw's generated static template:
 - `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
 - root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
-- `foundation-library` is added to both the standalone game and game-specific editor binary before `TemplateGamePlugin`
+- `foundation-runtime-library` is added to both the standalone game and game-specific editor binary before `TemplateGamePlugin`
 
-## FoundationLibrary shared components
-Reusable components can live in `crates/foundation-library` when they should be available to multiple games and their Jackdaw editor binaries. Components intended for editor authoring should derive Bevy reflection traits, include Jackdaw editor metadata, and be registered by `FoundationPlugin`.
+## FoundationRuntimeLibrary shared components
+Reusable components can live in `crates/foundation-runtime-library` when they should be available to multiple games and their Jackdaw editor binaries. Components intended for editor authoring should derive Bevy reflection traits, include Jackdaw editor metadata, and be registered by `FoundationPlugin`.
 
 Example pattern:
 
@@ -129,12 +129,12 @@ scripts\compile-project.cmd
 scripts\doc-project.cmd
 ```
 
-### FoundationLibrary validation
+### FoundationRuntimeLibrary validation
 From the repository root:
 
 ```cmd
-cargo test -p foundation-library
-cargo doc -p foundation-library --no-deps
+cargo test -p foundation-runtime-library
+cargo doc -p foundation-runtime-library --no-deps
 ```
 
 ### TemplateGame validation
