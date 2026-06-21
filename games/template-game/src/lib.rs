@@ -1159,7 +1159,6 @@ fn initialize_main_menus(
     }
 }
 
-#[allow(dead_code)]
 fn update_main_menu_button_interactions(mut buttons: MenuButtonInteractionQuery) {
     let pressed_button_color = Color::srgb(0.45, 0.50, 0.85);
     let hovered_button_color = Color::srgb(0.28, 0.32, 0.62);
@@ -1280,6 +1279,63 @@ mod tests {
         assert_eq!(LOAD_GAME_SCENE, "load_game.jsn");
         assert_eq!(GAMEPLAY_LEVEL_SCENE, "gameplay_level.jsn");
         assert_eq!(PAUSE_MENU_SCENE, "pause_menu.jsn");
+    }
+
+    #[test]
+    fn scene_path_constants_match_existing_assets() {
+        let scene_asset_paths = [
+            SPLASH_BACKGROUND_SCENE,
+            PIXEL_PERFECT_SPLASH_SCENE,
+            BEVY_SPLASH_SCENE,
+            LANDING_PAGE_SCENE,
+            MAIN_MENU_SCENE,
+            OPTIONS_MENU_SCENE,
+            LOAD_GAME_SCENE,
+            GAMEPLAY_LEVEL_SCENE,
+            PAUSE_MENU_SCENE,
+        ];
+        let asset_directory_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+
+        for scene_asset_path in scene_asset_paths {
+            let full_scene_asset_path = asset_directory_path.join(scene_asset_path);
+            assert!(
+                full_scene_asset_path.is_file(),
+                "Scene constant `{scene_asset_path}` must point at an existing asset file",
+            );
+        }
+    }
+
+    #[test]
+    fn jackdaw_run_config_targets_template_game_binary() {
+        let jackdaw_config_path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jackdaw.toml");
+        let jackdaw_config = std::fs::read_to_string(&jackdaw_config_path)
+            .expect("jackdaw.toml should be readable during tests");
+
+        assert!(
+            jackdaw_config.contains("bin = \"template-game\""),
+            "Jackdaw run config should target Cargo's `template-game` binary name",
+        );
+    }
+
+    #[test]
+    fn authored_scene_assets_reference_known_scene_paths() {
+        let pixel_perfect_splash_scene = include_str!("../assets/splash_pixel_perfect.jsn");
+        let bevy_splash_scene = include_str!("../assets/splash_bevy.jsn");
+        let landing_page_scene = include_str!("../assets/landing_page.jsn");
+        let main_menu_scene = include_str!("../assets/main_menu.jsn");
+        let gameplay_level_scene = include_str!("../assets/gameplay_level.jsn");
+        let pause_menu_scene = include_str!("../assets/pause_menu.jsn");
+
+        assert!(pixel_perfect_splash_scene.contains(BEVY_SPLASH_SCENE));
+        assert!(bevy_splash_scene.contains(LANDING_PAGE_SCENE));
+        assert!(landing_page_scene.contains(MAIN_MENU_SCENE));
+        assert!(main_menu_scene.contains(GAMEPLAY_LEVEL_SCENE));
+        assert!(main_menu_scene.contains(LOAD_GAME_SCENE));
+        assert!(main_menu_scene.contains(OPTIONS_MENU_SCENE));
+        assert!(gameplay_level_scene.contains(PAUSE_MENU_SCENE));
+        assert!(pause_menu_scene.contains(OPTIONS_MENU_SCENE));
+        assert!(pause_menu_scene.contains(MAIN_MENU_SCENE));
     }
 
     #[test]
