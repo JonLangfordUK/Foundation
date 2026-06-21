@@ -363,7 +363,7 @@ fn open_initial_scene(
     }
 }
 
-#[cfg(not(feature = "editor"))]
+#[cfg_attr(feature = "editor", allow(dead_code))]
 fn standalone_startup_scene_commands(settings: &FoundationGameSettings) -> Vec<SceneCommand> {
     if let Some(startup_map_path) = settings.startup_map_path() {
         // A configured startup map intentionally bypasses the example splash flow.
@@ -1404,6 +1404,31 @@ mod tests {
                         .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn startup_map_setting_replaces_default_splash_flow() {
+        let settings = FoundationGameSettings {
+            startup_map: MAIN_MENU_SCENE.to_string(),
+            editor_startup_map: String::new(),
+        };
+
+        assert_eq!(
+            standalone_startup_scene_commands(&settings),
+            vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+                MAIN_MENU_SCENE
+            ))]
+        );
+    }
+
+    #[test]
+    fn missing_startup_map_setting_uses_default_splash_flow() {
+        let settings = FoundationGameSettings::default();
+
+        assert_eq!(
+            standalone_startup_scene_commands(&settings),
+            initial_scene_commands().into_iter().collect::<Vec<_>>()
         );
     }
 

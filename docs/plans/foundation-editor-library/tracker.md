@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `editor`
 - Branch: `feature/foundation-editor-library`
-- Overall status: `Implemented; awaiting user acceptance`
+- Overall status: `Follow-up implemented; awaiting user acceptance`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
+- Current handoff state: `Follow-up implementation complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -17,7 +17,7 @@
 - Active planning branch: `feature/foundation-editor-library`
 - Branch base: created locally from `dev` on `2026-06-21`; `dev` verified as an ancestor of `HEAD`.
 - Remote: `origin` configured at `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, and final tracker push-status commit pushed to `origin/feature/foundation-editor-library`.
+- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, final tracker push-status commit, and settings usage follow-up commit pushed to `origin/feature/foundation-editor-library`.
 - Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. It was not committed.
 
 ## Validation Rules
@@ -155,13 +155,13 @@
   - Notes: TemplateGame editor registers `FoundationGameSettingsExtension` through Jackdaw `ExtensionPlugin` and adds `FoundationEditorPlugin`.
 - [x] Use configured startup map in standalone startup where practical.
   - Status: Complete
-  - Notes: Standalone loads `FoundationGameSettings` from the project root and falls back to the existing splash flow when unset or invalid.
+  - Notes: Standalone loads `FoundationGameSettings` from the project root and uses `startup_map` as the first normal game scene when set; missing/blank settings fall back to the existing splash flow.
 - [x] Use configured editor startup map according to documented precedence.
   - Status: Complete
-  - Notes: Current open scenes still take precedence; `editor_startup_map` is used when no useful open scene exists.
+  - Notes: `foundation-editor-library` now loads `editor_startup_map` when Jackdaw enters editor state, replacing Jackdaw's default `assets/scene.jsn` load when the configured scene exists.
 - [x] Add/update tests for startup map resolution and editor feature composition.
   - Status: Complete
-  - Notes: Added TemplateGame test for `editor_startup_map` fallback; editor extension composition is covered by compile/check and smoke launch.
+  - Notes: Added TemplateGame tests for `startup_map` replacing the splash flow and missing startup map fallback; added editor library tests for resolving and ignoring configured editor startup scene files.
 
 ### Validation
 - Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
@@ -213,6 +213,8 @@
 - Jackdaw extension/window code lives in `foundation-editor-library`.
 - Runtime/shared settings data and TOML persistence live in `foundation-runtime-library`.
 - `foundation.settings.toml` stores `startup_map` and `editor_startup_map`; blank values mean use game defaults.
+- `startup_map` is consumed by TemplateGame standalone startup to choose the first normal scene.
+- `editor_startup_map` is consumed by `FoundationEditorPlugin` on entering Jackdaw editor state so the editor opens directly into the configured scene.
 - `games/template-game/.jsn/project.jsn` remains a pre-existing local editor modification and was not committed.
 
 ## Postponed Work
@@ -223,6 +225,7 @@
 
 ## Issues / Oversights Discovered
 - `2026-06-21`: First `scripts/validate-project.cmd` run failed on `clippy::type_complexity` in `crates/foundation-editor-library/src/lib.rs`; fixed by adding query type aliases and reran validation successfully.
+- `2026-06-21`: User clarified the prototype is acceptable but the settings must be fully applied: `Startup Map` must control the first normal game scene, and `Editor Startup Map` must control the scene loaded when the editor opens. Follow-up implementation resumed with gpt-5.4.
 
 ## Progress Log
 - `2026-06-21`: Read feature planning, gitflow, Rust workspace, and Rust coding standards skills.
@@ -236,3 +239,5 @@
 - `2026-06-21`: Added `foundation-editor-library`, `FoundationGameSettings`, TOML settings persistence, Game Settings Jackdaw extension/window, TemplateGame editor wiring, settings startup-map integration, README updates, AGENTS guidance, and a new `foundation-architecture` skill.
 - `2026-06-21`: Full validation passed via `scripts/validate-project.cmd`; manual smoke launch via `timeout 25s cargo editor` loaded `foundation.game_settings` and was terminated by expected timeout.
 - `2026-06-21`: Implementation/docs/skills commit `e04ef99` pushed to `origin/feature/foundation-editor-library`; final tracker push-status commit pushed afterward.
+- `2026-06-21`: Follow-up requested so settings are actually applied to normal game startup and editor-open startup; implementation resumed on `feature/foundation-editor-library` with `dev` ancestry verified.
+- `2026-06-21`: Implemented `editor_startup_map` loading on Jackdaw editor entry, clarified `startup_map` as standalone first-scene selection, added focused tests, updated README wording, and reran full validation successfully.

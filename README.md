@@ -111,7 +111,7 @@ startup_map = ""
 editor_startup_map = ""
 ```
 
-An empty value means the game uses its built-in default flow. `startup_map` applies to standalone runs. `editor_startup_map` is the editor fallback when Play starts without a more specific currently open scene.
+An empty value means the game uses its built-in default flow. `startup_map` controls the first scene loaded during normal standalone game startup. `editor_startup_map` controls the scene Jackdaw loads when the game-specific editor opens.
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:

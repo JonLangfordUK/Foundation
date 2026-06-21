@@ -24,6 +24,12 @@ impl Plugin for FoundationEditorPlugin {
     fn build(&self, app: &mut App) {
         // Keep the project settings resource populated before editor UI refreshes labels.
         app.add_systems(Startup, load_foundation_game_settings_from_project_root)
+            // Project auto-open loads Jackdaw's default `assets/scene.jsn` first.
+            // This follow-up replaces it with the configured editor startup map.
+            .add_systems(
+                OnEnter(jackdaw::AppState::Editor),
+                load_editor_startup_scene_from_settings,
+            )
             .add_systems(Update, refresh_game_settings_window_labels);
     }
 }
@@ -278,6 +284,49 @@ fn load_foundation_game_settings_from_project_root(
     }
 }
 
+fn load_editor_startup_scene_from_settings(world: &mut World) {
+    let project_root = current_project_root();
+    let Some(settings) = world.get_resource::<FoundationGameSettings>() else {
+        return;
+    };
+    let Some(editor_startup_scene_path) = editor_startup_scene_file_path(settings, &project_root)
+    else {
+        return;
+    };
+
+    jackdaw::scene_io::load_scene_from_file(world, &editor_startup_scene_path);
+
+    if let Some(mut status) = world.get_resource_mut::<FoundationGameSettingsWindowStatus>() {
+        status.message = format!(
+            "Loaded editor startup map {}.",
+            editor_startup_scene_path.display()
+        );
+    }
+}
+
+fn editor_startup_scene_file_path(
+    settings: &FoundationGameSettings,
+    project_root: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    let configured_scene_path = settings.editor_startup_map_path()?;
+    let configured_scene_file_path = std::path::Path::new(configured_scene_path);
+    let scene_file_path = if configured_scene_file_path.is_absolute() {
+        configured_scene_file_path.to_path_buf()
+    } else {
+        project_root.join("assets").join(configured_scene_file_path)
+    };
+
+    if !scene_file_path.is_file() {
+        warn!(
+            "Configured editor startup map {} does not exist; keeping Jackdaw's default scene",
+            scene_file_path.display()
+        );
+        return None;
+    }
+
+    Some(scene_file_path)
+}
+
 fn refresh_game_settings_window_labels(
     settings: Res<FoundationGameSettings>,
     status: Option<Res<FoundationGameSettingsWindowStatus>>,
@@ -380,6 +429,40 @@ mod tests {
     }
 
     #[test]
+    fn editor_startup_scene_file_path_uses_assets_relative_setting() {
+        let project_root = unique_test_directory_path("editor-startup-relative");
+        let scene_directory_path = project_root.join("assets").join("menus");
+        std::fs::create_dir_all(&scene_directory_path).expect("scene directory should be created");
+        let scene_file_path = scene_directory_path.join("main_menu.jsn");
+        std::fs::write(&scene_file_path, "{}").expect("scene file should be written");
+        let settings = FoundationGameSettings {
+            startup_map: String::new(),
+            editor_startup_map: "menus/main_menu.jsn".to_string(),
+        };
+
+        assert_eq!(
+            editor_startup_scene_file_path(&settings, &project_root),
+            Some(scene_file_path)
+        );
+
+        let _ = std::fs::remove_dir_all(project_root);
+    }
+
+    #[test]
+    fn editor_startup_scene_file_path_ignores_missing_setting_file() {
+        let project_root = unique_test_directory_path("editor-startup-missing");
+        let settings = FoundationGameSettings {
+            startup_map: String::new(),
+            editor_startup_map: "missing.jsn".to_string(),
+        };
+
+        assert_eq!(
+            editor_startup_scene_file_path(&settings, &project_root),
+            None
+        );
+    }
+
+    #[test]
     fn scene_path_to_asset_path_falls_back_to_file_name() {
         let scene_path = "main_menu.jsn";
 
@@ -387,5 +470,13 @@ mod tests {
             scene_path_to_asset_path(scene_path),
             Some("main_menu.jsn".to_string())
         );
+    }
+
+    fn unique_test_directory_path(test_name: &str) -> std::path::PathBuf {
+        let process_id = std::process::id();
+        let thread_id = format!("{:?}", std::thread::current().id());
+        std::env::temp_dir().join(format!(
+            "foundation-editor-settings-{test_name}-{process_id}-{thread_id}"
+        ))
     }
 }
