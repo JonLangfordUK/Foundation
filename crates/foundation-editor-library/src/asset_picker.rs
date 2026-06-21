@@ -239,11 +239,9 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                     height: px(48.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    border: UiRect::bottom(px(2.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.03, 0.03, 0.035)),
-                BorderColor::all(Color::srgb(0.95, 0.0, 0.35)),
                 children![(Text::new(preview_text), TextFont::from_font_size(9.0))],
             ),
             (
@@ -273,7 +271,7 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                                 },
                                 Text::new(value_text),
                             ),
-                            (Text::new("⌄"),),
+                            (Text::new("..."),),
                         ],
                     ),
                     (
@@ -287,27 +285,27 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                                 Button,
                                 clear_button,
                                 Node {
-                                    width: px(22.0),
+                                    width: px(52.0),
                                     height: px(18.0),
                                     align_items: AlignItems::Center,
                                     justify_content: JustifyContent::Center,
                                     ..default()
                                 },
                                 BackgroundColor(Color::NONE),
-                                children![(Text::new("↺"),)],
+                                children![(Text::new("Clear"), TextFont::from_font_size(10.0))],
                             ),
                             (
                                 Button,
                                 use_open_scene_button,
                                 Node {
-                                    width: px(22.0),
+                                    width: px(72.0),
                                     height: px(18.0),
                                     align_items: AlignItems::Center,
                                     justify_content: JustifyContent::Center,
                                     ..default()
                                 },
                                 BackgroundColor(Color::NONE),
-                                children![(Text::new("◰"),)],
+                                children![(Text::new("Use Open"), TextFont::from_font_size(10.0))],
                             ),
                         ],
                     ),
