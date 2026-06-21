@@ -318,20 +318,24 @@ struct FoundationOptionsSettingValue {
 
 const OPTIONS_TABS: [&str; 4] = ["Gameplay", "Display", "Graphics", "Accessibility"];
 
+type SimpleGameplayLevelInitQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static FoundationSimpleGameplayLevel,
+        Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
+    ),
+    Added<FoundationSimpleGameplayLevel>,
+>;
+
 fn initialize_simple_gameplay_levels(
     mut commands: Commands,
     settings: Res<FoundationMenuRuntimeSettings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    levels: Query<
-        (
-            Entity,
-            &FoundationSimpleGameplayLevel,
-            Option<&SceneOwner>,
-            Option<&ChildOf>,
-        ),
-        Added<FoundationSimpleGameplayLevel>,
-    >,
+    levels: SimpleGameplayLevelInitQuery,
     owners: Query<&SceneOwner>,
 ) {
     for (level_entity, level, scene_owner, parent) in &levels {
