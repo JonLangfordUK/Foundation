@@ -171,6 +171,9 @@ pub(crate) struct FoundationAssetPickerValueLabel {
     pub picker_id: String,
 }
 
+const ASSET_PICKER_FIELD_FONT_SIZE: f32 = 10.0;
+const ASSET_PICKER_PREVIEW_FONT_SIZE: f32 = 9.0;
+
 #[derive(Clone, Debug, Component)]
 struct FoundationAssetPickerButton {
     picker_id: String,
@@ -228,6 +231,7 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
         children![
             (
                 Text::new(props.label),
+                TextFont::from_font_size(ASSET_PICKER_FIELD_FONT_SIZE),
                 Node {
                     width: px(128.0),
                     ..default()
@@ -242,7 +246,10 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.03, 0.03, 0.035)),
-                children![(Text::new(preview_text), TextFont::from_font_size(9.0))],
+                children![(
+                    Text::new(preview_text),
+                    TextFont::from_font_size(ASSET_PICKER_PREVIEW_FONT_SIZE),
+                ),],
             ),
             (
                 Node {
@@ -270,8 +277,12 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                                     picker_id: props.picker_id,
                                 },
                                 Text::new(value_text),
+                                TextFont::from_font_size(ASSET_PICKER_FIELD_FONT_SIZE),
                             ),
-                            (Text::new("..."),),
+                            (
+                                Text::new("..."),
+                                TextFont::from_font_size(ASSET_PICKER_FIELD_FONT_SIZE),
+                            ),
                         ],
                     ),
                     (
@@ -292,7 +303,10 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                                     ..default()
                                 },
                                 BackgroundColor(Color::NONE),
-                                children![(Text::new("Clear"), TextFont::from_font_size(10.0))],
+                                children![(
+                                    Text::new("Clear"),
+                                    TextFont::from_font_size(ASSET_PICKER_FIELD_FONT_SIZE),
+                                ),],
                             ),
                             (
                                 Button,
@@ -305,7 +319,10 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                                     ..default()
                                 },
                                 BackgroundColor(Color::NONE),
-                                children![(Text::new("Use Open"), TextFont::from_font_size(10.0))],
+                                children![(
+                                    Text::new("Use Open"),
+                                    TextFont::from_font_size(ASSET_PICKER_FIELD_FONT_SIZE),
+                                ),],
                             ),
                         ],
                     ),
