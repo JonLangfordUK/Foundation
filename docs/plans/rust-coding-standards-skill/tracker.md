@@ -2,8 +2,8 @@
 
 ## Metadata
 - Feature slug: `rust-coding-standards-skill`
-- Feature area: `multi-area`
-- Primary area: `engine`
+- Feature area: `scaffolding`
+- Primary area: `scaffolding`
 - Branch: `feature/rust-coding-standards-skill`
 - Overall status: `Planned`
 - Planning model: `gpt-5.5`
@@ -108,3 +108,4 @@
 - `2026-06-21`: Created feature branch `feature/rust-coding-standards-skill` from `dev` for planning.
 - `2026-06-21`: Researched existing project skills, repository workflow instructions, workspace manifest, and Rust Style Guide guidance.
 - `2026-06-21`: Plan and tracker created; waiting for user approval before implementation.
+- `2026-06-21`: Updated feature classification from `multi-area` / `engine` to `scaffolding` / `scaffolding` after user review.

@@ -2,8 +2,8 @@
 
 ## Metadata
 - Feature slug: `rust-coding-standards-skill`
-- Feature area: `multi-area`
-- Primary area: `engine`
+- Feature area: `scaffolding`
+- Primary area: `scaffolding`
 - Branch: `feature/rust-coding-standards-skill`
 - Status: `Planned`
 - Planning model: `gpt-5.5`
@@ -26,9 +26,9 @@ Create a Pi skill for Rust coding standards that is enforced for any Rust code. 
 Add a project skill document under `.pi/skills/` that captures the repository's Rust coding standards and make the project's Rust workflow load that skill before Rust implementation or review work. The new skill should be reusable by future coding agents and clear enough to resolve conflicts between user-specific readability requirements and Rust's default style guidance.
 
 ## Feature Area Classification
-- Area: `multi-area`
-- Primary area: `engine`
-- Rationale: This is workflow/tooling guidance that affects Rust code in engine/library, editor, and game crates. The primary area is `engine` because the shared `foundation-library` crate and project-wide Rust workflow are the broadest consumers of coding standards.
+- Area: `scaffolding`
+- Primary area: `scaffolding`
+- Rationale: This is a project scaffolding/workflow feature. It defines reusable coding-standard guidance for future Rust work rather than adding game, engine, or editor runtime behavior.
 
 ## Codebase Research
 - `.pi/skills/` currently contains project skills for feature planning, feature tracking, feature review handoff, Gitflow, and Rust workspace development. There is no existing coding-standards skill.
@@ -69,7 +69,6 @@ Add a project skill document under `.pi/skills/` that captures the repository's 
 - This feature changes workflow documentation only; it does not alter Rust runtime behavior.
 
 ## Open Questions
-- Confirmed assumption for planning: classify this as `multi-area` with primary area `engine` because it is a workspace-wide coding workflow feature.
 - During implementation, decide whether the direct-value rule is absolute for all function calls or scoped to calls where readability would otherwise suffer. The user's wording suggests strong enforcement, so the skill should phrase it as mandatory except for unavoidable language constructs or trivial zero-argument/default constructors.
 
 ## Documentation Expectations
