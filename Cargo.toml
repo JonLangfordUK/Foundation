@@ -26,6 +26,7 @@ jackdaw_api = "0.4.1"
 jackdaw_runtime = "0.4.1"
 bevy_enhanced_input = "0.24.4"
 serde = { version = "1", features = ["derive"] }
+rfd = "0.15.4"
 toml = "0.9"
 
 [profile.dev]

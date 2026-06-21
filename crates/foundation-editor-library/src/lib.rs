@@ -7,6 +7,13 @@ use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;
 use jackdaw::prelude::*;
 
+pub mod asset_picker;
+
+use asset_picker::{
+    spawn_foundation_asset_picker, FoundationAssetPicked, FoundationAssetPickerFilter,
+    FoundationAssetPickerPlugin, FoundationAssetPickerProps, FoundationAssetPickerValueLabel,
+};
+
 /// Unique Jackdaw extension identifier for the Foundation game settings window.
 pub const FOUNDATION_GAME_SETTINGS_EXTENSION_ID: &str = "foundation.game_settings";
 /// Unique dock-window identifier for the Foundation game settings window.
@@ -22,14 +29,16 @@ pub struct FoundationEditorPlugin;
 
 impl Plugin for FoundationEditorPlugin {
     fn build(&self, app: &mut App) {
-        // Keep the project settings resource populated before editor UI refreshes labels.
-        app.add_systems(Startup, load_foundation_game_settings_from_project_root)
+        app.add_plugins(FoundationAssetPickerPlugin)
+            // Keep the project settings resource populated before editor UI refreshes labels.
+            .add_systems(Startup, load_foundation_game_settings_from_project_root)
             // Project auto-open loads Jackdaw's default `assets/scene.jsn` first.
             // This follow-up replaces it with the configured editor startup map.
             .add_systems(
                 OnEnter(jackdaw::AppState::Editor),
                 load_editor_startup_scene_from_settings,
             )
+            .add_systems(Update, apply_game_settings_asset_picker_changes)
             .add_systems(Update, refresh_game_settings_window_labels);
     }
 }
@@ -81,24 +90,17 @@ impl Default for FoundationGameSettingsWindowStatus {
     }
 }
 
-#[derive(Component)]
-struct StartupMapValueLabel;
-
-#[derive(Component)]
-struct EditorStartupMapValueLabel;
+const STARTUP_MAP_PICKER_ID: &str = "foundation.game_settings.startup_map";
+const EDITOR_STARTUP_MAP_PICKER_ID: &str = "foundation.game_settings.editor_startup_map";
 
 #[derive(Component)]
 struct GameSettingsStatusLabel;
 
-type EditorStartupMapLabelQuery<'world, 'state> = Query<
+type AssetPickerValueLabelQuery<'world, 'state> = Query<
     'world,
     'state,
-    &'static mut Text,
-    (
-        With<EditorStartupMapValueLabel>,
-        Without<StartupMapValueLabel>,
-        Without<GameSettingsStatusLabel>,
-    ),
+    (&'static FoundationAssetPickerValueLabel, &'static mut Text),
+    Without<GameSettingsStatusLabel>,
 >;
 
 type GameSettingsStatusLabelQuery<'world, 'state> = Query<
@@ -107,8 +109,7 @@ type GameSettingsStatusLabelQuery<'world, 'state> = Query<
     &'static mut Text,
     (
         With<GameSettingsStatusLabel>,
-        Without<StartupMapValueLabel>,
-        Without<EditorStartupMapValueLabel>,
+        Without<FoundationAssetPickerValueLabel>,
     ),
 >;
 
@@ -214,49 +215,45 @@ fn reload_game_settings(
 }
 
 fn spawn_game_settings_window(window_spawner: &mut ChildSpawner) {
-    let row_margin = UiRect::vertical(px(4.0));
     let section_margin = UiRect::all(px(8.0));
 
-    window_spawner.spawn((
-        Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: px(8.0),
-            margin: section_margin,
-            ..default()
-        },
-        children![
-            (Text::new("Foundation Game Settings"),),
-            (
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    margin: row_margin,
-                    ..default()
-                },
-                children![
-                    (Text::new("Startup map"),),
-                    (StartupMapValueLabel, Text::new("<loading>")),
-                    button(ButtonProps::from_operator::<SetStartupMapFromOpenSceneOp>()),
-                ],
-            ),
-            (
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    margin: row_margin,
-                    ..default()
-                },
-                children![
-                    (Text::new("Editor startup map"),),
-                    (EditorStartupMapValueLabel, Text::new("<loading>")),
-                    button(ButtonProps::from_operator::<
-                        SetEditorStartupMapFromOpenSceneOp,
-                    >()),
-                ],
-            ),
-            button(ButtonProps::from_operator::<SaveGameSettingsOp>()),
-            button(ButtonProps::from_operator::<ReloadGameSettingsOp>()),
-            (GameSettingsStatusLabel, Text::new("<loading>")),
-        ],
-    ));
+    window_spawner
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(8.0),
+                margin: section_margin,
+                ..default()
+            },
+            children![
+                (Text::new("Foundation Game Settings"),),
+                (GameSettingsStatusLabel, Text::new("<loading>")),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(8.0),
+                        ..default()
+                    },
+                    children![
+                        button(ButtonProps::from_operator::<SaveGameSettingsOp>()),
+                        button(ButtonProps::from_operator::<ReloadGameSettingsOp>()),
+                    ],
+                ),
+            ],
+        ))
+        .with_children(|settings_window| {
+            let scene_filter = FoundationAssetPickerFilter::jackdaw_scenes();
+            spawn_foundation_asset_picker(
+                settings_window,
+                FoundationAssetPickerProps::new(STARTUP_MAP_PICKER_ID, "Startup Map")
+                    .with_filter(scene_filter.clone()),
+            );
+            spawn_foundation_asset_picker(
+                settings_window,
+                FoundationAssetPickerProps::new(EDITOR_STARTUP_MAP_PICKER_ID, "Editor Startup Map")
+                    .with_filter(scene_filter),
+            );
+        });
 }
 
 fn load_foundation_game_settings_from_project_root(
@@ -327,33 +324,50 @@ fn editor_startup_scene_file_path(
     Some(scene_file_path)
 }
 
+fn apply_game_settings_asset_picker_changes(
+    mut picked_assets: MessageReader<FoundationAssetPicked>,
+    mut settings: ResMut<FoundationGameSettings>,
+    mut status: Option<ResMut<FoundationGameSettingsWindowStatus>>,
+) {
+    for picked_asset in picked_assets.read() {
+        let selected_asset_path = picked_asset.asset_path.clone().unwrap_or_default();
+        match picked_asset.picker_id.as_str() {
+            STARTUP_MAP_PICKER_ID => {
+                settings.startup_map = selected_asset_path;
+                if let Some(status) = status.as_deref_mut() {
+                    status.message = "Startup map selection changed.".to_string();
+                }
+            }
+            EDITOR_STARTUP_MAP_PICKER_ID => {
+                settings.editor_startup_map = selected_asset_path;
+                if let Some(status) = status.as_deref_mut() {
+                    status.message = "Editor startup map selection changed.".to_string();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn refresh_game_settings_window_labels(
     settings: Res<FoundationGameSettings>,
     status: Option<Res<FoundationGameSettingsWindowStatus>>,
-    mut startup_map_labels: Query<&mut Text, With<StartupMapValueLabel>>,
-    mut editor_startup_map_labels: EditorStartupMapLabelQuery,
+    mut asset_picker_labels: AssetPickerValueLabelQuery,
     mut status_labels: GameSettingsStatusLabelQuery,
 ) {
-    let startup_map_label = settings
-        .startup_map_path()
-        .unwrap_or("<game default>")
-        .to_string();
-    let editor_startup_map_label = settings
-        .editor_startup_map_path()
-        .unwrap_or("<game default>")
-        .to_string();
     let status_message = status
         .as_deref()
         .map(|status| status.message.as_str())
         .unwrap_or("Settings window is ready.")
         .to_string();
 
-    for mut startup_map_text in &mut startup_map_labels {
-        **startup_map_text = startup_map_label.clone();
-    }
-
-    for mut editor_startup_map_text in &mut editor_startup_map_labels {
-        **editor_startup_map_text = editor_startup_map_label.clone();
+    for (asset_picker_label, mut asset_picker_text) in &mut asset_picker_labels {
+        let selected_asset_path = match asset_picker_label.picker_id.as_str() {
+            STARTUP_MAP_PICKER_ID => settings.startup_map_path(),
+            EDITOR_STARTUP_MAP_PICKER_ID => settings.editor_startup_map_path(),
+            _ => None,
+        };
+        **asset_picker_text = selected_asset_path.unwrap_or("None").to_string();
     }
 
     for mut status_text in &mut status_labels {
@@ -396,6 +410,10 @@ fn current_project_root() -> std::path::PathBuf {
 
 /// Common imports for game-specific editor binaries using Foundation editor UI.
 pub mod prelude {
+    pub use crate::asset_picker::{
+        spawn_foundation_asset_picker, FoundationAssetPicked, FoundationAssetPickerFilter,
+        FoundationAssetPickerPlugin, FoundationAssetPickerProps,
+    };
     pub use crate::{
         FoundationEditorPlugin, FoundationGameSettingsExtension,
         FOUNDATION_GAME_SETTINGS_EXTENSION_ID, FOUNDATION_GAME_SETTINGS_WINDOW_ID,

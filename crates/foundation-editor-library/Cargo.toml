@@ -12,3 +12,4 @@ bevy_enhanced_input.workspace = true
 foundation-runtime-library = { path = "../foundation-runtime-library" }
 jackdaw.workspace = true
 jackdaw_api.workspace = true
+rfd.workspace = true

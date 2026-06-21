@@ -3161,6 +3161,7 @@ dependencies = [
  "foundation-runtime-library",
  "jackdaw",
  "jackdaw_api",
+ "rfd",
 ]
 
 [[package]]

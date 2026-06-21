@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `editor`
 - Branch: `feature/foundation-editor-library`
-- Overall status: `Follow-up implemented; awaiting user acceptance`
+- Overall status: `Asset picker follow-up implemented; awaiting user acceptance`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Follow-up implementation complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
+- Current handoff state: `Asset picker follow-up complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -17,7 +17,7 @@
 - Active planning branch: `feature/foundation-editor-library`
 - Branch base: created locally from `dev` on `2026-06-21`; `dev` verified as an ancestor of `HEAD`.
 - Remote: `origin` configured at `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, final tracker push-status commit, and settings usage follow-up commit pushed to `origin/feature/foundation-editor-library`.
+- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, final tracker push-status commit, settings usage follow-up commit, and asset picker follow-up commit pushed to `origin/feature/foundation-editor-library`.
 - Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. It was not committed.
 
 ## Validation Rules
@@ -205,6 +205,33 @@
 - Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Pending final feature acceptance
 
+## Phase 7: Reusable Asset Picker Widget
+**Status:** Complete  
+**Goal:** Replace the settings window's plain scene-selection controls with a reusable UE-style asset picker that can filter project assets by extension or class/content.
+
+### Tasks
+- [x] Add reusable Foundation asset picker widget API.
+  - Status: Complete
+  - Notes: Added `FoundationAssetPickerPlugin`, `FoundationAssetPickerProps`, `FoundationAssetPickerFilter`, `FoundationAssetPicked`, and `spawn_foundation_asset_picker` in `foundation-editor-library`.
+- [x] Support asset filtering.
+  - Status: Complete
+  - Notes: Picker filters support extension allow-lists and optional required text/class content checks for text assets.
+- [x] Replace Game Settings scene controls with asset picker rows.
+  - Status: Complete
+  - Notes: Startup Map and Editor Startup Map now use reusable asset picker rows with a preview tile, browse/select field, reset action, and current-scene action.
+- [x] Add tests and docs for the picker.
+  - Status: Complete
+  - Notes: Added focused tests for extension filtering and project-relative asset path handling; README documents reuse and filters.
+
+### Validation
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- User confirmation: Pending final feature acceptance
+
 ## Implementation / Review Handoff Notes
 - Implementation model: `gpt-5.4`.
 - Review model: `gpt-5.5`.
@@ -226,6 +253,7 @@
 ## Issues / Oversights Discovered
 - `2026-06-21`: First `scripts/validate-project.cmd` run failed on `clippy::type_complexity` in `crates/foundation-editor-library/src/lib.rs`; fixed by adding query type aliases and reran validation successfully.
 - `2026-06-21`: User clarified the prototype is acceptable but the settings must be fully applied: `Startup Map` must control the first normal game scene, and `Editor Startup Map` must control the scene loaded when the editor opens. Follow-up implementation resumed with gpt-5.4.
+- `2026-06-21`: User confirmed settings behavior works and requested a reusable UE-style asset picker widget with asset type/class filtering for the Game Settings scene fields. Asset picker follow-up implementation started with gpt-5.4.
 
 ## Progress Log
 - `2026-06-21`: Read feature planning, gitflow, Rust workspace, and Rust coding standards skills.
@@ -241,3 +269,5 @@
 - `2026-06-21`: Implementation/docs/skills commit `e04ef99` pushed to `origin/feature/foundation-editor-library`; final tracker push-status commit pushed afterward.
 - `2026-06-21`: Follow-up requested so settings are actually applied to normal game startup and editor-open startup; implementation resumed on `feature/foundation-editor-library` with `dev` ancestry verified.
 - `2026-06-21`: Implemented `editor_startup_map` loading on Jackdaw editor entry, clarified `startup_map` as standalone first-scene selection, added focused tests, updated README wording, and reran full validation successfully.
+- `2026-06-21`: Added reusable `FoundationAssetPicker` widget prototype, asset extension/content filters, Game Settings integration, and focused tests; full validation pending.
+- `2026-06-21`: Full validation passed after clearing stale PDB files from `target/debug`; `timeout 25s cargo editor` smoke test loaded `foundation.game_settings` without panic.
