@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/codebase-cleanup-review`
-- Overall status: `Awaiting user feature confirmation`
+- Overall status: `Implementation complete; optional final review available`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation checkpoint complete; waiting for user smoke confirmation before scene-system manual`
+- Current handoff state: `Ready for optional gpt-5.5 sanity review or user acceptance`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -162,34 +162,34 @@
 - Manual editor smoke testing may still be useful because automated tests do not open the Jackdaw editor window.
 
 ## Phase 4: User Feature Confirmation And Scene-System Manual
-**Status:** Waiting for user  
+**Status:** Complete  
 **Goal:** Let the user confirm all reviewed/refactored features still work, then write the deferred scene-system instruction manual.
 
 ### Tasks
-- [ ] User confirms all features still work after the code review/refactor.
-  - Status: Pending user action
-  - Notes: The user explicitly requested that the scene-system manual be written only after this confirmation.
-- [ ] Write scene-system instruction manual under `docs/`.
-  - Status: Blocked by user confirmation
-  - Notes: Must explain what the scene system is, how it works with Jackdaw, standalone game behavior, editor edit-mode behavior, editor play/game-mode behavior, and best utilization guidance for new developers.
-- [ ] Validate documentation after the manual is written.
-  - Status: Pending
-  - Notes: Run formatting/validation as appropriate after documentation is added.
+- [x] User confirms all features still work after the code review/refactor.
+  - Status: Complete
+  - Notes: User confirmed everything is working perfectly and all features are correct.
+- [x] Write scene-system instruction manual under `docs/`.
+  - Status: Complete
+  - Notes: Added `docs/scene-system.md` explaining what the scene system is, how it works with Jackdaw, standalone game behavior, editor edit-mode behavior, editor play/game-mode behavior, and best utilization guidance for new developers.
+- [x] Validate documentation after the manual is written.
+  - Status: Complete
+  - Notes: `scripts/doc-project.cmd` and `scripts/validate-project.cmd` passed after adding the manual.
 
 ### Validation
-- Format: Pending after manual
-- Lint: Pending after manual if Rust changes are made
-- Tests: Pending after manual if Rust changes are made
-- Build: Pending after manual if Rust changes are made
-- Documentation generation: Pending after manual
-- Full validation wrapper: Pending after manual
-- User confirmation: Pending
+- Format: Passed via `scripts/validate-project.cmd`
+- Lint: Passed via `scripts/validate-project.cmd`
+- Tests: Passed via `scripts/validate-project.cmd`
+- Build: Passed via `scripts/validate-project.cmd`
+- Documentation generation: Passed (`scripts/doc-project.cmd` and full validation wrapper)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Complete
 
 ### Notes
 - No manual has been written yet, per user instruction.
 
 ## Phase 5: Final Validation, Commit, And Handoff
-**Status:** In progress  
+**Status:** Awaiting final commit  
 **Goal:** Prove the cleanup checkpoint is complete, record evidence, and prepare for the deferred documentation/manual checkpoint.
 
 ### Tasks
@@ -206,7 +206,7 @@
   - Status: Complete
   - Notes: Planning commit `31a0d9c` and cleanup checkpoint commit `43a5f34` were pushed to `origin/feature/codebase-cleanup-review`.
 - [ ] Offer optional `gpt-5.5` final sanity review.
-  - Status: Planned
+  - Status: Ready to offer
   - Notes: Review should focus on high-risk ECS/editor/asset interactions and validation evidence after user feature confirmation and manual completion.
 
 ### Validation
@@ -231,11 +231,7 @@
 - Use `gpt-5.5` only for planning or optional final sanity review.
 
 ## Postponed Work
-- Scene-system instruction manual under `docs/`.
-  - Original location: Documentation expectation in `docs/plans/codebase-cleanup-review/plan.md`.
-  - New location/timing: Phase 4 of this tracker, after user confirms all features still work following review/refactor.
-  - Reason: User explicitly requested that the manual be written only after feature smoke confirmation.
-  - Impact: Documentation remains pending, but no code/manual work violates the user's sequencing requirement.
+- None.
 
 ## Issues / Findings Log
 - User-approved scope update: Add an instruction-manual style scene-system document under `docs/` covering how the scene system works, standalone mode, editor edit mode, editor play/game mode, Jackdaw integration, and best practices, but only after the user confirms all features still work after review/refactor.
@@ -254,3 +250,6 @@
 - `2026-06-21`: Committed and pushed planning documents as `31a0d9c`.
 - `2026-06-21`: Completed cleanup checkpoint: fixed TemplateGame Jackdaw run config, removed unnecessary allow attribute, added TemplateGame asset/config regression tests, and passed full validation.
 - `2026-06-21`: Committed and pushed cleanup checkpoint as `43a5f34`.
+- `2026-06-21`: User confirmed all features are still working correctly after review/refactor.
+- `2026-06-21`: Added `docs/scene-system.md` scene-system instruction manual after user confirmation.
+- `2026-06-21`: `scripts/doc-project.cmd` and `scripts/validate-project.cmd` passed after adding the scene-system manual.
