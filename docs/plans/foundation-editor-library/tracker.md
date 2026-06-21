@@ -17,7 +17,7 @@
 - Active planning branch: `feature/foundation-editor-library`
 - Branch base: created locally from `dev` on `2026-06-21`; `dev` verified as an ancestor of `HEAD`.
 - Remote: `origin` configured at `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, and implementation commit `e04ef99` pushed to `origin/feature/foundation-editor-library`; final tracker push-status commit pending.
+- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, and final tracker push-status commit pushed to `origin/feature/foundation-editor-library`.
 - Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. It was not committed.
 
 ## Validation Rules
@@ -191,7 +191,7 @@
   - Notes: `timeout 25s cargo editor` launched the editor, loaded `assets/scene.jsn`, and logged `Loading extension: foundation.game_settings`; timeout exit code 143 was expected.
 - [x] Commit and push completed work following gitflow rules.
   - Status: Complete
-  - Notes: Runtime rename commit `501ffd7` and implementation/docs/skills commit `e04ef99` were pushed to `origin/feature/foundation-editor-library`; final tracker push-status commit is pending.
+  - Notes: Runtime rename commit `501ffd7`, implementation/docs/skills commit `e04ef99`, and final tracker push-status commit were pushed to `origin/feature/foundation-editor-library`.
 - [x] Update tracker with validation evidence, push state, and handoff notes.
   - Status: Complete
   - Notes: Tracker updated with implementation, validation, and smoke-test evidence.
@@ -235,4 +235,4 @@
 - `2026-06-21`: Runtime rename committed as `501ffd7` and pushed to `origin/feature/foundation-editor-library`.
 - `2026-06-21`: Added `foundation-editor-library`, `FoundationGameSettings`, TOML settings persistence, Game Settings Jackdaw extension/window, TemplateGame editor wiring, settings startup-map integration, README updates, AGENTS guidance, and a new `foundation-architecture` skill.
 - `2026-06-21`: Full validation passed via `scripts/validate-project.cmd`; manual smoke launch via `timeout 25s cargo editor` loaded `foundation.game_settings` and was terminated by expected timeout.
-- `2026-06-21`: Implementation/docs/skills commit `e04ef99` pushed to `origin/feature/foundation-editor-library`; updating tracker push status in a final tracker commit.
+- `2026-06-21`: Implementation/docs/skills commit `e04ef99` pushed to `origin/feature/foundation-editor-library`; final tracker push-status commit pushed afterward.
