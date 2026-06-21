@@ -18,7 +18,7 @@
 - Current branch during implementation: `feature/codebase-cleanup-review`
 - Branch base: Created from `dev` during planning; `dev` is an ancestor of `HEAD`.
 - Remote `origin`: Configured (`https://github.com/JonLangfordUK/Foundation.git`).
-- Push status: Planning commit `31a0d9c` pushed. Cleanup checkpoint commit pending.
+- Push status: Planning commit `31a0d9c` pushed. Cleanup checkpoint commit `43a5f34` pushed.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -202,9 +202,9 @@
 - [x] Record postponed work, waivers, and manual-verification gaps.
   - Status: Complete
   - Notes: Scene-system manual is intentionally gated until user confirms features still work after this review/refactor. Manual standalone/editor smoke checks are pending user confirmation.
-- [ ] Commit cleanup checkpoint and push.
-  - Status: In progress
-  - Notes: Planning commit `31a0d9c` was pushed. Cleanup commit pending.
+- [x] Commit cleanup checkpoint and push.
+  - Status: Complete
+  - Notes: Planning commit `31a0d9c` and cleanup checkpoint commit `43a5f34` were pushed to `origin/feature/codebase-cleanup-review`.
 - [ ] Offer optional `gpt-5.5` final sanity review.
   - Status: Planned
   - Notes: Review should focus on high-risk ECS/editor/asset interactions and validation evidence after user feature confirmation and manual completion.
@@ -253,3 +253,4 @@
 - `2026-06-21`: User clarified the scene-system manual must only be written after they confirm all features still work following the code review/refactor. Plan/tracker updated accordingly.
 - `2026-06-21`: Committed and pushed planning documents as `31a0d9c`.
 - `2026-06-21`: Completed cleanup checkpoint: fixed TemplateGame Jackdaw run config, removed unnecessary allow attribute, added TemplateGame asset/config regression tests, and passed full validation.
+- `2026-06-21`: Committed and pushed cleanup checkpoint as `43a5f34`.
