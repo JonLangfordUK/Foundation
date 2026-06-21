@@ -1,0 +1,149 @@
+# FoundationLibrary Baseline Tracker
+
+## Metadata
+- Feature slug: `foundation-library`
+- Feature area: `multi-area`
+- Primary area: `game`
+- Branch: `feature/foundation-library`
+- Overall status: `Implemented; ready for review or merge`
+- Planning model: `gpt-5.5`
+- Preferred implementation model: `gpt-5.4`
+- Optional final review model: `gpt-5.5`
+- Current handoff state: `jackdaw_runtime support implemented and validated with gpt-5.4`
+- Created: `2026-06-19`
+- Last updated: `2026-06-19`
+
+## Validation Rules
+- Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
+- Phase complete only after required validation passes, documentation generation is recorded, and required user confirmation is recorded.
+- Never use Anthropic models.
+- Push after every commit and merge checkpoint when `origin` is configured. If push fails, record the failure and do not treat the checkpoint as complete until remediated.
+
+## Branch And Push State
+- Active planning branch: `feature/foundation-library`
+- Branch creation: Created locally from `dev` on 2026-06-19 after merging Jackdaw editor integration into `dev`.
+- Branch-base verification: `git merge-base --is-ancestor dev HEAD` passed before planning docs were created.
+- Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
+- Push status: Planning docs commit `73dfe2d`, implementation commit `9992cbf`, tracker checkpoint `1be0191`, and `jackdaw_runtime` support commit `32976ec` pushed to `origin/feature/foundation-library`; final tracker/merge checkpoint pending.
+- Prior branch cleanup: Local `feature/jackdaw-editor-integration` was deleted after merge to `dev`; remote branch was intentionally left intact per user preference.
+
+## Phase 1: FoundationLibrary Crate Baseline
+**Status:** Complete  
+**Goal:** Add a minimal reusable library crate with documented public API and a Bevy plugin entry point.
+
+### Tasks
+- [x] Add `crates/foundation-library` as a root workspace member.
+  - Status: Complete
+  - Notes: Package name is `foundation-library`; Rust import path is `foundation_library`.
+- [x] Create the FoundationLibrary manifest and source.
+  - Status: Complete
+  - Notes: Uses `bevy.workspace = true` for plugin support and `jackdaw_runtime.workspace = true` for reusable editor-visible component metadata.
+- [x] Implement documented baseline API.
+  - Status: Complete
+  - Notes: Added documented `FoundationPlugin`, `FoundationSettings`, `FoundationActor`, and `prelude` re-exports.
+- [x] Add a non-window test proving the plugin can be added to a Bevy `App`.
+  - Status: Complete
+  - Notes: `foundation_plugin_registers_settings_resource_and_actor_type` uses `MinimalPlugins`, confirms `FoundationSettings`, and verifies `FoundationActor` is registered without opening a GPU window.
+
+### Validation
+- Format: Passed (`cargo fmt --all -- --check`; also via `scripts/validate-project.cmd`)
+- Lint: Passed (`cargo clippy --workspace --all-targets --all-features -- -D warnings`; also via `scripts/validate-project.cmd`)
+- Tests: Passed (`cargo test --workspace --all-features`; also via `scripts/validate-project.cmd`)
+- Build: Passed (`cargo build --workspace --all-features`; also via `scripts/validate-project.cmd`)
+- Documentation generation: Passed (`cargo doc --workspace --all-features --no-deps`; also via `scripts/validate-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: User approved implementation on 2026-06-19.
+
+### Notes
+- Keep the crate intentionally small. Do not reintroduce the old custom `engine` crate responsibilities in this baseline.
+
+## Phase 2: TemplateGame Integration
+**Status:** Complete  
+**Goal:** Wire TemplateGame to use FoundationLibrary in both standalone and editor binaries.
+
+### Tasks
+- [x] Add a path dependency from `games/template-game` to `foundation-library`.
+  - Status: Complete
+  - Notes: Added `foundation-library = { path = "../../crates/foundation-library" }`.
+- [x] Add FoundationLibrary plugin to `games/template-game/src/main.rs`.
+  - Status: Complete
+  - Notes: Added `FoundationPlugin` before `template_game::TemplateGamePlugin`.
+- [x] Add FoundationLibrary plugin to `games/template-game/src/bin/editor.rs`.
+  - Status: Complete
+  - Notes: Added `FoundationPlugin` before `template_game::TemplateGamePlugin`, keeping standalone and editor/play-mode plugin composition consistent.
+- [x] Preserve TemplateGame-specific behavior in TemplateGame.
+  - Status: Complete
+  - Notes: `TemplateGamePlugin` and `SpinningCube` remain in TemplateGame; FoundationLibrary only provides the reusable baseline plugin/resource.
+
+### Validation
+- Format: Passed (`cargo fmt --all -- --check`; also via `scripts/validate-project.cmd`)
+- Lint: Passed (`cargo clippy --workspace --all-targets --all-features -- -D warnings`; also via `scripts/validate-project.cmd`)
+- Tests: Passed (`cargo test --workspace --all-features`; also via `scripts/validate-project.cmd`)
+- Build: Passed (`cargo build --workspace --all-features`; also via `scripts/validate-project.cmd`)
+- Documentation generation: Passed (`cargo doc --workspace --all-features --no-deps`; also via `scripts/validate-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Not required for this phase.
+
+### Notes
+- TemplateGame should remain runnable from the root with `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor`.
+
+## Phase 3: Documentation, Validation, And Checkpoints
+**Status:** Complete  
+**Goal:** Document the Editor / Game / Library architecture and complete validation/commit/push checkpoints.
+
+### Tasks
+- [x] Update README architecture documentation.
+  - Status: Complete
+  - Notes: README documents `jackdaw-editor`, `foundation-library`, and `template-game` roles in the Editor / Game / Library architecture.
+- [x] Run required validation.
+  - Status: Complete
+  - Notes: Ran root format, package checks, clippy, tests, build, docs, and `scripts/validate-project.cmd`.
+- [x] Generate documentation.
+  - Status: Complete
+  - Notes: `cargo doc --workspace --all-features --no-deps` passed and generated `target/doc/foundation_library/index.html`.
+- [x] Commit and push implementation checkpoints.
+  - Status: Complete
+  - Notes: Implementation commit `9992cbf`, tracker checkpoint `1be0191`, and `jackdaw_runtime` support commit `32976ec` pushed to `origin/feature/foundation-library`; final tracker checkpoint pending.
+
+### Validation
+- Format: Passed
+- Lint: Passed
+- Tests: Passed
+- Build: Passed
+- Documentation generation: Passed
+- Full validation wrapper: Passed
+- User confirmation: User accepted and requested merge back to `dev` on 2026-06-19.
+
+### Notes
+- This phase cannot be marked complete until validation and documentation generation are recorded.
+
+## Implementation / Review Handoff Notes
+- Use `gpt-5.4` for implementation.
+- Never use Anthropic models.
+- Active branch must be `feature/foundation-library` before implementation edits.
+- Verify `dev` ancestry again before implementation edits.
+- FoundationLibrary baseline should be minimal: crate, documented plugin, prelude, tests, TemplateGame dependency, TemplateGame plugin wiring, README update.
+- `jackdaw_runtime` is now in scope for reusable editor-visible components; avoid adding the full `jackdaw` editor dependency unless a concrete editor-host feature requires it.
+- Leave Jackdaw dynamic/dylib loading out of scope.
+
+## Postponed Work
+- Moving reusable components out of TemplateGame is postponed until there is a second real use case or explicit user request.
+- Full `jackdaw` editor extension APIs in FoundationLibrary are postponed until a concrete editor feature needs them. Lightweight `jackdaw_runtime` metadata for reusable components is now in scope.
+- Additional packages such as `foundation-editor` or `foundation-tools` are postponed; one library crate is sufficient for the baseline.
+
+## Progress Log
+- `2026-06-19`: User approved the Editor / Game / Library strategy and chose the shared library name FoundationLibrary.
+- `2026-06-19`: User corrected workflow order: merge Jackdaw editor integration back to `dev`, delete local feature branch while keeping remote, then create the new FoundationLibrary branch from `dev`.
+- `2026-06-19`: Merged `feature/jackdaw-editor-integration` into `dev`, pushed `dev`, deleted local `feature/jackdaw-editor-integration`, and created `feature/foundation-library` from `dev`.
+- `2026-06-19`: Verified `dev` is an ancestor of `feature/foundation-library`.
+- `2026-06-19`: Plan and tracker created; awaiting user review/approval before implementation.
+- `2026-06-19`: User approved implementation. Confirmed active branch `feature/foundation-library` and verified `dev` is an ancestor of `HEAD`; implementation started with gpt-5.4.
+- `2026-06-19`: Added `crates/foundation-library` with documented `FoundationPlugin`, `FoundationSettings`, prelude exports, and a non-window plugin test.
+- `2026-06-19`: Wired TemplateGame standalone and editor binaries to add `FoundationPlugin` before `TemplateGamePlugin`.
+- `2026-06-19`: Updated README with the Editor / Game / Library architecture.
+- `2026-06-19`: Validation passed: `cargo fmt --all -- --check`, `cargo check -p foundation-library`, `cargo check -p template-game`, `cargo check -p template-game --bin editor --features editor`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, `cargo doc --workspace --all-features --no-deps`, and `scripts/validate-project.cmd`.
+- `2026-06-19`: Implementation commit `9992cbf` created and pushed to `origin/feature/foundation-library`.
+- `2026-06-19`: User approved adding `jackdaw_runtime` to FoundationLibrary so reusable components/plugins can expose Jackdaw-compatible editor metadata.
+- `2026-06-19`: Added root workspace dependency `jackdaw_runtime = "0.4.1"`, added `jackdaw_runtime.workspace = true` to `foundation-library`, added documented `FoundationActor` with `#[reflect(Component, @EditorCategory::new("Foundation"))]`, registered it from `FoundationPlugin`, and exported it from the prelude.
+- `2026-06-19`: Validation passed after `jackdaw_runtime` support: `cargo fmt --all -- --check`, `cargo check -p foundation-library`, `cargo check -p template-game --bin editor --features editor`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo doc --workspace --all-features --no-deps`, and `scripts/validate-project.cmd`.
+- `2026-06-19`: User accepted the feature and requested finishing up, committing, merging back to `dev`, and deleting only the local feature branch while keeping the remote branch.

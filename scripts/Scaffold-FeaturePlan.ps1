@@ -2,26 +2,33 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$FeatureSlug,
 
+    [Parameter(Mandatory = $true)]
     [string]$FeatureName,
 
-    [string]$BranchName
+    [Parameter(Mandatory = $true)]
+    [string]$BranchName,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('game', 'engine', 'editor', 'multi-area')]
+    [string]$FeatureArea,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('game', 'engine', 'editor')]
+    [string]$PrimaryArea
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $FeatureName) {
-    $featureNameParts = ($FeatureSlug -split '[-_]') | Where-Object { $_ -ne '' } | ForEach-Object {
-        if ($_.Length -gt 1) {
-            $_.Substring(0,1).ToUpper() + $_.Substring(1)
-        } else {
-            $_.ToUpper()
-        }
-    }
-    $FeatureName = $featureNameParts -join ' '
+if ($FeatureSlug -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
+    throw "FeatureSlug must be lowercase kebab-case using only letters, numbers, and hyphens: $FeatureSlug"
 }
 
-if (-not $BranchName) {
-    $BranchName = "feature/$FeatureSlug"
+if ($BranchName -notmatch '^feature/[a-z0-9]+(-[a-z0-9]+)*$') {
+    throw "BranchName must match feature/<work-being-done> for feature planning: $BranchName"
+}
+
+if (($FeatureArea -ne 'multi-area') -and ($PrimaryArea -ne $FeatureArea)) {
+    throw "PrimaryArea must match FeatureArea for single-area features. FeatureArea: $FeatureArea; PrimaryArea: $PrimaryArea"
 }
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -57,6 +64,8 @@ function Apply-Template {
     $content = $content.Replace('<Feature Name>', $FeatureName)
     $content = $content.Replace('<new-feature>', $FeatureSlug)
     $content = $content.Replace('feature/<work-being-done>', $BranchName)
+    $content = $content.Replace('<Feature Area>', $FeatureArea)
+    $content = $content.Replace('<Primary Area>', $PrimaryArea)
     $content = $content.Replace('<YYYY-MM-DD>', $date)
 
     Set-Content -Path $DestinationPath -Value $content -NoNewline
@@ -68,4 +77,7 @@ Apply-Template -TemplatePath $trackerTemplate -DestinationPath $trackerPath -Sta
 
 Write-Host "Feature planning scaffold ready for '$FeatureSlug'."
 Write-Host "Branch: $BranchName"
+Write-Host "Feature area: $FeatureArea"
+Write-Host "Primary area: $PrimaryArea"
+Write-Host 'Reminder: Create or verify this feature branch from dev before implementation.'
 Write-Host 'Reminder: Use the feature-plan-docs skill before implementation and keep the tracker updated with the feature-tracker-update skill during implementation.'

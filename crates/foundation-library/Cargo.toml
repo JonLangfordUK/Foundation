@@ -1,0 +1,11 @@
+[package]
+name = "foundation-library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Reusable shared Bevy and Jackdaw-compatible game library"
+
+[dependencies]
+bevy.workspace = true
+jackdaw_runtime.workspace = true

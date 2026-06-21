@@ -1,0 +1,12 @@
+[package]
+name = "jackdaw-editor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Jackdaw editor launcher"
+
+[dependencies]
+bevy.workspace = true
+ctrlc.workspace = true
+jackdaw.workspace = true

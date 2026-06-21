@@ -1,0 +1,846 @@
+{
+  "jsn": {
+    "format_version": [
+      3,
+      0,
+      0
+    ],
+    "editor_version": "0.4.1",
+    "bevy_version": "0.18"
+  },
+  "metadata": {
+    "name": "Pause Menu",
+    "description": "Foundation pause menu with resume, options, quit-to-menu, and quit-game actions.",
+    "author": "",
+    "created": "2026-06-20T00:00:00Z",
+    "modified": "2026-06-20T00:00:00Z"
+  },
+  "assets": {},
+  "editor": null,
+  "scene": [
+    {
+      "components": {
+        "bevy_ui::ui_node::Node": {
+          "align_content": "Default",
+          "align_items": "Center",
+          "align_self": "Auto",
+          "aspect_ratio": null,
+          "border": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "border_radius": {
+            "bottom_left": {
+              "Px": 0.0
+            },
+            "bottom_right": {
+              "Px": 0.0
+            },
+            "top_left": {
+              "Px": 0.0
+            },
+            "top_right": {
+              "Px": 0.0
+            }
+          },
+          "bottom": {
+            "Px": 0.0
+          },
+          "box_sizing": "BorderBox",
+          "column_gap": {
+            "Px": 0.0
+          },
+          "display": "Flex",
+          "flex_basis": "Auto",
+          "flex_direction": "Column",
+          "flex_grow": 0.0,
+          "flex_shrink": 1.0,
+          "flex_wrap": "NoWrap",
+          "grid_auto_columns": [],
+          "grid_auto_flow": "Row",
+          "grid_auto_rows": [],
+          "grid_column": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_row": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_template_columns": [],
+          "grid_template_rows": [],
+          "height": {
+            "Percent": 100.0
+          },
+          "justify_content": "Center",
+          "justify_items": "Default",
+          "justify_self": "Auto",
+          "left": {
+            "Px": 0.0
+          },
+          "margin": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "max_height": "Auto",
+          "max_width": "Auto",
+          "min_height": "Auto",
+          "min_width": "Auto",
+          "overflow": {
+            "x": "Clip",
+            "y": "Clip"
+          },
+          "overflow_clip_margin": {
+            "margin": 0.0,
+            "visual_box": "PaddingBox"
+          },
+          "padding": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "position_type": "Absolute",
+          "right": {
+            "Px": 0.0
+          },
+          "row_gap": {
+            "Px": 18.0
+          },
+          "scrollbar_width": 0.0,
+          "top": {
+            "Px": 0.0
+          },
+          "width": {
+            "Percent": 100.0
+          }
+        },
+        "bevy_ecs::name::Name": "Pause Menu UI Root",
+        "template_game::TemplateGameplayUiRoot": {},
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 0
+        }
+      }
+    },
+    {
+      "parent": 0,
+      "components": {
+        "bevy_text::text::TextColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 1.0,
+            "red": 1.0
+          }
+        },
+        "bevy_ui::widget::text::Text": "Paused",
+        "bevy_text::text::TextFont": {
+          "font_features": {
+            "features": []
+          },
+          "font_size": 48.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        },
+        "bevy_ecs::name::Name": "Pause Menu Title",
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 1
+        }
+      }
+    },
+    {
+      "parent": 0,
+      "components": {
+        "bevy_ecs::name::Name": "Resume Button",
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.25,
+            "green": 0.14000000059604645,
+            "red": 0.11999999731779099
+          }
+        },
+        "bevy_ui::widget::button::Button": {},
+        "bevy_ui::ui_node::Node": {
+          "align_content": "Default",
+          "align_items": "Center",
+          "align_self": "Auto",
+          "aspect_ratio": null,
+          "border": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "border_radius": {
+            "bottom_left": {
+              "Px": 8.0
+            },
+            "bottom_right": {
+              "Px": 8.0
+            },
+            "top_left": {
+              "Px": 8.0
+            },
+            "top_right": {
+              "Px": 8.0
+            }
+          },
+          "bottom": "Auto",
+          "box_sizing": "BorderBox",
+          "column_gap": {
+            "Px": 0.0
+          },
+          "display": "Flex",
+          "flex_basis": "Auto",
+          "flex_direction": "Row",
+          "flex_grow": 0.0,
+          "flex_shrink": 1.0,
+          "flex_wrap": "NoWrap",
+          "grid_auto_columns": [],
+          "grid_auto_flow": "Row",
+          "grid_auto_rows": [],
+          "grid_column": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_row": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_template_columns": [],
+          "grid_template_rows": [],
+          "height": {
+            "Px": 56.0
+          },
+          "justify_content": "Center",
+          "justify_items": "Default",
+          "justify_self": "Auto",
+          "left": "Auto",
+          "margin": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "max_height": "Auto",
+          "max_width": "Auto",
+          "min_height": "Auto",
+          "min_width": "Auto",
+          "overflow": {
+            "x": "Visible",
+            "y": "Visible"
+          },
+          "overflow_clip_margin": {
+            "margin": 0.0,
+            "visual_box": "PaddingBox"
+          },
+          "padding": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "position_type": "Relative",
+          "right": "Auto",
+          "row_gap": {
+            "Px": 0.0
+          },
+          "scrollbar_width": 0.0,
+          "top": "Auto",
+          "width": {
+            "Px": 260.0
+          }
+        },
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "resume",
+          "scene_path": "",
+          "scene_key": ""
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 2
+        }
+      }
+    },
+    {
+      "parent": 2,
+      "components": {
+        "bevy_ui::widget::text::Text": "Resume",
+        "bevy_ecs::name::Name": "Resume Button Label",
+        "bevy_text::text::TextFont": {
+          "font_features": {
+            "features": []
+          },
+          "font_size": 28.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        },
+        "bevy_text::text::TextColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 1.0,
+            "red": 1.0
+          }
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 3
+        }
+      }
+    },
+    {
+      "parent": 0,
+      "components": {
+        "bevy_ui::ui_node::Node": {
+          "align_content": "Default",
+          "align_items": "Center",
+          "align_self": "Auto",
+          "aspect_ratio": null,
+          "border": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "border_radius": {
+            "bottom_left": {
+              "Px": 8.0
+            },
+            "bottom_right": {
+              "Px": 8.0
+            },
+            "top_left": {
+              "Px": 8.0
+            },
+            "top_right": {
+              "Px": 8.0
+            }
+          },
+          "bottom": "Auto",
+          "box_sizing": "BorderBox",
+          "column_gap": {
+            "Px": 0.0
+          },
+          "display": "Flex",
+          "flex_basis": "Auto",
+          "flex_direction": "Row",
+          "flex_grow": 0.0,
+          "flex_shrink": 1.0,
+          "flex_wrap": "NoWrap",
+          "grid_auto_columns": [],
+          "grid_auto_flow": "Row",
+          "grid_auto_rows": [],
+          "grid_column": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_row": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_template_columns": [],
+          "grid_template_rows": [],
+          "height": {
+            "Px": 56.0
+          },
+          "justify_content": "Center",
+          "justify_items": "Default",
+          "justify_self": "Auto",
+          "left": "Auto",
+          "margin": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "max_height": "Auto",
+          "max_width": "Auto",
+          "min_height": "Auto",
+          "min_width": "Auto",
+          "overflow": {
+            "x": "Visible",
+            "y": "Visible"
+          },
+          "overflow_clip_margin": {
+            "margin": 0.0,
+            "visual_box": "PaddingBox"
+          },
+          "padding": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "position_type": "Relative",
+          "right": "Auto",
+          "row_gap": {
+            "Px": 0.0
+          },
+          "scrollbar_width": 0.0,
+          "top": "Auto",
+          "width": {
+            "Px": 260.0
+          }
+        },
+        "bevy_ecs::name::Name": "Options Button",
+        "bevy_ui::widget::button::Button": {},
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.25,
+            "green": 0.14000000059604645,
+            "red": 0.11999999731779099
+          }
+        },
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "open_overlay_scene",
+          "scene_path": "options_menu.jsn",
+          "scene_key": "options-menu"
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 4
+        }
+      }
+    },
+    {
+      "parent": 4,
+      "components": {
+        "bevy_ecs::name::Name": "Options Button Label",
+        "bevy_text::text::TextColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 1.0,
+            "red": 1.0
+          }
+        },
+        "bevy_ui::widget::text::Text": "Options",
+        "bevy_text::text::TextFont": {
+          "font_features": {
+            "features": []
+          },
+          "font_size": 28.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 5
+        }
+      }
+    },
+    {
+      "parent": 0,
+      "components": {
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.25,
+            "green": 0.14000000059604645,
+            "red": 0.11999999731779099
+          }
+        },
+        "bevy_ui::widget::button::Button": {},
+        "bevy_ui::ui_node::Node": {
+          "align_content": "Default",
+          "align_items": "Center",
+          "align_self": "Auto",
+          "aspect_ratio": null,
+          "border": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "border_radius": {
+            "bottom_left": {
+              "Px": 8.0
+            },
+            "bottom_right": {
+              "Px": 8.0
+            },
+            "top_left": {
+              "Px": 8.0
+            },
+            "top_right": {
+              "Px": 8.0
+            }
+          },
+          "bottom": "Auto",
+          "box_sizing": "BorderBox",
+          "column_gap": {
+            "Px": 0.0
+          },
+          "display": "Flex",
+          "flex_basis": "Auto",
+          "flex_direction": "Row",
+          "flex_grow": 0.0,
+          "flex_shrink": 1.0,
+          "flex_wrap": "NoWrap",
+          "grid_auto_columns": [],
+          "grid_auto_flow": "Row",
+          "grid_auto_rows": [],
+          "grid_column": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_row": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_template_columns": [],
+          "grid_template_rows": [],
+          "height": {
+            "Px": 56.0
+          },
+          "justify_content": "Center",
+          "justify_items": "Default",
+          "justify_self": "Auto",
+          "left": "Auto",
+          "margin": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "max_height": "Auto",
+          "max_width": "Auto",
+          "min_height": "Auto",
+          "min_width": "Auto",
+          "overflow": {
+            "x": "Visible",
+            "y": "Visible"
+          },
+          "overflow_clip_margin": {
+            "margin": 0.0,
+            "visual_box": "PaddingBox"
+          },
+          "padding": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "position_type": "Relative",
+          "right": "Auto",
+          "row_gap": {
+            "Px": 0.0
+          },
+          "scrollbar_width": 0.0,
+          "top": "Auto",
+          "width": {
+            "Px": 260.0
+          }
+        },
+        "bevy_ecs::name::Name": "Quit To Menu Button",
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "clear_and_open_scene",
+          "scene_path": "main_menu.jsn",
+          "scene_key": "main-menu"
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 6
+        }
+      }
+    },
+    {
+      "parent": 6,
+      "components": {
+        "bevy_ui::widget::text::Text": "Quit to Menu",
+        "bevy_text::text::TextColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 1.0,
+            "red": 1.0
+          }
+        },
+        "bevy_ecs::name::Name": "Quit To Menu Button Label",
+        "bevy_text::text::TextFont": {
+          "font_features": {
+            "features": []
+          },
+          "font_size": 28.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 7
+        }
+      }
+    },
+    {
+      "parent": 0,
+      "components": {
+        "bevy_ui::widget::button::Button": {},
+        "bevy_ecs::name::Name": "Quit Game Button",
+        "bevy_ui::ui_node::Node": {
+          "align_content": "Default",
+          "align_items": "Center",
+          "align_self": "Auto",
+          "aspect_ratio": null,
+          "border": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "border_radius": {
+            "bottom_left": {
+              "Px": 8.0
+            },
+            "bottom_right": {
+              "Px": 8.0
+            },
+            "top_left": {
+              "Px": 8.0
+            },
+            "top_right": {
+              "Px": 8.0
+            }
+          },
+          "bottom": "Auto",
+          "box_sizing": "BorderBox",
+          "column_gap": {
+            "Px": 0.0
+          },
+          "display": "Flex",
+          "flex_basis": "Auto",
+          "flex_direction": "Row",
+          "flex_grow": 0.0,
+          "flex_shrink": 1.0,
+          "flex_wrap": "NoWrap",
+          "grid_auto_columns": [],
+          "grid_auto_flow": "Row",
+          "grid_auto_rows": [],
+          "grid_column": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_row": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_template_columns": [],
+          "grid_template_rows": [],
+          "height": {
+            "Px": 56.0
+          },
+          "justify_content": "Center",
+          "justify_items": "Default",
+          "justify_self": "Auto",
+          "left": "Auto",
+          "margin": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "max_height": "Auto",
+          "max_width": "Auto",
+          "min_height": "Auto",
+          "min_width": "Auto",
+          "overflow": {
+            "x": "Visible",
+            "y": "Visible"
+          },
+          "overflow_clip_margin": {
+            "margin": 0.0,
+            "visual_box": "PaddingBox"
+          },
+          "padding": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "position_type": "Relative",
+          "right": "Auto",
+          "row_gap": {
+            "Px": 0.0
+          },
+          "scrollbar_width": 0.0,
+          "top": "Auto",
+          "width": {
+            "Px": 260.0
+          }
+        },
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.25,
+            "green": 0.14000000059604645,
+            "red": 0.11999999731779099
+          }
+        },
+        "foundation_library::menu::FoundationMenuButton": {
+          "action": "exit",
+          "scene_path": "",
+          "scene_key": ""
+        },
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 8
+        }
+      }
+    },
+    {
+      "parent": 8,
+      "components": {
+        "bevy_text::text::TextFont": {
+          "font_features": {
+            "features": []
+          },
+          "font_size": 28.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        },
+        "bevy_text::text::TextColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 1.0,
+            "red": 1.0
+          }
+        },
+        "bevy_ecs::name::Name": "Quit Game Button Label",
+        "bevy_ui::widget::text::Text": "Quit Game",
+        "foundation_library::menu::FoundationUiOrder": {
+          "order": 9
+        }
+      }
+    }
+  ]
+}

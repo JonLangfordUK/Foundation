@@ -1,0 +1,23 @@
+[package]
+name = "template-game"
+version = "0.1.0"
+edition = "2024"
+publish = false
+default-run = "template-game"
+
+[[bin]]
+name = "editor"
+required-features = ["editor"]
+
+[features]
+default = []
+editor = ["dep:jackdaw", "dep:jackdaw_jsn", "dep:serde_json"]
+
+[dependencies]
+bevy = { version = "0.18", features = ["file_watcher"] }
+foundation-library = { path = "../../crates/foundation-library" }
+jackdaw = { version = "0.4", default-features = false, optional = true }
+jackdaw_jsn = { version = "0.4", optional = true }
+jackdaw_runtime = "0.4"
+serde_json = { version = "1", optional = true }
+ctrlc = "3"
