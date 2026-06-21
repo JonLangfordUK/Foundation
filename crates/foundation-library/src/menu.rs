@@ -324,18 +324,24 @@ fn initialize_simple_gameplay_levels(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     levels: Query<
-        (Entity, &FoundationSimpleGameplayLevel, Option<&SceneOwner>),
+        (
+            Entity,
+            &FoundationSimpleGameplayLevel,
+            Option<&SceneOwner>,
+            Option<&ChildOf>,
+        ),
         Added<FoundationSimpleGameplayLevel>,
     >,
+    owners: Query<&SceneOwner>,
 ) {
-    for (level_entity, level, scene_owner) in &levels {
-        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+    for (level_entity, level, scene_owner, parent) in &levels {
+        let scene_owner = effective_scene_owner(scene_owner, parent, &owners);
+        if should_skip_menu_runtime_entity(&settings, scene_owner.as_ref()) {
             continue;
         }
         info!(
             "Initializing FoundationSimpleGameplayLevel on {level_entity:?} with scene_owner={scene_owner:?}"
         );
-        let scene_owner = scene_owner.copied();
         let cube = commands
             .spawn((
                 Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(level.cube_size)))),
@@ -599,6 +605,16 @@ fn insert_owner(commands: &mut Commands, entity: Entity, scene_owner: Option<Sce
     if let Some(scene_owner) = scene_owner {
         commands.entity(entity).insert(scene_owner);
     }
+}
+
+fn effective_scene_owner(
+    scene_owner: Option<&SceneOwner>,
+    parent: Option<&ChildOf>,
+    owners: &Query<&SceneOwner>,
+) -> Option<SceneOwner> {
+    scene_owner
+        .copied()
+        .or_else(|| parent.and_then(|parent| owners.get(parent.0).ok().copied()))
 }
 
 fn safe_add_child(commands: &mut Commands, parent: Entity, child: Entity) {
