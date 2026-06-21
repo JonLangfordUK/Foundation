@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/codebase-cleanup-review`
-- Overall status: `Implementation complete; optional final review available`
+- Overall status: `Complete; ready to merge`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for optional gpt-5.5 sanity review or user acceptance`
+- Current handoff state: `User accepted implementation; ready to merge into dev`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -18,7 +18,7 @@
 - Current branch during implementation: `feature/codebase-cleanup-review`
 - Branch base: Created from `dev` during planning; `dev` is an ancestor of `HEAD`.
 - Remote `origin`: Configured (`https://github.com/JonLangfordUK/Foundation.git`).
-- Push status: Planning commit `31a0d9c` pushed. Cleanup checkpoint commit `43a5f34` pushed.
+- Push status: Planning commit `31a0d9c`, cleanup checkpoint commit `43a5f34`, tracker commit `b02bbec`, scene guide commit `916138f`, and old-guide removal commit `474b56c` pushed.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -186,10 +186,10 @@
 - User confirmation: Complete
 
 ### Notes
-- No manual has been written yet, per user instruction.
+- The scene-system manual has been written at `docs/scene-system.md` after user feature confirmation.
 
 ## Phase 5: Final Validation, Commit, And Handoff
-**Status:** Awaiting final commit  
+**Status:** Complete  
 **Goal:** Prove the cleanup checkpoint is complete, record evidence, and prepare for the deferred documentation/manual checkpoint.
 
 ### Tasks
@@ -205,9 +205,9 @@
 - [x] Commit cleanup checkpoint and push.
   - Status: Complete
   - Notes: Planning commit `31a0d9c` and cleanup checkpoint commit `43a5f34` were pushed to `origin/feature/codebase-cleanup-review`.
-- [ ] Offer optional `gpt-5.5` final sanity review.
-  - Status: Ready to offer
-  - Notes: Review should focus on high-risk ECS/editor/asset interactions and validation evidence after user feature confirmation and manual completion.
+- [x] Offer optional `gpt-5.5` final sanity review.
+  - Status: Complete
+  - Notes: Optional review was offered after the manual checkpoint; user accepted the implementation and requested commit/merge/delete-local workflow.
 
 ### Validation
 - Format: Passed (`scripts/format-project.cmd`)
@@ -216,10 +216,10 @@
 - Build: Passed (`scripts/compile-project.cmd`)
 - Documentation generation: Passed (`scripts/doc-project.cmd`)
 - Full validation wrapper: Passed (`scripts/validate-project.cmd`)
-- User confirmation: Pending feature smoke confirmation before writing scene-system manual
+- User confirmation: Complete; user confirmed features work and accepted final state
 
 ### Notes
-- Do not mark the overall feature complete until the user confirms features still work, the deferred manual is written, and final validation is recorded.
+- Overall feature is complete and ready to merge into `dev`.
 
 ## Implementation / Review Handoff Notes
 - Use `gpt-5.4` for implementation.
@@ -254,3 +254,4 @@
 - `2026-06-21`: Added `docs/scene-system.md` scene-system instruction manual after user confirmation.
 - `2026-06-21`: `scripts/doc-project.cmd` and `scripts/validate-project.cmd` passed after adding the scene-system manual.
 - `2026-06-21`: User chose to remove the older `docs/foundation-scene-stack.md` document so `docs/scene-system.md` is the single canonical scene-system guide.
+- `2026-06-21`: User accepted the final state and requested commit, merge into `dev`, delete local feature branch, and keep the remote feature branch.
