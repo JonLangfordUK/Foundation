@@ -1,11 +1,12 @@
 # PiGame
 
-PiGame is a multi-project Rust repository for Jackdaw Editor, reusable FoundationRuntimeLibrary code, and Jackdaw-style games.
+PiGame is a multi-project Rust repository for Jackdaw Editor, reusable Foundation runtime/editor libraries, and Jackdaw-style games.
 
 ## Repository layout
 - `Cargo.toml` - root workspace manifest for tooling/editor crates
 - `crates/jackdaw-editor` - Jackdaw Editor, a Jackdaw launcher/editor subproject
 - `crates/foundation-runtime-library` - FoundationRuntimeLibrary, reusable shared Bevy/Jackdaw-compatible game code
+- `crates/foundation-editor-library` - FoundationEditorLibrary, reusable Jackdaw editor extensions and windows
 - `games/template-game` - a Jackdaw static-game subproject shaped like Jackdaw's generated game template
 - `AGENTS.md` - project instructions for Pi
 - `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
@@ -13,11 +14,12 @@ PiGame is a multi-project Rust repository for Jackdaw Editor, reusable Foundatio
 - `docs/plans/` - feature plans, trackers, and templates
 - `scripts/` - Windows wrappers for root Cargo validation commands and optional feature-plan scaffolding
 
-The current architecture is **Editor / Game / Library**:
+The current architecture is **Editor / Game / Runtime Library / Editor Library**:
 
 - **Editor**: `crates/jackdaw-editor` launches Jackdaw.
 - **Game**: `games/template-game` is a concrete Jackdaw-style game project.
-- **Library**: `crates/foundation-runtime-library` contains reusable code shared by games and their game-specific editor binaries. It depends on `jackdaw_runtime` so shared components can expose Jackdaw-compatible editor metadata without depending on the full Jackdaw editor app.
+- **Runtime Library**: `crates/foundation-runtime-library` contains reusable runtime/game code shared by games and their game-specific editor binaries. It depends on `jackdaw_runtime` so shared components can expose Jackdaw-compatible editor metadata without depending on the full Jackdaw editor app.
+- **Editor Library**: `crates/foundation-editor-library` contains reusable Jackdaw editor extensions, dockable windows, editor operators, and editor-only UI. It may depend on the full `jackdaw` editor crate.
 
 `games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
 
@@ -79,6 +81,7 @@ TemplateGame follows Jackdaw's generated static template:
 - `.cargo/config.toml` defines `cargo editor` and `cargo play`
 - root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
 - `foundation-runtime-library` is added to both the standalone game and game-specific editor binary before `TemplateGamePlugin`
+- `foundation-editor-library` is added only to the game-specific editor binary and contributes reusable Jackdaw editor extensions such as the Game Settings window
 
 ## FoundationRuntimeLibrary shared components
 Reusable components can live in `crates/foundation-runtime-library` when they should be available to multiple games and their Jackdaw editor binaries. Components intended for editor authoring should derive Bevy reflection traits, include Jackdaw editor metadata, and be registered by `FoundationPlugin`.
@@ -97,6 +100,18 @@ pub struct MySharedComponent {
 ```
 
 Register shared types from `FoundationPlugin` so both `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` see the same reusable API.
+
+## FoundationEditorLibrary editor tools
+`crates/foundation-editor-library` owns editor-only integrations that require Jackdaw's full editor API. TemplateGame registers `FoundationGameSettingsExtension` in its editor binary so Jackdaw exposes a dockable **Game Settings** window.
+
+The Game Settings window edits `foundation.settings.toml` in the game project root. Current settings are:
+
+```toml
+startup_map = ""
+editor_startup_map = ""
+```
+
+An empty value means the game uses its built-in default flow. `startup_map` applies to standalone runs. `editor_startup_map` is the editor fallback when Play starts without a more specific currently open scene.
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
@@ -129,12 +144,14 @@ scripts\compile-project.cmd
 scripts\doc-project.cmd
 ```
 
-### FoundationRuntimeLibrary validation
+### Foundation library validation
 From the repository root:
 
 ```cmd
 cargo test -p foundation-runtime-library
 cargo doc -p foundation-runtime-library --no-deps
+cargo test -p foundation-editor-library
+cargo doc -p foundation-editor-library --no-deps
 ```
 
 ### TemplateGame validation

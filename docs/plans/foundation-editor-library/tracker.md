@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `editor`
 - Branch: `feature/foundation-editor-library`
-- Overall status: `Implementation in progress`
+- Overall status: `Implemented; awaiting user acceptance`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation in progress with gpt-5.4`
+- Current handoff state: `Implementation complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -17,8 +17,8 @@
 - Active planning branch: `feature/foundation-editor-library`
 - Branch base: created locally from `dev` on `2026-06-21`; `dev` verified as an ancestor of `HEAD`.
 - Remote: `origin` configured at `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `e12d73b` pushed to `origin/feature/foundation-editor-library`; implementation commits pending.
-- Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. Do not commit it unless explicitly requested.
+- Push status: Planning docs commit `e12d73b` and runtime rename commit `501ffd7` pushed to `origin/feature/foundation-editor-library`; final implementation commit pending.
+- Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. It was not committed.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -32,200 +32,197 @@
   - `scripts/validate-project.cmd`
 
 ## Phase 1: Runtime Library Rename
-**Status:** In progress  
+**Status:** Complete  
 **Goal:** Rename the existing reusable runtime crate from `foundation-library` to `foundation-runtime-library` without changing behavior.
 
 ### Tasks
 - [x] Verify implementation branch and protect pre-existing editor-local project state.
   - Status: Complete
-  - Notes: Confirmed active branch `feature/foundation-editor-library`; verified `dev` is an ancestor of `HEAD`; `games/template-game/.jsn/project.jsn` remains a pre-existing local modification and must stay out of commits.
+  - Notes: Confirmed active branch `feature/foundation-editor-library`; verified `dev` is an ancestor of `HEAD`; `games/template-game/.jsn/project.jsn` remains a pre-existing local modification and stayed out of commits.
 - [x] Move `crates/foundation-library` to `crates/foundation-runtime-library`.
-  - Status: Awaiting full validation
-  - Notes: Moved the crate directory, updated root workspace membership, changed the package name to `foundation-runtime-library`, and regenerated the workspace lock entry through `cargo check`.
+  - Status: Complete
+  - Notes: Moved the crate directory, updated root workspace membership, changed the package name to `foundation-runtime-library`, and regenerated the workspace lock entry.
 - [x] Rename Rust references from `foundation_library` to `foundation_runtime_library` where a real crate rename is used.
-  - Status: Awaiting full validation
-  - Notes: Updated TemplateGame Rust imports and active runtime docs; focused `cargo check -p foundation-runtime-library -p template-game --all-features` passed.
-- [x] Migrate `.jsn` serialized component type paths from `foundation_library::...` to `foundation_runtime_library::...` if the implementation changes the Rust crate name.
-  - Status: Awaiting full validation
+  - Status: Complete
+  - Notes: Updated TemplateGame Rust imports and active runtime docs.
+- [x] Migrate `.jsn` serialized component type paths from `foundation_library::...` to `foundation_runtime_library::...`.
+  - Status: Complete
   - Notes: Updated TemplateGame `.jsn` assets so reflected Foundation runtime components use the new crate path.
 - [x] Update active documentation references for the runtime crate rename.
-  - Status: Awaiting full validation
-  - Notes: Updated README and `docs/scene-system.md` for the runtime crate name. Broader runtime/editor split docs and skill updates remain planned for Phase 6.
+  - Status: Complete
+  - Notes: Updated README and `docs/scene-system.md` for the runtime crate name.
 
 ### Validation
-- Format: Passed (`scripts/format-project.cmd`, 2026-06-21)
-- Lint: Pending full feature validation
-- Tests: Focused pass (`cargo test -p foundation-runtime-library`; `cargo test -p template-game --lib --all-features`, 2026-06-21)
-- Build: Focused pass (`cargo check -p foundation-runtime-library -p template-game --all-features`, 2026-06-21)
-- Documentation generation: Focused pass (`cargo doc -p foundation-runtime-library --no-deps`, 2026-06-21)
-- Full validation wrapper: Pending full feature validation
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Not required after implementation approval
 
 ## Phase 2: Foundation Editor Library Crate
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Add a dedicated editor library crate that owns Jackdaw editor extension code and depends on the runtime library.
 
 ### Tasks
-- [ ] Add `crates/foundation-editor-library` as a workspace member.
-  - Status: Planned
-  - Notes: Package name should be `foundation-editor-library`; Rust import path should be `foundation_editor_library`.
-- [ ] Create documented editor library baseline API.
-  - Status: Planned
-  - Notes: Expose a plugin/extension entry point suitable for game-specific Jackdaw editor binaries.
-- [ ] Add dependencies without leaking full `jackdaw` into the runtime crate.
-  - Status: Planned
-  - Notes: Editor crate may depend on `bevy`, `jackdaw`, and `foundation-runtime-library`.
-- [ ] Add non-window tests for editor extension metadata or API shape where practical.
-  - Status: Planned
-  - Notes: Avoid GPU/window launch in automated tests.
+- [x] Add `crates/foundation-editor-library` as a workspace member.
+  - Status: Complete
+  - Notes: Added package `foundation-editor-library`; Rust import path is `foundation_editor_library`.
+- [x] Create documented editor library baseline API.
+  - Status: Complete
+  - Notes: Added documented `FoundationEditorPlugin`, `FoundationGameSettingsExtension`, stable extension/window IDs, and prelude exports.
+- [x] Add dependencies without leaking full `jackdaw` into the runtime crate.
+  - Status: Complete
+  - Notes: Editor crate depends on Bevy, `jackdaw`, `jackdaw_api`, `bevy_enhanced_input`, and `foundation-runtime-library`; runtime crate still avoids full `jackdaw`.
+- [x] Add non-window tests for editor extension metadata or API shape where practical.
+  - Status: Complete
+  - Notes: Added tests for extension metadata and scene path normalization without launching a GPU window.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Not required after implementation approval
 
 ## Phase 3: Shared Game Settings Model And Persistence
-**Status:** Planned  
-**Goal:** Introduce reusable settings data for startup map and editor startup map, with persistence if feasible.
+**Status:** Complete  
+**Goal:** Introduce reusable settings data for startup map and editor startup map, with persistence.
 
 ### Tasks
-- [ ] Add a runtime/shared game settings type.
-  - Status: Planned
-  - Notes: Preferred owner is `foundation-runtime-library`; expected fields include `startup_map` and `editor_startup_map`.
-- [ ] Define default settings and fallback behavior.
-  - Status: Planned
-  - Notes: Defaults should preserve TemplateGame's current startup behavior until the user changes settings.
-- [ ] Implement project-local settings persistence or record a user-approved deferral.
-  - Status: Planned
-  - Notes: Proposed file name is `foundation.settings.toml` in the game project root.
-- [ ] Add parsing/default/fallback tests.
-  - Status: Planned
-  - Notes: Tests should not require launching Jackdaw or Bevy windows.
+- [x] Add a runtime/shared game settings type.
+  - Status: Complete
+  - Notes: Added `FoundationGameSettings` in `foundation-runtime-library` with `startup_map` and `editor_startup_map`.
+- [x] Define default settings and fallback behavior.
+  - Status: Complete
+  - Notes: Empty settings mean the game uses its built-in default flow; TemplateGame preserves current splash flow unless a setting is configured.
+- [x] Implement project-local settings persistence.
+  - Status: Complete
+  - Notes: Added TOML persistence using `foundation.settings.toml` in the game project root.
+- [x] Add parsing/default/fallback tests.
+  - Status: Complete
+  - Notes: Added runtime tests for defaults, blank values, missing-file defaults, and TOML round trip.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Not required after implementation approval
 
 ## Phase 4: Game Settings Jackdaw Window
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Add a reusable dockable Jackdaw Game Settings window in the editor library.
 
 ### Tasks
-- [ ] Implement a Jackdaw extension for Foundation game settings.
-  - Status: Planned
-  - Notes: Use public `JackdawExtension`, `ExtensionContext`, and `WindowDescriptor` APIs.
-- [ ] Register a dockable `Game Settings` window.
-  - Status: Planned
-  - Notes: Window should show startup map and editor startup map values.
-- [ ] Add minimal update actions/operators.
-  - Status: Planned
-  - Notes: Prefer robust baseline actions such as using the currently open scene for startup/editor startup map, plus save/reload if persistence exists.
-- [ ] Keep the UI simple and documented.
-  - Status: Planned
-  - Notes: Avoid private Jackdaw internals; defer rich text editing if public API friction is high.
+- [x] Implement a Jackdaw extension for Foundation game settings.
+  - Status: Complete
+  - Notes: Added `FoundationGameSettingsExtension` using public Jackdaw extension APIs.
+- [x] Register a dockable `Game Settings` window.
+  - Status: Complete
+  - Notes: Window shows startup map, editor startup map, and status labels.
+- [x] Add minimal update actions/operators.
+  - Status: Complete
+  - Notes: Added operators to set startup/editor startup maps from the open scene and to save/reload settings.
+- [x] Keep the UI simple and documented.
+  - Status: Complete
+  - Notes: Used public Jackdaw button/operator APIs and simple Bevy UI labels; rich text editing remains out of scope.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Not required after implementation approval
 
 ## Phase 5: TemplateGame Integration
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Wire the renamed runtime library and new editor library into TemplateGame without regressing standalone or editor Play behavior.
 
 ### Tasks
-- [ ] Update TemplateGame dependencies and imports.
-  - Status: Planned
-  - Notes: Runtime dependency should use `foundation-runtime-library`; editor dependency should be behind the `editor` feature.
-- [ ] Register Foundation editor extension/plugin from `games/template-game/src/bin/editor.rs`.
-  - Status: Planned
-  - Notes: Use Jackdaw `EditorPlugins` extension registration pattern.
-- [ ] Use configured startup map in standalone startup where practical.
-  - Status: Planned
-  - Notes: Preserve current fallback flow when settings are missing or invalid.
-- [ ] Use configured editor startup map according to documented precedence.
-  - Status: Planned
-  - Notes: Current open known scene should likely remain highest precedence for designer workflow; setting is fallback/default.
-- [ ] Add/update tests for startup map resolution and editor feature composition.
-  - Status: Planned
-  - Notes: Avoid tests that require opening the editor window.
+- [x] Update TemplateGame dependencies and imports.
+  - Status: Complete
+  - Notes: TemplateGame depends on `foundation-runtime-library` and enables `foundation-editor-library` only through the `editor` feature.
+- [x] Register Foundation editor extension/plugin from `games/template-game/src/bin/editor.rs`.
+  - Status: Complete
+  - Notes: TemplateGame editor registers `FoundationGameSettingsExtension` through Jackdaw `ExtensionPlugin` and adds `FoundationEditorPlugin`.
+- [x] Use configured startup map in standalone startup where practical.
+  - Status: Complete
+  - Notes: Standalone loads `FoundationGameSettings` from the project root and falls back to the existing splash flow when unset or invalid.
+- [x] Use configured editor startup map according to documented precedence.
+  - Status: Complete
+  - Notes: Current open scenes still take precedence; `editor_startup_map` is used when no useful open scene exists.
+- [x] Add/update tests for startup map resolution and editor feature composition.
+  - Status: Complete
+  - Notes: Added TemplateGame test for `editor_startup_map` fallback; editor extension composition is covered by compile/check and smoke launch.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Not required after implementation approval
 
 ## Phase 6: Documentation, Skills, Validation, And Handoff
-**Status:** Planned  
+**Status:** Awaiting commit/push checkpoint  
 **Goal:** Complete docs and Pi workflow guidance, validate the workspace, commit/push checkpoints, and prepare for optional review.
 
 ### Tasks
-- [ ] Update README and architecture docs for the runtime/editor Foundation split.
-  - Status: Planned
-  - Notes: Include crate names, commands, dependency guidance, and settings window usage.
-- [ ] Update project instructions and skills for the new Foundation editor area.
-  - Status: Planned
-  - Notes: Update `AGENTS.md` and relevant `.pi/skills/*` guidance so future work distinguishes `foundation-runtime-library` runtime/game systems from `foundation-editor-library` Jackdaw editor windows/extensions.
-- [ ] Run full project validation.
-  - Status: Planned
-  - Notes: Use `scripts/validate-project.cmd` unless a documented blocker requires focused validation plus waiver.
-- [ ] Manually smoke-test the TemplateGame editor settings window if practical.
-  - Status: Planned
-  - Notes: Launch editor and verify the window appears without closing the editor.
+- [x] Update README and architecture docs for the runtime/editor Foundation split.
+  - Status: Complete
+  - Notes: README documents the runtime/editor split, commands, settings file, and Game Settings window; `docs/scene-system.md` references the runtime crate.
+- [x] Update project instructions and skills for the new Foundation editor area.
+  - Status: Complete
+  - Notes: Updated `AGENTS.md` and added `.pi/skills/foundation-architecture/SKILL.md` to distinguish runtime systems from editor windows/extensions.
+- [x] Run full project validation.
+  - Status: Complete
+  - Notes: `scripts/validate-project.cmd` passed on 2026-06-21 after fixing a clippy `type_complexity` finding in the editor crate.
+- [x] Manually smoke-test the TemplateGame editor settings window if practical.
+  - Status: Complete
+  - Notes: `timeout 25s cargo editor` launched the editor, loaded `assets/scene.jsn`, and logged `Loading extension: foundation.game_settings`; timeout exit code 143 was expected.
 - [ ] Commit and push completed work following gitflow rules.
-  - Status: Planned
-  - Notes: Each completed task/phase should be committed and pushed to `origin` when available.
-- [ ] Update tracker with validation evidence, push state, and handoff notes.
-  - Status: Planned
-  - Notes: Do not mark phases complete without validation or a recorded waiver.
+  - Status: Awaiting final implementation commit
+  - Notes: Runtime rename commit `501ffd7` is pushed; final implementation/docs/skills commit is pending.
+- [x] Update tracker with validation evidence, push state, and handoff notes.
+  - Status: Complete
+  - Notes: Tracker updated with implementation, validation, and smoke-test evidence.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Lint: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Tests: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Build: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Documentation generation: Passed (`scripts/validate-project.cmd`, 2026-06-21)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`, 2026-06-21)
 - User confirmation: Pending final feature acceptance
 
 ## Implementation / Review Handoff Notes
 - Implementation model: `gpt-5.4`.
 - Review model: `gpt-5.5`.
 - Never use Anthropic models.
-- Read `.pi/skills/feature-tracker-update/SKILL.md` before implementation starts.
-- Read `.pi/skills/rust-workspace-dev/SKILL.md`, `.pi/skills/rust-coding-standards/SKILL.md`, and `.pi/skills/gitflow-workflow/SKILL.md` before editing.
-- Update `AGENTS.md` and relevant project skills during implementation because this feature creates a new Foundation editor area.
-- Keep `foundation-runtime-library` free of full `jackdaw` editor dependency.
-- Put Jackdaw extension/window code in `foundation-editor-library`.
-- Keep runtime/shared settings data available to standalone games through `foundation-runtime-library`.
-- Watch for `.jsn` serialized component type paths during the runtime crate rename.
-- Do not commit `games/template-game/.jsn/project.jsn` unless explicitly requested.
+- `foundation-runtime-library` remains free of the full `jackdaw` editor dependency.
+- Jackdaw extension/window code lives in `foundation-editor-library`.
+- Runtime/shared settings data and TOML persistence live in `foundation-runtime-library`.
+- `foundation.settings.toml` stores `startup_map` and `editor_startup_map`; blank values mean use game defaults.
+- `games/template-game/.jsn/project.jsn` remains a pre-existing local editor modification and was not committed.
 
 ## Postponed Work
 - Native modal settings dialog: postponed in favor of a dockable Jackdaw extension window.
-- Rich text-entry settings UI: may be postponed if public Jackdaw text-edit APIs are not straightforward; button-driven baseline is acceptable.
-- Generic `crates/jackdaw-editor` launcher integration: postponed unless the user wants generic projects to load the Foundation editor library. Initial integration should target game-specific editor binaries.
-- Broad settings categories beyond startup map and editor startup map: postponed until the baseline settings window exists.
+- Rich text-entry settings UI: postponed; the baseline uses buttons to set startup maps from the currently open scene, plus save/reload.
+- Generic `crates/jackdaw-editor` launcher integration: postponed unless the user wants generic projects to load the Foundation editor library. Initial integration targets game-specific editor binaries.
+- Broad settings categories beyond startup map and editor startup map: postponed until future settings needs are identified.
 
 ## Issues / Oversights Discovered
-- None yet.
+- `2026-06-21`: First `scripts/validate-project.cmd` run failed on `clippy::type_complexity` in `crates/foundation-editor-library/src/lib.rs`; fixed by adding query type aliases and reran validation successfully.
 
 ## Progress Log
 - `2026-06-21`: Read feature planning, gitflow, Rust workspace, and Rust coding standards skills.
@@ -235,3 +232,6 @@
 - `2026-06-21`: User approved the plan direction and asked to also update project skills because this creates a new area; plan and tracker updated to include `AGENTS.md` and relevant `.pi/skills/*` updates.
 - `2026-06-21`: Planning docs committed as `e12d73b` and pushed to `origin/feature/foundation-editor-library`; implementation started with gpt-5.4.
 - `2026-06-21`: Completed the runtime crate rename from `foundation-library`/`foundation_library` to `foundation-runtime-library`/`foundation_runtime_library`, updated TemplateGame Rust imports and `.jsn` type paths, and recorded focused validation passes.
+- `2026-06-21`: Runtime rename committed as `501ffd7` and pushed to `origin/feature/foundation-editor-library`.
+- `2026-06-21`: Added `foundation-editor-library`, `FoundationGameSettings`, TOML settings persistence, Game Settings Jackdaw extension/window, TemplateGame editor wiring, settings startup-map integration, README updates, AGENTS guidance, and a new `foundation-architecture` skill.
+- `2026-06-21`: Full validation passed via `scripts/validate-project.cmd`; manual smoke launch via `timeout 25s cargo editor` loaded `foundation.game_settings` and was terminated by expected timeout.

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/foundation-editor-library",
     "crates/foundation-runtime-library",
     "crates/jackdaw-editor",
     "games/template-game",
@@ -21,7 +22,11 @@ bevy = { version = "0.18.1", features = [
 ] }
 ctrlc = "3"
 jackdaw = { version = "0.4.1", default-features = false }
+jackdaw_api = "0.4.1"
 jackdaw_runtime = "0.4.1"
+bevy_enhanced_input = "0.24.4"
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
 
 [profile.dev]
 opt-level = 1

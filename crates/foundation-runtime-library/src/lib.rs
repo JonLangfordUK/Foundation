@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
+pub mod game_settings;
 pub mod menu;
 pub mod scene_stack;
 pub mod splash_screen;
@@ -31,8 +32,10 @@ impl Plugin for FoundationPlugin {
             menu::FoundationMenuPlugin,
         ))
         // Keep common settings and actors visible to the editor and reflection tests.
+        .register_type::<game_settings::FoundationGameSettings>()
         .register_type::<FoundationSettings>()
         .register_type::<FoundationActor>()
+        .init_resource::<game_settings::FoundationGameSettings>()
         .init_resource::<FoundationSettings>();
     }
 }
@@ -72,6 +75,9 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
+    pub use crate::game_settings::{
+        FoundationGameSettings, FoundationGameSettingsIoError, FOUNDATION_GAME_SETTINGS_FILE_NAME,
+    };
     pub use crate::menu::{
         foundation_is_not_paused, foundation_is_paused, FoundationCloseOnEscape,
         FoundationExitRequested, FoundationGeneratedMenuUi, FoundationMenuButton,
@@ -111,5 +117,6 @@ mod tests {
             .resource::<bevy::ecs::reflect::AppTypeRegistry>()
             .read();
         assert!(registry.contains(std::any::TypeId::of::<FoundationActor>()));
+        assert!(registry.contains(std::any::TypeId::of::<game_settings::FoundationGameSettings>()));
     }
 }

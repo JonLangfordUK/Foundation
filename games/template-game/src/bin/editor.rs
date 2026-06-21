@@ -7,6 +7,7 @@ use bevy::{
     image::{ImageAddressMode, ImagePlugin, ImageSamplerDescriptor},
     prelude::*,
 };
+use foundation_editor_library::prelude::*;
 use foundation_runtime_library::prelude::*;
 use jackdaw::prelude::*;
 use jackdaw::project_select::PendingAutoOpen;
@@ -54,7 +55,12 @@ fn main() -> AppExit {
                 }),
         )
         .add_plugins((PhysicsPlugins::default(), EnhancedInputPlugin))
-        .add_plugins(EditorPlugins::default())
+        .add_plugins(
+            EditorPlugins::default().set(
+                ExtensionPlugin::default().with_extension::<FoundationGameSettingsExtension>(),
+            ),
+        )
+        .add_plugins(FoundationEditorPlugin)
         .add_plugins(FoundationPlugin)
         .add_plugins(template_game::TemplateGamePlugin);
 
