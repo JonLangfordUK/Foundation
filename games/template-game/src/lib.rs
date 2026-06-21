@@ -4,8 +4,9 @@
 //! Scene content lives in `.jsn` files authored in Jackdaw Editor. Game behavior
 //! lives in [`TemplateGamePlugin`].
 
+#[cfg(feature = "editor")]
+use bevy::camera::RenderTarget;
 use bevy::{
-    camera::RenderTarget,
     prelude::*,
     text::{ComputedTextBlock, FontHinting, LineHeight, TextLayout, TextLayoutInfo},
     ui::{ContentSize, widget::TextNodeFlags},
