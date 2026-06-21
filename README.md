@@ -113,7 +113,7 @@ editor_startup_map = ""
 
 An empty value means the game uses its built-in default flow. `startup_map` controls the first scene loaded during normal standalone game startup. `editor_startup_map` controls the scene Jackdaw loads when the game-specific editor opens.
 
-The settings window uses the reusable `FoundationAssetPicker` widget. The picker has a UE-style compact asset field with a preview tile, drop-down/browse area, reset action, and current-scene action. Reuse it from `foundation_editor_library::prelude` for other editor tools, and pass a `FoundationAssetPickerFilter` to restrict choices by file extension or by required text/class content in text assets.
+The settings window uses the reusable `FoundationAssetPicker` widget. The picker has a UE-style compact asset field with a preview tile, drop-down/browse area, reset action, and current-scene action. Reuse it from `foundation_editor_library::prelude` for other editor tools, and pass a `FoundationAssetPickerFilter` to restrict choices by file extension or by required text/class content in text assets. Image assets preview directly. Jackdaw `.jsn` scene assets can use generated sidecar thumbnails such as `main_menu.jsn.png`, `main_menu.thumbnail.png`, `main_menu.png`, `.thumbnails/main_menu.png`, or `thumbnails/main_menu.png`; otherwise the picker falls back to a compact type badge.
 
 ## Setup
 Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:

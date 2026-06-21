@@ -15,8 +15,15 @@ pub struct FoundationAssetPickerPlugin;
 
 impl Plugin for FoundationAssetPickerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<FoundationAssetPicked>()
-            .add_systems(Update, handle_asset_picker_interactions);
+        app.add_message::<FoundationAssetPicked>().add_systems(
+            Update,
+            (
+                handle_asset_picker_interactions,
+                refresh_asset_picker_previews_after_selection,
+                populate_added_asset_picker_previews,
+            )
+                .chain(),
+        );
     }
 }
 
@@ -175,6 +182,12 @@ const ASSET_PICKER_FIELD_FONT_SIZE: f32 = 10.0;
 const ASSET_PICKER_PREVIEW_FONT_SIZE: f32 = 9.0;
 
 #[derive(Clone, Debug, Component)]
+struct FoundationAssetPickerPreview {
+    picker_id: String,
+    asset_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Component)]
 struct FoundationAssetPickerButton {
     picker_id: String,
     filter: FoundationAssetPickerFilter,
@@ -238,11 +251,16 @@ pub fn spawn_foundation_asset_picker(parent: &mut ChildSpawner, props: Foundatio
                 },
             ),
             (
+                FoundationAssetPickerPreview {
+                    picker_id: props.picker_id.clone(),
+                    asset_path: props.selected_asset_path.clone(),
+                },
                 Node {
                     width: px(48.0),
                     height: px(48.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.03, 0.03, 0.035)),
@@ -370,6 +388,109 @@ fn handle_asset_picker_interactions(
     }
 }
 
+fn refresh_asset_picker_previews_after_selection(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut picked: MessageReader<FoundationAssetPicked>,
+    mut previews: Query<(Entity, &mut FoundationAssetPickerPreview, Option<&Children>)>,
+) {
+    for picked_asset in picked.read() {
+        for (preview_entity, mut preview, preview_children) in &mut previews {
+            if preview.picker_id != picked_asset.picker_id {
+                continue;
+            }
+
+            preview.asset_path.clone_from(&picked_asset.asset_path);
+            rebuild_asset_picker_preview(
+                &mut commands,
+                &asset_server,
+                preview_entity,
+                preview_children,
+                preview.asset_path.as_deref(),
+            );
+        }
+    }
+}
+
+fn populate_added_asset_picker_previews(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    previews: Query<
+        (Entity, &FoundationAssetPickerPreview, Option<&Children>),
+        Added<FoundationAssetPickerPreview>,
+    >,
+) {
+    for (preview_entity, preview, preview_children) in &previews {
+        rebuild_asset_picker_preview(
+            &mut commands,
+            &asset_server,
+            preview_entity,
+            preview_children,
+            preview.asset_path.as_deref(),
+        );
+    }
+}
+
+fn rebuild_asset_picker_preview(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    preview_entity: Entity,
+    preview_children: Option<&Children>,
+    asset_path: Option<&str>,
+) {
+    if let Some(preview_children) = preview_children {
+        for child_entity in preview_children.iter() {
+            commands.entity(child_entity).despawn();
+        }
+    }
+
+    match preview_content_for_asset_path(asset_path) {
+        FoundationAssetPickerPreviewContent::Image(thumbnail_asset_path) => {
+            let thumbnail_handle = asset_server.load(thumbnail_asset_path);
+            commands.spawn((
+                ImageNode::new(thumbnail_handle),
+                Node {
+                    width: percent(100.0),
+                    height: percent(100.0),
+                    ..default()
+                },
+                ChildOf(preview_entity),
+            ));
+        }
+        FoundationAssetPickerPreviewContent::Text(preview_text) => {
+            commands.spawn((
+                Text::new(preview_text),
+                TextFont::from_font_size(ASSET_PICKER_PREVIEW_FONT_SIZE),
+                ChildOf(preview_entity),
+            ));
+        }
+    }
+}
+
+fn preview_content_for_asset_path(asset_path: Option<&str>) -> FoundationAssetPickerPreviewContent {
+    let Some(asset_path) = asset_path.and_then(non_empty_string) else {
+        return FoundationAssetPickerPreviewContent::Text("None".to_string());
+    };
+
+    if is_image_asset_path(&asset_path) {
+        return FoundationAssetPickerPreviewContent::Image(asset_path);
+    }
+
+    if is_jackdaw_scene_asset_path(&asset_path) {
+        if let Some(thumbnail_asset_path) = jackdaw_scene_thumbnail_asset_path(&asset_path) {
+            return FoundationAssetPickerPreviewContent::Image(thumbnail_asset_path);
+        }
+    }
+
+    FoundationAssetPickerPreviewContent::Text(preview_badge_for_asset_path(&asset_path))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum FoundationAssetPickerPreviewContent {
+    Image(String),
+    Text(String),
+}
+
 fn browse_for_asset(filter: &FoundationAssetPickerFilter) -> Option<String> {
     let project_root = current_project_root();
     let asset_root = project_root.join("assets");
@@ -422,6 +543,83 @@ fn preview_label_for_asset_path(asset_path: &str) -> Option<&str> {
         .and_then(|file_stem| file_stem.get(..file_stem.len().min(8)))
 }
 
+fn preview_badge_for_asset_path(asset_path: &str) -> String {
+    let Some(asset_extension) = Path::new(asset_path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+    else {
+        return preview_label_for_asset_path(asset_path)
+            .unwrap_or("Asset")
+            .to_string();
+    };
+
+    normalized_extension(asset_extension).to_ascii_uppercase()
+}
+
+fn is_image_asset_path(asset_path: &str) -> bool {
+    let Some(asset_extension) = Path::new(asset_path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+    else {
+        return false;
+    };
+
+    matches!(
+        normalized_extension(asset_extension).as_str(),
+        "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tga" | "ktx2" | "dds"
+    )
+}
+
+fn is_jackdaw_scene_asset_path(asset_path: &str) -> bool {
+    Path::new(asset_path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| normalized_extension(extension) == "jsn")
+}
+
+fn jackdaw_scene_thumbnail_asset_path(scene_asset_path: &str) -> Option<String> {
+    let project_root = current_project_root();
+    jackdaw_scene_thumbnail_candidates(scene_asset_path)
+        .into_iter()
+        .find(|thumbnail_asset_path| {
+            project_root
+                .join("assets")
+                .join(thumbnail_asset_path)
+                .is_file()
+        })
+}
+
+fn jackdaw_scene_thumbnail_candidates(scene_asset_path: &str) -> Vec<String> {
+    let scene_path = Path::new(scene_asset_path);
+    let parent_path = scene_path.parent().unwrap_or_else(|| Path::new(""));
+    let scene_file_name = scene_path
+        .file_name()
+        .and_then(|file_name| file_name.to_str())
+        .unwrap_or("scene.jsn");
+    let scene_stem = scene_path
+        .file_stem()
+        .and_then(|file_stem| file_stem.to_str())
+        .unwrap_or("scene");
+
+    // Jackdaw can use an exported sidecar thumbnail when the editor or project
+    // provides one. Keep the lookup convention broad so generated thumbnails
+    // can be dropped next to scenes or under an asset thumbnail directory.
+    [
+        parent_path.join(format!("{scene_file_name}.png")),
+        parent_path.join(format!("{scene_stem}.thumbnail.png")),
+        parent_path.join(format!("{scene_stem}.png")),
+        Path::new(".thumbnails")
+            .join(parent_path)
+            .join(format!("{scene_stem}.png")),
+        Path::new("thumbnails")
+            .join(parent_path)
+            .join(format!("{scene_stem}.png")),
+    ]
+    .into_iter()
+    .map(|candidate_path| candidate_path.to_string_lossy().replace('\\', "/"))
+    .collect()
+}
+
 fn normalized_extension(extension: &str) -> String {
     extension
         .trim()
@@ -465,6 +663,42 @@ mod tests {
         assert_eq!(
             asset_path_from_file_path(project_root, Path::new("C:/Other/assets/menu.jsn")),
             None
+        );
+    }
+
+    #[test]
+    fn image_assets_use_their_own_preview_image() {
+        assert_eq!(
+            preview_content_for_asset_path(Some("textures/button.png")),
+            FoundationAssetPickerPreviewContent::Image("textures/button.png".to_string())
+        );
+    }
+
+    #[test]
+    fn jackdaw_scene_thumbnail_candidates_include_sidecar_paths() {
+        let candidates = jackdaw_scene_thumbnail_candidates("maps/main_menu.jsn");
+
+        assert_eq!(
+            candidates,
+            vec![
+                "maps/main_menu.jsn.png".to_string(),
+                "maps/main_menu.thumbnail.png".to_string(),
+                "maps/main_menu.png".to_string(),
+                ".thumbnails/maps/main_menu.png".to_string(),
+                "thumbnails/maps/main_menu.png".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn unknown_assets_fall_back_to_extension_badges() {
+        assert_eq!(
+            preview_content_for_asset_path(Some("maps/main_menu.jsn")),
+            FoundationAssetPickerPreviewContent::Text("JSN".to_string())
+        );
+        assert_eq!(
+            preview_content_for_asset_path(Some("audio/music.ogg")),
+            FoundationAssetPickerPreviewContent::Text("OGG".to_string())
         );
     }
 }

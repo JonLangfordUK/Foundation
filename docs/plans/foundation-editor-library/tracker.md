@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `editor`
 - Branch: `feature/foundation-editor-library`
-- Overall status: `Asset picker typography polish implemented; awaiting user acceptance`
+- Overall status: `Asset picker thumbnail support implemented; awaiting user acceptance`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Asset picker typography polish complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
+- Current handoff state: `Asset picker thumbnail support complete with gpt-5.4; ready for user acceptance or optional gpt-5.5 review`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
@@ -17,7 +17,7 @@
 - Active planning branch: `feature/foundation-editor-library`
 - Branch base: created locally from `dev` on `2026-06-21`; `dev` verified as an ancestor of `HEAD`.
 - Remote: `origin` configured at `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, final tracker push-status commit, settings usage follow-up commit, asset picker follow-up commit, asset picker polish commit, and asset picker typography polish commit pushed to `origin/feature/foundation-editor-library`.
+- Push status: Planning docs commit `e12d73b`, runtime rename commit `501ffd7`, implementation commit `e04ef99`, final tracker push-status commit, settings usage follow-up commit, asset picker follow-up commit, asset picker polish commit, asset picker typography polish commit, and asset picker thumbnail support commit pushed to `origin/feature/foundation-editor-library`.
 - Pre-existing local changes: `games/template-game/.jsn/project.jsn` was already modified by local editor use before this feature. It was not committed.
 
 ## Validation Rules
@@ -274,3 +274,5 @@
 - `2026-06-21`: User requested asset picker polish: remove the colored preview underline and replace unsupported icon glyphs that render as boxed question marks.
 - `2026-06-21`: Replaced unsupported picker glyphs with ASCII/text labels, removed the preview underline, reran full validation successfully, and smoke-tested `cargo editor` loading `foundation.game_settings` without panic.
 - `2026-06-21`: User requested more consistent asset picker typography; added shared picker text-size constants and made property labels, selected values, and action buttons use the same field-size tier. Full validation passed after retrying a transient `editor.exe` file-lock failure.
+- `2026-06-21`: User asked whether `.jsn` asset pickers can show Jackdaw thumbnails and other asset types can use relevant thumbnails; implementation resumed to add preview image support with sidecar scene-thumbnail lookup and type-badge fallbacks.
+- `2026-06-21`: Added asset picker preview image support for image assets and generated `.jsn` sidecar thumbnails, with extension badge fallbacks for unknown asset types. Full validation passed after retrying a transient `editor.exe` file-lock failure; `cargo editor` smoke test loaded `foundation.game_settings` without panic.
