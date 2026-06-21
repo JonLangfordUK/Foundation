@@ -9,15 +9,21 @@ use foundation_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 fn main() -> AppExit {
-    let _ = ctrlc::set_handler(|| std::process::exit(130));
+    // Mirror standard Ctrl-C termination so scripts can detect interrupted runs.
+    let interrupt_exit_code = 130;
+    let _ = ctrlc::set_handler(move || std::process::exit(interrupt_exit_code));
 
+    // Standalone runs load Jackdaw scenes from this game's asset directory.
+    let asset_directory_name = "assets";
     let asset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
+        .join(asset_directory_name)
         .to_string_lossy()
         .to_string();
 
+    let clear_color = Color::srgb(0.0, 0.0, 0.0);
+
     App::new()
-        .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)))
+        .insert_resource(ClearColor(clear_color))
         .set_error_handler(bevy::ecs::error::error)
         .add_plugins(
             DefaultPlugins
@@ -42,11 +48,15 @@ fn main() -> AppExit {
 }
 
 fn spawn_default_camera(mut commands: Commands) {
+    // Keep this UI camera above default world cameras while preserving scene clears.
+    let camera_order = 100;
+    let clear_color = ClearColorConfig::None;
+
     commands.spawn((
         Camera2d,
         Camera {
-            order: 100,
-            clear_color: ClearColorConfig::None,
+            order: camera_order,
+            clear_color,
             ..default()
         },
     ));

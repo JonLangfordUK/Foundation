@@ -19,6 +19,7 @@ pub struct FoundationMenuPlugin;
 
 impl Plugin for FoundationMenuPlugin {
     fn build(&self, app: &mut App) {
+        // Runtime resources come first so menu systems can read stable defaults immediately.
         app.init_resource::<FoundationPauseState>()
             .init_resource::<FoundationMenuRuntimeSettings>()
             .add_message::<FoundationExitRequested>()
@@ -31,6 +32,7 @@ impl Plugin for FoundationMenuPlugin {
             .register_type::<FoundationSpin>()
             .register_type::<FoundationUiOrder>()
             .register_type::<FoundationPauseState>()
+            // Menu systems run together because generated UI and actions share scene ownership.
             .add_systems(
                 Update,
                 (
@@ -114,6 +116,7 @@ pub struct FoundationMenuButton {
 impl FoundationMenuButton {
     /// Creates a button that does nothing when pressed.
     pub fn none() -> Self {
+        // Empty scene fields keep inert buttons safe to author in placeholder menus.
         Self {
             action: "none".to_string(),
             scene_path: String::new(),
@@ -122,29 +125,35 @@ impl FoundationMenuButton {
     }
 
     /// Creates a button that opens a full-screen Jackdaw scene on the stack.
-    pub fn open_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
+    pub fn open_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
+        // Full-screen opens cover earlier entries and become the focused scene.
         Self {
             action: "open_scene".to_string(),
-            scene_path: path.into(),
-            scene_key: key.into(),
+            scene_path: scene_path.into(),
+            scene_key: scene_key.into(),
         }
     }
 
     /// Creates a button that opens an input-blocking overlay scene on the stack.
-    pub fn open_overlay_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
+    pub fn open_overlay_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
+        // Overlay opens preserve lower scene visibility while blocking lower input.
         Self {
             action: "open_overlay_scene".to_string(),
-            scene_path: path.into(),
-            scene_key: key.into(),
+            scene_path: scene_path.into(),
+            scene_key: scene_key.into(),
         }
     }
 
     /// Creates a button that clears the stack and opens a Jackdaw scene.
-    pub fn clear_and_open_scene(path: impl Into<String>, key: impl Into<String>) -> Self {
+    pub fn clear_and_open_scene(
+        scene_path: impl Into<String>,
+        scene_key: impl Into<String>,
+    ) -> Self {
+        // Clear-and-open is used by main menu flows that should discard old gameplay state.
         Self {
             action: "clear_and_open_scene".to_string(),
-            scene_path: path.into(),
-            scene_key: key.into(),
+            scene_path: scene_path.into(),
+            scene_key: scene_key.into(),
         }
     }
 
@@ -335,54 +344,75 @@ fn initialize_simple_gameplay_levels(
     settings: Res<FoundationMenuRuntimeSettings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    levels: SimpleGameplayLevelInitQuery,
-    owners: Query<&SceneOwner>,
+    gameplay_levels: SimpleGameplayLevelInitQuery,
+    scene_owners: Query<&SceneOwner>,
 ) {
-    for (level_entity, level, scene_owner, parent) in &levels {
-        let scene_owner = effective_scene_owner(scene_owner, parent, &owners);
+    for (level_entity, level, scene_owner, parent_link) in &gameplay_levels {
+        // Scene roots own generated gameplay entities so stack cleanup removes them.
+        let scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
         if should_skip_menu_runtime_entity(&settings, scene_owner.as_ref()) {
             continue;
         }
         info!(
             "Initializing FoundationSimpleGameplayLevel on {level_entity:?} with scene_owner={scene_owner:?}"
         );
-        let cube = commands
+
+        // Keep generated geometry minimal so projects can replace it with authored content.
+        let cube_size = level.cube_size;
+        let cube_mesh = meshes.add(Cuboid::from_size(Vec3::splat(cube_size)));
+        let cube_base_color = Color::srgb(0.45, 0.55, 0.90);
+        let cube_material = materials.add(StandardMaterial {
+            base_color: cube_base_color,
+            ..default()
+        });
+        let cube_position = Vec3::new(0.0, cube_size * 0.5, 0.0);
+
+        let cube_entity = commands
             .spawn((
-                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(level.cube_size)))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::srgb(0.45, 0.55, 0.90),
-                    ..default()
-                })),
-                Transform::from_xyz(0.0, level.cube_size * 0.5, 0.0),
+                Mesh3d(cube_mesh),
+                MeshMaterial3d(cube_material),
+                Transform::from_translation(cube_position),
                 FoundationSpin::default(),
                 FoundationGeneratedGameplayLevel,
                 Name::new("Foundation Gameplay Cube"),
             ))
             .id();
-        let light = commands
+
+        // A single directional light is enough for the starter cube and avoids asset setup.
+        let light_illuminance = 12_000.0;
+        let light_position = Vec3::new(3.0, 5.0, 3.0);
+        let light_target = Vec3::ZERO;
+
+        let light_entity = commands
             .spawn((
                 DirectionalLight {
-                    illuminance: 12_000.0,
+                    illuminance: light_illuminance,
                     shadows_enabled: true,
                     ..default()
                 },
-                Transform::from_xyz(3.0, 5.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Transform::from_translation(light_position).looking_at(light_target, Vec3::Y),
                 FoundationGeneratedGameplayLevel,
                 Name::new("Foundation Gameplay Directional Light"),
             ))
             .id();
-        let camera = commands
+
+        // The generated camera frames the starter cube from an angled gameplay view.
+        let camera_position = Vec3::new(4.0, 3.0, 6.0);
+        let camera_target = Vec3::new(0.0, 0.75, 0.0);
+
+        let camera_entity = commands
             .spawn((
                 Camera3d::default(),
-                Transform::from_xyz(4.0, 3.0, 6.0).looking_at(Vec3::new(0.0, 0.75, 0.0), Vec3::Y),
+                Transform::from_translation(camera_position).looking_at(camera_target, Vec3::Y),
                 FoundationGeneratedGameplayLevel,
                 Name::new("Foundation Gameplay Camera"),
             ))
             .id();
 
-        for entity in [cube, light, camera] {
+        for generated_entity in [cube_entity, light_entity, camera_entity] {
+            // Ownership is required so closing the gameplay scene removes generated children.
             if let Some(scene_owner) = scene_owner {
-                commands.entity(entity).insert(scene_owner);
+                commands.entity(generated_entity).insert(scene_owner);
             }
         }
     }
@@ -392,9 +422,10 @@ fn spin_foundation_entities(
     time: Res<Time>,
     mut spinners: Query<(&FoundationSpin, &mut Transform)>,
 ) {
-    let dt = time.delta_secs();
+    let delta_seconds = time.delta_secs();
     for (spin, mut transform) in &mut spinners {
-        transform.rotate_y(spin.radians_per_second * dt);
+        // Use frame delta time so spin speed stays stable across frame rates.
+        transform.rotate_y(spin.radians_per_second * delta_seconds);
     }
 }
 
@@ -413,6 +444,7 @@ fn initialize_options_menus(
         if spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
             .is_none()
         {
+            // Skip runtime insertion if child generation fails to produce content.
             continue;
         }
         commands
@@ -439,208 +471,263 @@ fn initialize_placeholder_menus(
 
 fn spawn_options_menu_children(
     commands: &mut Commands,
-    parent: Entity,
+    parent_entity: Entity,
     menu: &FoundationOptionsMenu,
     scene_owner: Option<SceneOwner>,
 ) -> Option<Entity> {
-    let title = spawn_text(commands, &menu.title, 48.0, scene_owner);
-    let tabs = commands
+    // Build generated menu children once and attach them to the authored menu marker.
+    let title_font_size = 48.0;
+    let title_entity = spawn_text(commands, &menu.title, title_font_size, scene_owner);
+    let tab_button_gap = 12.0;
+
+    let tabs_entity = commands
         .spawn((
-            row_node(12.0),
+            row_node(tab_button_gap),
             FoundationGeneratedMenuUi,
             Name::new("Options Tabs"),
         ))
         .id();
-    insert_owner(commands, tabs, scene_owner);
+    insert_owner(commands, tabs_entity, scene_owner);
 
+    // Generate tab buttons from the static tab list so future tabs keep one path.
     let tab_buttons = OPTIONS_TABS
         .iter()
         .enumerate()
-        .map(|(index, label)| {
-            let tab = spawn_button(commands, label, scene_owner);
+        .map(|(tab_index, tab_label)| {
+            let tab_button_entity = spawn_button(commands, tab_label, scene_owner);
             commands
-                .entity(tab)
-                .insert(FoundationOptionsTabButton { tab: index });
-            tab
+                .entity(tab_button_entity)
+                .insert(FoundationOptionsTabButton { tab: tab_index });
+            tab_button_entity
         })
         .collect::<Vec<_>>();
-    commands.entity(tabs).replace_children(&tab_buttons);
+    commands.entity(tabs_entity).replace_children(&tab_buttons);
 
-    let content = commands
+    let options_content_width = Val::Px(640.0);
+    let options_row_gap = Val::Px(10.0);
+
+    let content_entity = commands
         .spawn((
             Node {
-                width: Val::Px(640.0),
+                width: options_content_width,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.0),
+                row_gap: options_row_gap,
                 ..default()
             },
             FoundationGeneratedMenuUi,
             Name::new("Options Content"),
         ))
         .id();
-    insert_owner(commands, content, scene_owner);
-    spawn_setting_rows(commands, content, 0, scene_owner);
+    insert_owner(commands, content_entity, scene_owner);
 
-    let back = spawn_button(commands, "Back", scene_owner);
+    let default_tab_index = 0;
+    spawn_setting_rows(commands, content_entity, default_tab_index, scene_owner);
+
+    let back_button_entity = spawn_button(commands, "Back", scene_owner);
     commands
-        .entity(back)
+        .entity(back_button_entity)
         .insert(FoundationMenuButton::close_current());
 
-    commands
-        .entity(parent)
-        .replace_children(&[title, tabs, content, back]);
+    commands.entity(parent_entity).replace_children(&[
+        title_entity,
+        tabs_entity,
+        content_entity,
+        back_button_entity,
+    ]);
 
-    Some(content)
+    Some(content_entity)
 }
 
 fn spawn_placeholder_menu_children(
     commands: &mut Commands,
-    parent: Entity,
+    parent_entity: Entity,
     menu: &FoundationPlaceholderMenu,
     scene_owner: Option<SceneOwner>,
 ) {
-    let title = spawn_text(commands, &menu.title, 48.0, scene_owner);
-    let body = spawn_text(commands, &menu.body, 24.0, scene_owner);
-    let back = spawn_button(commands, "Back", scene_owner);
+    // Placeholder menus only need text and a Back button to participate in the stack.
+    let title_font_size = 48.0;
+    let body_font_size = 24.0;
+    let title_entity = spawn_text(commands, &menu.title, title_font_size, scene_owner);
+    let body_entity = spawn_text(commands, &menu.body, body_font_size, scene_owner);
+    let back_button_entity = spawn_button(commands, "Back", scene_owner);
     commands
-        .entity(back)
+        .entity(back_button_entity)
         .insert(FoundationMenuButton::close_current());
-    commands
-        .entity(parent)
-        .replace_children(&[title, body, back]);
+    commands.entity(parent_entity).replace_children(&[
+        title_entity,
+        body_entity,
+        back_button_entity,
+    ]);
 }
 
 fn spawn_setting_rows(
     commands: &mut Commands,
-    content: Entity,
-    tab: usize,
+    content_entity: Entity,
+    selected_tab_index: usize,
     scene_owner: Option<SceneOwner>,
 ) {
-    let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
-    let mut rows = Vec::new();
-    for index in 1..=5 {
-        let row = commands
+    let tab_name = OPTIONS_TABS
+        .get(selected_tab_index)
+        .copied()
+        .unwrap_or("Options");
+    let mut setting_row_entities = Vec::new();
+    let first_setting_number = 1;
+    let last_setting_number = 5;
+    for setting_number in first_setting_number..=last_setting_number {
+        // Settings are generated as simple label/value rows until real options exist.
+        let row_width = Val::Percent(100.0);
+        let row_column_gap = Val::Px(24.0);
+        let setting_row_entity = commands
             .spawn((
                 Node {
-                    width: Val::Percent(100.0),
+                    width: row_width,
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
-                    column_gap: Val::Px(24.0),
+                    column_gap: row_column_gap,
                     ..default()
                 },
                 FoundationGeneratedMenuUi,
-                Name::new(format!("{tab_name} Setting Row {index}")),
+                Name::new(format!("{tab_name} Setting Row {setting_number}")),
             ))
             .id();
-        insert_owner(commands, row, scene_owner);
+        insert_owner(commands, setting_row_entity, scene_owner);
 
-        let label = spawn_text(
+        let setting_text_font_size = 22.0;
+        let setting_label_text = format!("{tab_name} Property {setting_number}");
+        let setting_label_entity = spawn_text(
             commands,
-            &format!("{tab_name} Property {index}"),
-            22.0,
+            &setting_label_text,
+            setting_text_font_size,
             scene_owner,
         );
         commands
-            .entity(label)
-            .insert(FoundationOptionsSettingLabel { index });
-        let value = spawn_text(commands, &format!("< Value {index} >"), 22.0, scene_owner);
+            .entity(setting_label_entity)
+            .insert(FoundationOptionsSettingLabel {
+                index: setting_number,
+            });
+
+        let setting_value_text = format!("< Value {setting_number} >");
+        let setting_value_entity = spawn_text(
+            commands,
+            &setting_value_text,
+            setting_text_font_size,
+            scene_owner,
+        );
         commands
-            .entity(value)
-            .insert(FoundationOptionsSettingValue { index });
-        commands.entity(row).replace_children(&[label, value]);
-        rows.push(row);
+            .entity(setting_value_entity)
+            .insert(FoundationOptionsSettingValue {
+                index: setting_number,
+            });
+        commands
+            .entity(setting_row_entity)
+            .replace_children(&[setting_label_entity, setting_value_entity]);
+        setting_row_entities.push(setting_row_entity);
     }
-    commands.entity(content).replace_children(&rows);
+    commands
+        .entity(content_entity)
+        .replace_children(&setting_row_entities);
 }
 
-fn spawn_button(commands: &mut Commands, label: &str, scene_owner: Option<SceneOwner>) -> Entity {
-    let text = spawn_text(commands, label, 24.0, scene_owner);
-    let button = commands
+fn spawn_button(
+    commands: &mut Commands,
+    button_label: &str,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let button_text_font_size = 24.0;
+    let text_entity = spawn_text(commands, button_label, button_text_font_size, scene_owner);
+    let button_width = Val::Px(220.0);
+    let button_height = Val::Px(52.0);
+    let button_padding = UiRect::all(Val::Px(8.0));
+
+    let button_entity = commands
         .spawn((
             Button,
             Node {
-                width: Val::Px(220.0),
-                height: Val::Px(52.0),
+                width: button_width,
+                height: button_height,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                padding: UiRect::all(Val::Px(8.0)),
+                padding: button_padding,
                 ..default()
             },
             BackgroundColor(NORMAL_BUTTON),
             FoundationGeneratedMenuUi,
-            Name::new(format!("{label} Button")),
+            Name::new(format!("{button_label} Button")),
         ))
         .id();
-    safe_add_child(commands, button, text);
-    insert_owner(commands, button, scene_owner);
-    button
+    safe_add_child(commands, button_entity, text_entity);
+    insert_owner(commands, button_entity, scene_owner);
+    button_entity
 }
 
 fn spawn_text(
     commands: &mut Commands,
-    value: &str,
-    size: f32,
+    text_value: &str,
+    font_size: f32,
     scene_owner: Option<SceneOwner>,
 ) -> Entity {
-    let entity = commands
+    let text_entity = commands
         .spawn((
-            Text::new(value.to_string()),
-            TextFont::from_font_size(size),
+            Text::new(text_value.to_string()),
+            TextFont::from_font_size(font_size),
             TextColor(Color::WHITE),
             FoundationGeneratedMenuUi,
-            Name::new(value.to_string()),
+            Name::new(text_value.to_string()),
         ))
         .id();
-    insert_owner(commands, entity, scene_owner);
-    entity
+    insert_owner(commands, text_entity, scene_owner);
+    text_entity
 }
 
-fn row_node(gap: f32) -> Node {
+fn row_node(column_gap: f32) -> Node {
+    let row_column_gap = Val::Px(column_gap);
     Node {
         flex_direction: FlexDirection::Row,
-        column_gap: Val::Px(gap),
+        column_gap: row_column_gap,
         align_items: AlignItems::Center,
         justify_content: JustifyContent::Center,
         ..default()
     }
 }
 
-fn insert_owner(commands: &mut Commands, entity: Entity, scene_owner: Option<SceneOwner>) {
+fn insert_owner(commands: &mut Commands, owned_entity: Entity, scene_owner: Option<SceneOwner>) {
     if let Some(scene_owner) = scene_owner {
-        commands.entity(entity).insert(scene_owner);
+        commands.entity(owned_entity).insert(scene_owner);
     }
 }
 
 fn effective_scene_owner(
     scene_owner: Option<&SceneOwner>,
-    parent: Option<&ChildOf>,
-    owners: &Query<&SceneOwner>,
+    parent_link: Option<&ChildOf>,
+    scene_owners: &Query<&SceneOwner>,
 ) -> Option<SceneOwner> {
-    scene_owner
-        .copied()
-        .or_else(|| parent.and_then(|parent| owners.get(parent.0).ok().copied()))
+    // Generated marker entities may inherit ownership from their loaded scene root.
+    scene_owner.copied().or_else(|| {
+        parent_link.and_then(|parent_link| scene_owners.get(parent_link.0).ok().copied())
+    })
 }
 
-fn safe_add_child(commands: &mut Commands, parent: Entity, child: Entity) {
-    safe_add_children(commands, parent, vec![child]);
+fn safe_add_child(commands: &mut Commands, parent_entity: Entity, child_entity: Entity) {
+    safe_add_children(commands, parent_entity, vec![child_entity]);
 }
 
-fn safe_add_children(commands: &mut Commands, parent: Entity, children: Vec<Entity>) {
+fn safe_add_children(commands: &mut Commands, parent_entity: Entity, children: Vec<Entity>) {
     commands.queue(move |world: &mut World| {
-        if world.get_entity(parent).is_err() {
+        if world.get_entity(parent_entity).is_err() {
             return;
         }
 
+        // Ignore stale children because scene-stack cleanup can race queued UI wiring.
         let existing_children = children
             .into_iter()
-            .filter(|child| world.get_entity(*child).is_ok())
+            .filter(|child_entity| world.get_entity(*child_entity).is_ok())
             .collect::<Vec<_>>();
         if existing_children.is_empty() {
             return;
         }
 
-        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
-            parent_entity.add_children(&existing_children);
+        if let Ok(mut parent_entity_mut) = world.get_entity_mut(parent_entity) {
+            parent_entity_mut.add_children(&existing_children);
         }
     });
 }
@@ -673,27 +760,29 @@ fn open_pause_menus(
         return;
     }
 
+    // Use the first active opener so scene-authored levels decide which pause menu opens.
     let Some((opener, _)) = pause_openers
         .iter()
         .find(|(_, scene_owner)| !should_skip_menu_runtime_entity(&settings, *scene_owner))
     else {
         return;
     };
-    let path = opener.pause_scene_path.trim();
-    if path.is_empty() {
+    let pause_scene_path = opener.pause_scene_path.trim();
+    if pause_scene_path.is_empty() {
         warn!("FoundationPauseOpener has an empty pause_scene_path");
         return;
     }
 
+    // Set the pause state before opening the overlay so gameplay systems stop immediately.
     pause_state.paused = true;
     let mut options =
         OpenSceneOptions::default().with_presentation(ScenePresentation::PAUSE_OVERLAY);
-    let key = opener.pause_scene_key.trim();
-    if !key.is_empty() {
-        options = options.with_key(key);
+    let pause_scene_key = opener.pause_scene_key.trim();
+    if !pause_scene_key.is_empty() {
+        options = options.with_key(pause_scene_key);
     }
     scene_commands.write(SceneCommand::open_with_options(
-        SceneSource::jsn_level(path),
+        SceneSource::jsn_level(pause_scene_path),
         options,
     ));
 }
@@ -711,6 +800,7 @@ fn update_foundation_menu_button_interactions(
         }
         background.0 = match *interaction {
             Interaction::Pressed => {
+                // Button actions are emitted through messages so scene-stack mutation stays centralized.
                 perform_menu_action(
                     button,
                     &mut scene_commands,
@@ -733,6 +823,7 @@ fn perform_menu_action(
 ) {
     match button.action.trim().to_ascii_lowercase().as_str() {
         "open_scene" => {
+            // Full-screen menu actions replace visual focus with the requested scene.
             open_configured_scene(button, scene_commands, false, ScenePresentation::FULLSCREEN)
         }
         "open_overlay_scene" => open_configured_scene(
@@ -742,6 +833,7 @@ fn perform_menu_action(
             ScenePresentation::INPUT_BLOCKING_OVERLAY,
         ),
         "clear_and_open_scene" => {
+            // Clearing the stack always resumes gameplay state before loading the next scene.
             pause_state.paused = false;
             open_configured_scene(button, scene_commands, true, ScenePresentation::FULLSCREEN);
         }
@@ -749,6 +841,7 @@ fn perform_menu_action(
             scene_commands.write(SceneCommand::CloseCurrent);
         }
         "resume" => {
+            // Resume closes the pause overlay and re-enables gameplay systems.
             pause_state.paused = false;
             scene_commands.write(SceneCommand::CloseCurrent);
         }
@@ -764,11 +857,11 @@ fn perform_menu_action(
 fn open_configured_scene(
     button: &FoundationMenuButton,
     scene_commands: &mut MessageWriter<SceneCommand>,
-    clear_stack: bool,
+    should_clear_stack: bool,
     presentation: ScenePresentation,
 ) {
-    let path = button.scene_path.trim();
-    if path.is_empty() {
+    let scene_path = button.scene_path.trim();
+    if scene_path.is_empty() {
         warn!(
             "FoundationMenuButton `{}` action has an empty scene_path",
             button.action
@@ -776,22 +869,23 @@ fn open_configured_scene(
         return;
     }
     let mut options = OpenSceneOptions::default().with_presentation(presentation);
-    let key = button.scene_key.trim();
-    if !key.is_empty() {
-        options = options.with_key(key);
+    let scene_key = button.scene_key.trim();
+    if !scene_key.is_empty() {
+        options = options.with_key(scene_key);
     }
     info!(
-        "FoundationMenuButton `{}` opening scene `{path}` (clear_stack={clear_stack})",
+        "FoundationMenuButton `{}` opening scene `{scene_path}` (clear_stack={should_clear_stack})",
         button.action
     );
-    if clear_stack {
+    if should_clear_stack {
+        // Clear-and-open prevents previous gameplay/menu scenes from leaking into the new flow.
         scene_commands.write(SceneCommand::ClearAndOpen {
-            source: SceneSource::jsn_level(path),
+            source: SceneSource::jsn_level(scene_path),
             options,
         });
     } else {
         scene_commands.write(SceneCommand::open_with_options(
-            SceneSource::jsn_level(path),
+            SceneSource::jsn_level(scene_path),
             options,
         ));
     }
@@ -843,6 +937,7 @@ fn update_options_tab_button_interactions(
         }
         let mut selected = false;
         if *interaction == Interaction::Pressed {
+            // Updating all menu runtimes keeps generated labels in sync with the active tab.
             for (mut runtime, scene_owner) in &mut menus {
                 runtime.active_tab = tab_button.tab;
                 selected = true;
@@ -860,27 +955,36 @@ fn update_options_tab_button_interactions(
 }
 
 fn update_setting_texts(
-    tab: usize,
-    scene_owner: Option<SceneOwner>,
+    selected_tab_index: usize,
+    menu_scene_owner: Option<SceneOwner>,
     setting_texts: &mut OptionsSettingTextQuery,
 ) {
-    let tab_name = OPTIONS_TABS.get(tab).copied().unwrap_or("Options");
-    for (mut text, label, value, owner) in setting_texts.iter_mut() {
-        if !scene_owners_match(scene_owner, owner.copied()) {
+    let tab_name = OPTIONS_TABS
+        .get(selected_tab_index)
+        .copied()
+        .unwrap_or("Options");
+    for (mut text, label, value, text_scene_owner) in setting_texts.iter_mut() {
+        // Scene-owner matching prevents one overlay's options text from updating another overlay.
+        if !scene_owners_match(menu_scene_owner, text_scene_owner.copied()) {
             continue;
         }
 
-        if let Some(label) = label {
-            text.0 = format!("{tab_name} Property {}", label.index);
-        } else if let Some(value) = value {
-            text.0 = format!("< Value {} >", value.index);
+        if let Some(setting_label) = label {
+            text.0 = format!("{tab_name} Property {}", setting_label.index);
+        } else if let Some(setting_value) = value {
+            text.0 = format!("< Value {} >", setting_value.index);
         }
     }
 }
 
-fn scene_owners_match(expected: Option<SceneOwner>, actual: Option<SceneOwner>) -> bool {
-    match (expected, actual) {
-        (Some(expected), Some(actual)) => expected == actual,
+fn scene_owners_match(
+    expected_scene_owner: Option<SceneOwner>,
+    actual_scene_owner: Option<SceneOwner>,
+) -> bool {
+    match (expected_scene_owner, actual_scene_owner) {
+        (Some(expected_scene_owner), Some(actual_scene_owner)) => {
+            expected_scene_owner == actual_scene_owner
+        }
         (None, None) => true,
         (None, Some(_)) => true,
         (Some(_), None) => false,
@@ -890,11 +994,11 @@ fn scene_owners_match(expected: Option<SceneOwner>, actual: Option<SceneOwner>) 
 fn inherit_scene_owner_to_generated_menu_ui(
     mut commands: Commands,
     generated_children: GeneratedMenuUiWithoutOwnerQuery,
-    owners: Query<&SceneOwner>,
+    scene_owners: Query<&SceneOwner>,
 ) {
-    for (entity, child_of) in &generated_children {
-        if let Ok(owner) = owners.get(child_of.0) {
-            commands.entity(entity).insert(*owner);
+    for (generated_entity, child_link) in &generated_children {
+        if let Ok(scene_owner) = scene_owners.get(child_link.0) {
+            commands.entity(generated_entity).insert(*scene_owner);
         }
     }
 }
