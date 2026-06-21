@@ -21,11 +21,12 @@ The template can be adapted into:
 ## Standard workflow
 When the user asks for Rust workspace, crate, module, test, build, lint, dependency, or template work:
 1. Read `.pi/skills/rust-workspace-dev/SKILL.md` first.
-2. Inspect `Cargo.toml` and relevant source/config/test files before proposing architecture or editing code.
-3. Remember this repository is intentionally blank/template-first unless the user has already added project-specific code.
-4. Prefer idiomatic Rust and minimal dependencies.
-5. Use `scripts/validate-env.cmd` when toolchain or manifest state needs validation.
-6. Use the standard validation wrappers unless the user says not to:
+2. Read `.pi/skills/rust-coding-standards/SKILL.md` before writing, refactoring, generating, or reviewing Rust code.
+3. Inspect `Cargo.toml` and relevant source/config/test files before proposing architecture or editing code.
+4. Remember this repository is intentionally blank/template-first unless the user has already added project-specific code.
+5. Prefer idiomatic Rust, minimal dependencies, and the project's self-documenting code standards.
+6. Use `scripts/validate-env.cmd` when toolchain or manifest state needs validation.
+7. Use the standard validation wrappers unless the user says not to:
    - `scripts/format-project.cmd`
    - `scripts/lint-project.cmd`
    - `scripts/test-project.cmd`
@@ -59,7 +60,7 @@ When the user asks to plan a new feature:
 
 When the user asks to begin, continue, or update feature implementation:
 1. If approved planning documents do not exist yet, stop and follow `.pi/skills/feature-plan-docs/SKILL.md` first.
-2. If approved planning documents exist, read `.pi/skills/feature-tracker-update/SKILL.md` first, then read `.pi/skills/feature-plan-docs/SKILL.md`, `.pi/skills/rust-workspace-dev/SKILL.md`, and `.pi/skills/gitflow-workflow/SKILL.md` as required context.
+2. If approved planning documents exist, read `.pi/skills/feature-tracker-update/SKILL.md` first, then read `.pi/skills/feature-plan-docs/SKILL.md`, `.pi/skills/rust-workspace-dev/SKILL.md`, `.pi/skills/rust-coding-standards/SKILL.md`, and `.pi/skills/gitflow-workflow/SKILL.md` as required context.
 3. Use `gpt-5.4` for implementation. Never use Anthropic models.
 4. Before making implementation edits, read the relevant `plan.md` and `tracker.md`, confirm the active branch matches the planned `feature/*` branch, verify the branch was created from `dev` when possible, record any uncertainty in the tracker, and update the tracker to record that implementation is starting or resuming.
 5. Keep the tracker updated with progress, validation state, issues found, postponements, and model handoff state.
@@ -71,9 +72,10 @@ When the user asks to begin, continue, or update feature implementation:
 
 When the user asks for a final sanity review of implemented feature work:
 1. Read `.pi/skills/feature-review-handoff/SKILL.md` first.
-2. Use `gpt-5.5` for review. Never use Anthropic models.
-3. Any review findings must be written to the tracker and presented to the user.
-4. The user must choose whether to accept the implementation as-is, defer the findings, or send the findings back for `gpt-5.4` fixes.
+2. Read `.pi/skills/rust-coding-standards/SKILL.md` before reviewing Rust code.
+3. Use `gpt-5.5` for review. Never use Anthropic models.
+4. Any review findings must be written to the tracker and presented to the user.
+5. The user must choose whether to accept the implementation as-is, defer the findings, or send the findings back for `gpt-5.4` fixes.
 
 ## Enforcement rule
 - For any feature planning request, the `feature-plan-docs` skill is mandatory.

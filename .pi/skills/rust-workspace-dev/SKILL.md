@@ -15,10 +15,11 @@ The repository may be either:
 Do not assume the crate layout before inspecting `Cargo.toml` and the relevant source files.
 
 ## Required pre-work
-1. Inspect `Cargo.toml` before planning architecture or commands.
-2. Inspect `src/`, `crates/`, `tests/`, `benches/`, `examples/`, and relevant config files when present.
-3. Prefer existing project patterns over introducing new structure.
-4. If online research is needed and tools are available, research the specific crates/APIs involved and cite useful findings in the plan.
+1. Read `.pi/skills/rust-coding-standards/SKILL.md` before writing, refactoring, generating, or reviewing Rust code.
+2. Inspect `Cargo.toml` before planning architecture or commands.
+3. Inspect `src/`, `crates/`, `tests/`, `benches/`, `examples/`, and relevant config files when present.
+4. Prefer existing project patterns over introducing new structure.
+5. If online research is needed and tools are available, research the specific crates/APIs involved and cite useful findings in the plan.
 
 ## Standard commands
 Use these defaults unless the project defines a more specific command:
@@ -66,16 +67,18 @@ When the user asks to plan a Rust feature:
 ### 3. Implement a feature
 When the user asks to implement a feature:
 1. Review the approved plan and tracker before code edits.
-2. Use `gpt-5.4` for implementation. Never use Anthropic models.
-3. Keep changes focused, idiomatic, and consistent with existing Rust style.
-4. Add or update tests for behavior changes where practical.
-5. Run formatting, linting, tests, build checks, and documentation generation unless the user says not to.
+2. Read and apply `.pi/skills/rust-coding-standards/SKILL.md` before Rust edits.
+3. Use `gpt-5.4` for implementation. Never use Anthropic models.
+4. Keep changes focused, idiomatic, and consistent with existing Rust style and project coding standards.
+5. Add or update tests for behavior changes where practical.
+6. Run formatting, linting, tests, build checks, and documentation generation unless the user says not to.
 
 ### 4. Review a feature
 When the user asks for a review:
-1. Use `gpt-5.5` for review. Never use Anthropic models.
-2. Review against the plan, tracker, user request, changed files, and validation results.
-3. Record findings in the tracker if the feature workflow is in use.
+1. Read and apply `.pi/skills/rust-coding-standards/SKILL.md` before reviewing Rust code.
+2. Use `gpt-5.5` for review. Never use Anthropic models.
+3. Review against the plan, tracker, user request, changed files, validation results, and project coding standards.
+4. Record findings in the tracker if the feature workflow is in use.
 
 ## Rust-specific guidance
 - Prefer small modules with explicit ownership and error handling.

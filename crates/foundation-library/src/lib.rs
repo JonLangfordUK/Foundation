@@ -24,11 +24,13 @@ pub struct FoundationPlugin;
 
 impl Plugin for FoundationPlugin {
     fn build(&self, app: &mut App) {
+        // Register shared gameplay systems before exposing baseline reflected types.
         app.add_plugins((
             scene_stack::FoundationSceneStackPlugin,
             splash_screen::FoundationSplashScreenPlugin,
             menu::FoundationMenuPlugin,
         ))
+        // Keep common settings and actors visible to the editor and reflection tests.
         .register_type::<FoundationSettings>()
         .register_type::<FoundationActor>()
         .init_resource::<FoundationSettings>();

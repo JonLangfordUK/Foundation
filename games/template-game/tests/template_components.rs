@@ -17,12 +17,17 @@ fn user_components_reach_picker() {
         .world()
         .resource::<bevy::ecs::reflect::AppTypeRegistry>()
         .read();
-    let pickables =
-        enumerate_pickable_components(&registry, &HashSet::new(), &PickerDenylist::default());
-    let names: Vec<&str> = pickables.iter().map(|p| p.short_name.as_str()).collect();
+    let denied_components = HashSet::new();
+    let picker_denylist = PickerDenylist::default();
+    let pickable_components =
+        enumerate_pickable_components(&registry, &denied_components, &picker_denylist);
+    let pickable_component_names: Vec<&str> = pickable_components
+        .iter()
+        .map(|pickable_component| pickable_component.short_name.as_str())
+        .collect();
 
     assert!(
-        names.contains(&"SpinningCube"),
-        "SpinningCube must appear in the editor's component picker. Available: {names:?}",
+        pickable_component_names.contains(&"SpinningCube"),
+        "SpinningCube must appear in the editor's component picker. Available: {pickable_component_names:?}",
     );
 }

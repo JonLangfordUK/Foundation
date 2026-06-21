@@ -12,9 +12,13 @@ use jackdaw::prelude::*;
 use jackdaw::project_select::PendingAutoOpen;
 
 fn main() -> AppExit {
-    let _ = ctrlc::set_handler(|| std::process::exit(130));
+    // Mirror standard Ctrl-C termination so editor launch scripts see interruption.
+    let interrupt_exit_code = 130;
+    let _ = ctrlc::set_handler(move || std::process::exit(interrupt_exit_code));
 
-    let project_root = std::env::var_os("JACKDAW_PROJECT")
+    // Allow external launchers to override which TemplateGame project opens.
+    let project_environment_variable = "JACKDAW_PROJECT";
+    let project_root = std::env::var_os(project_environment_variable)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
 
@@ -25,7 +29,12 @@ fn main() -> AppExit {
         );
     }
 
-    let asset_root = project_root.join("assets").to_string_lossy().to_string();
+    // Jackdaw and Bevy both resolve game assets from the selected project root.
+    let asset_directory_name = "assets";
+    let asset_root = project_root
+        .join(asset_directory_name)
+        .to_string_lossy()
+        .to_string();
 
     let mut app = App::new();
     app.set_error_handler(bevy::ecs::error::error)
@@ -50,6 +59,7 @@ fn main() -> AppExit {
         .add_plugins(template_game::TemplateGamePlugin);
 
     if project_root.is_dir() {
+        // Auto-open the game project so the editor starts in the authored scene context.
         app.insert_resource(PendingAutoOpen {
             path: project_root,
             skip_build: true,

@@ -39,6 +39,7 @@ pub struct TemplateGamePlugin;
 
 impl Plugin for TemplateGamePlugin {
     fn build(&self, app: &mut App) {
+        // Register reflected gameplay types before systems can load them from `.jsn` scenes.
         app.register_type::<SpinningCube>()
             .register_type::<TemplateFullscreenBackground>()
             .register_type::<TemplateGameplayUiRoot>()
@@ -53,9 +54,11 @@ impl Plugin for TemplateGamePlugin {
             );
 
         #[cfg(not(feature = "editor"))]
+        // Standalone builds turn menu exit requests into process exits.
         app.add_systems(Update, exit_game_on_foundation_exit_request);
 
         #[cfg(feature = "editor")]
+        // Editor builds stop Play mode instead of closing the editor process.
         app.add_systems(Update, stop_editor_play_on_foundation_exit_request);
 
         #[cfg(feature = "editor")]
@@ -111,6 +114,7 @@ impl Plugin for TemplateGamePlugin {
         );
 
         #[cfg(not(feature = "editor"))]
+        // Standalone runs open the startup scene stack immediately.
         app.add_systems(Startup, open_initial_scene).add_systems(
             Update,
             (
@@ -349,6 +353,7 @@ pub fn initial_scene_commands() -> [SceneCommand; 2] {
 
 #[cfg(not(feature = "editor"))]
 fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
+    // Clear any stale stack entries before replaying the fixed startup sequence.
     scene_commands.write(SceneCommand::Clear);
     for command in initial_scene_commands() {
         scene_commands.write(command);
@@ -357,6 +362,7 @@ fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
 
 #[cfg(feature = "editor")]
 fn hide_editor_authored_scene_for_play(world: &mut World) {
+    // Hide authored UI roots so Play mode shows only scene-stack runtime copies.
     let mut roots = world.query_filtered::<(Entity, Option<&Visibility>), (
         Without<SceneOwner>,
         Without<EditorAuthoredSceneHiddenForPlay>,
@@ -368,6 +374,7 @@ fn hide_editor_authored_scene_for_play(world: &mut World) {
         .collect::<Vec<_>>();
 
     for (entity, previous_visibility) in roots {
+        // Preserve the previous visibility so stopping Play can restore editor state.
         if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert((
                 Visibility::Hidden,
@@ -385,6 +392,7 @@ fn restore_editor_authored_scene_after_play(
     hidden_roots: Query<(Entity, &EditorAuthoredSceneHiddenForPlay)>,
 ) {
     for (entity, hidden) in &hidden_roots {
+        // Restore exactly the visibility state that existed before Play mode began.
         let mut entity_commands = commands.entity(entity);
         entity_commands.remove::<EditorAuthoredSceneHiddenForPlay>();
         if let Some(previous_visibility) = hidden.previous_visibility {
@@ -397,6 +405,7 @@ fn restore_editor_authored_scene_after_play(
 
 #[cfg(feature = "editor")]
 fn open_initial_scene(world: &mut World) {
+    // Configure UI routing before splash/menu scenes spawn runtime UI.
     configure_editor_gameplay_ui_target(world);
     world.insert_resource(FoundationSplashRuntimeSettings {
         enabled: true,
@@ -404,6 +413,7 @@ fn open_initial_scene(world: &mut World) {
     });
 
     let commands = editor_play_scene_commands(world);
+    // Rebuild the scene stack from the editor's current file each time Play starts.
     world.write_message(SceneCommand::Clear);
     for command in commands {
         world.write_message(command);
@@ -416,9 +426,12 @@ fn mark_editor_runtime_scene_entity(
     mut commands: Commands,
     mut cameras: Query<&mut Camera>,
 ) {
-    let entity = trigger.event_target();
-    commands.entity(entity).insert(jackdaw::EditorHidden);
-    if let Ok(mut camera) = cameras.get_mut(entity) {
+    let runtime_scene_entity = trigger.event_target();
+    // Runtime entities are hidden from the editor hierarchy but still render in Play.
+    commands
+        .entity(runtime_scene_entity)
+        .insert(jackdaw::EditorHidden);
+    if let Ok(mut camera) = cameras.get_mut(runtime_scene_entity) {
         camera.is_active = false;
     }
 }
@@ -440,20 +453,23 @@ fn target_editor_open_scene_ui_roots_to_viewport(
         .and_then(|viewport| viewport.camera)
         .or_else(|| cameras.iter().next());
 
-    for (root, child_of) in &roots {
-        if viewport_parent
-            .is_some_and(|viewport_parent| child_of.map(|parent| parent.0) == Some(viewport_parent))
-        {
+    for (ui_root_entity, child_link) in &roots {
+        if viewport_parent.is_some_and(|viewport_parent| {
+            child_link.map(|parent_link| parent_link.0) == Some(viewport_parent)
+        }) {
             // Earlier builds parented edit-mode UI roots under the editor viewport.
             // Jackdaw treats viewport descendants as editor-owned, so scene-open
             // cleanup can miss those roots and leave stale UI rendered in the
             // viewport after switching .jsn files. Remove any such legacy roots.
-            commands.entity(root).despawn();
+            commands.entity(ui_root_entity).despawn();
             continue;
         }
 
         if let Some(target_camera) = target_camera {
-            commands.entity(root).insert(UiTargetCamera(target_camera));
+            // Edit-mode UI roots target the viewport camera when they are not parented.
+            commands
+                .entity(ui_root_entity)
+                .insert(UiTargetCamera(target_camera));
         }
     }
 }
@@ -470,8 +486,14 @@ fn target_editor_authored_gameplay_ui_roots(
         .and_then(|viewport| viewport.ui_node);
 
     if let Some(viewport_parent) = viewport_parent {
-        for (root, child_of) in &roots {
-            safely_parent_ui_root_to_viewport(&mut commands, root, child_of, viewport_parent);
+        // Parent runtime UI into the viewport node when Jackdaw exposes one.
+        for (ui_root_entity, child_link) in &roots {
+            safely_parent_ui_root_to_viewport(
+                &mut commands,
+                ui_root_entity,
+                child_link,
+                viewport_parent,
+            );
         }
         return;
     }
@@ -484,29 +506,37 @@ fn target_editor_authored_gameplay_ui_roots(
         return;
     };
 
-    for (root, _) in &roots {
-        commands.entity(root).insert(UiTargetCamera(target_camera));
+    for (ui_root_entity, _) in &roots {
+        // Fall back to camera targeting when there is no viewport UI parent.
+        commands
+            .entity(ui_root_entity)
+            .insert(UiTargetCamera(target_camera));
     }
 }
 
 fn safely_parent_ui_root_to_viewport(
     commands: &mut Commands,
-    root: Entity,
-    current_parent: Option<&ChildOf>,
-    viewport_parent: Entity,
+    ui_root_entity: Entity,
+    current_parent_link: Option<&ChildOf>,
+    viewport_parent_entity: Entity,
 ) {
-    if root == viewport_parent || current_parent.map(|parent| parent.0) == Some(viewport_parent) {
+    let is_already_viewport_child =
+        current_parent_link.map(|parent_link| parent_link.0) == Some(viewport_parent_entity);
+    if ui_root_entity == viewport_parent_entity || is_already_viewport_child {
         return;
     }
 
     commands.queue(move |world: &mut World| {
-        if world.get_entity(root).is_err() || world.get_entity(viewport_parent).is_err() {
+        if world.get_entity(ui_root_entity).is_err()
+            || world.get_entity(viewport_parent_entity).is_err()
+        {
             return;
         }
 
-        if let Ok(mut root_entity) = world.get_entity_mut(root) {
+        if let Ok(mut root_entity) = world.get_entity_mut(ui_root_entity) {
+            // Viewport parenting clips authored UI to the editor play surface.
             root_entity.remove::<UiTargetCamera>();
-            root_entity.insert(ChildOf(viewport_parent));
+            root_entity.insert(ChildOf(viewport_parent_entity));
         }
     });
 }
@@ -530,6 +560,7 @@ fn configure_editor_gameplay_ui_target(world: &mut World) {
     });
 
     if let Some(viewport_parent) = viewport_parent {
+        // Clip the viewport parent so gameplay UI cannot spill into editor chrome.
         if let Some(mut node) = world.get_mut::<Node>(viewport_parent) {
             node.overflow = Overflow::clip();
         }
@@ -556,7 +587,9 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
     let current_scene = editor_current_scene_asset_path(world);
 
     match current_scene.as_deref() {
+        // No current scene means Play starts from the normal standalone startup sequence.
         None | Some(SPLASH_BACKGROUND_SCENE) => initial_scene_commands().into_iter().collect(),
+        // Splash scenes need the persistent background below the selected overlay.
         Some(splash_scene @ (PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE)) => vec![
             SceneCommand::open_with_options(
                 SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
@@ -571,6 +604,7 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
                     .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
             ),
         ],
+        // Any other open scene plays directly so authors can test the current file.
         Some(scene_path) => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
             scene_path,
         ))],
@@ -579,21 +613,27 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
 
 #[cfg(feature = "editor")]
 fn editor_current_scene_asset_path(world: &World) -> Option<String> {
-    let raw_path = world
+    let raw_scene_file_path = world
         .get_resource::<jackdaw::scene_io::SceneFilePath>()
         .and_then(|scene_file| scene_file.path.as_deref())?;
-    let asset_root = std::env::current_dir().unwrap_or_default().join("assets");
-    scene_asset_path_from_path(raw_path, &asset_root)
+    let asset_directory_name = "assets";
+    let asset_root = std::env::current_dir()
+        .unwrap_or_default()
+        .join(asset_directory_name);
+    scene_asset_path_from_path(raw_scene_file_path, &asset_root)
 }
 
 #[cfg(feature = "editor")]
-fn scene_asset_path_from_path(path: &str, asset_root: &std::path::Path) -> Option<String> {
-    let trimmed = path.trim();
-    if trimmed.is_empty() {
+fn scene_asset_path_from_path(
+    scene_file_path: &str,
+    asset_root: &std::path::Path,
+) -> Option<String> {
+    let trimmed_scene_file_path = scene_file_path.trim();
+    if trimmed_scene_file_path.is_empty() {
         return None;
     }
 
-    let scene_path = std::path::Path::new(trimmed);
+    let scene_path = std::path::Path::new(trimmed_scene_file_path);
     let relative = scene_path
         .strip_prefix(asset_root)
         .ok()
@@ -610,8 +650,8 @@ fn scene_asset_path_from_path(path: &str, asset_root: &std::path::Path) -> Optio
 }
 
 #[cfg(feature = "editor")]
-fn editor_scene_key(path: &str) -> &'static str {
-    match path {
+fn editor_scene_key(scene_asset_path: &str) -> &'static str {
+    match scene_asset_path {
         SPLASH_BACKGROUND_SCENE => "splash-background",
         PIXEL_PERFECT_SPLASH_SCENE => "pixel-perfect-splash",
         BEVY_SPLASH_SCENE => "bevy-splash",
@@ -643,21 +683,27 @@ fn clear_scene_stack(world: &mut World) {
 #[cfg(feature = "editor")]
 fn despawn_editor_runtime_scene_entities(world: &mut World) {
     let mut owned_entities = world.query_filtered::<(Entity, Option<&ChildOf>), With<SceneOwner>>();
-    let owned = owned_entities
+    let owned_scene_entities = owned_entities
         .iter(world)
-        .map(|(entity, parent)| (entity, parent.map(|parent| parent.0)))
+        .map(|(owned_entity, parent_link)| {
+            let parent_entity = parent_link.map(|parent_link| parent_link.0);
+            (owned_entity, parent_entity)
+        })
         .collect::<Vec<_>>();
-    let owned_set = owned
+    let owned_scene_entity_set = owned_scene_entities
         .iter()
-        .map(|(entity, _)| *entity)
+        .map(|(owned_entity, _)| *owned_entity)
         .collect::<std::collections::HashSet<_>>();
 
-    for (entity, parent) in owned {
-        if parent.is_some_and(|parent| owned_set.contains(&parent)) {
+    for (owned_entity, parent_entity) in owned_scene_entities {
+        // Despawn only roots so hierarchy cleanup removes runtime children once.
+        if parent_entity
+            .is_some_and(|parent_entity| owned_scene_entity_set.contains(&parent_entity))
+        {
             continue;
         }
-        if let Ok(entity) = world.get_entity_mut(entity) {
-            entity.despawn();
+        if let Ok(owned_entity_mut) = world.get_entity_mut(owned_entity) {
+            owned_entity_mut.despawn();
         }
     }
 }
@@ -680,6 +726,7 @@ fn target_editor_runtime_cameras_to_viewport(
     )>,
 ) {
     let viewport_target = {
+        // Capture the editor viewport target before mutably iterating runtime cameras.
         let viewport_cameras = cameras.p0();
         active_viewport
             .as_deref()
@@ -688,26 +735,32 @@ fn target_editor_runtime_cameras_to_viewport(
             .or_else(|| viewport_cameras.iter().next())
             .map(|(_, camera, target)| (target.clone(), camera.order))
     };
-    let Some((target, order)) = viewport_target else {
+    let Some((viewport_render_target, viewport_camera_order)) = viewport_target else {
         return;
     };
 
     let mut has_runtime_camera = false;
     {
         let mut runtime_cameras = cameras.p2();
-        for (index, (entity, mut camera, render_target)) in runtime_cameras.iter_mut().enumerate() {
+        for (runtime_camera_index, (camera_entity, mut camera, render_target)) in
+            runtime_cameras.iter_mut().enumerate()
+        {
+            // Runtime cameras borrow the viewport target and disable the editor camera.
             has_runtime_camera = true;
-            camera.order = order + index as isize;
-            camera.is_active = index == 0 && render_target.is_some();
+            camera.order = viewport_camera_order + runtime_camera_index as isize;
+            camera.is_active = runtime_camera_index == 0 && render_target.is_some();
             if let Some(mut render_target) = render_target {
-                *render_target = target.clone();
+                *render_target = viewport_render_target.clone();
             } else {
-                commands.entity(entity).insert(target.clone());
+                commands
+                    .entity(camera_entity)
+                    .insert(viewport_render_target.clone());
             }
         }
     }
 
     for mut viewport_camera in &mut cameras.p1() {
+        // Reactivate editor viewport cameras when no runtime scene camera is available.
         viewport_camera.is_active = !has_runtime_camera;
     }
 }
@@ -726,16 +779,19 @@ fn spawn_requested_jackdaw_scenes(
     mut load_requests: MessageReader<SceneLoadRequested>,
 ) {
     for request in load_requests.read() {
-        let SceneSource::JsnLevel { path } = &request.source else {
+        let SceneSource::JsnLevel {
+            path: scene_asset_path,
+        } = &request.source
+        else {
             continue;
         };
 
-        commands.spawn((
-            JackdawSceneRoot(asset_server.load(path.clone())),
-            SceneOwner {
-                scene_id: request.scene_id,
-            },
-        ));
+        // Standalone runtime can load Jackdaw scenes directly through the asset server.
+        let scene_handle = asset_server.load(scene_asset_path.clone());
+        let scene_owner = SceneOwner {
+            scene_id: request.scene_id,
+        };
+        commands.spawn((JackdawSceneRoot(scene_handle), scene_owner));
     }
 }
 
@@ -745,21 +801,25 @@ fn spawn_requested_jackdaw_scenes(
     mut load_requests: MessageReader<SceneLoadRequested>,
 ) {
     for request in load_requests.read() {
-        let SceneSource::JsnLevel { path } = &request.source else {
+        let SceneSource::JsnLevel {
+            path: scene_asset_path,
+        } = &request.source
+        else {
             continue;
         };
 
         let scene_id = request.scene_id;
-        let path = path.clone();
+        let scene_asset_path = scene_asset_path.clone();
         info!(
-            "Editor Play loading scene-stack scene `{path}` for scene {}",
+            "Editor Play loading scene-stack scene `{scene_asset_path}` for scene {}",
             scene_id.0
         );
         commands.queue(move |world: &mut World| {
+            // Editor Play loads `.jsn` manually so runtime entities can be tagged immediately.
             let scene_path = std::env::current_dir()
                 .unwrap_or_default()
                 .join("assets")
-                .join(&path);
+                .join(&scene_asset_path);
             let Ok(json) = std::fs::read_to_string(&scene_path) else {
                 warn!(
                     "Failed to read scene stack .jsn scene {}",
@@ -778,47 +838,58 @@ fn spawn_requested_jackdaw_scenes(
             let parent_path = scene_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new(""));
+            // Inline assets are loaded relative to the scene file being played.
             let local_assets =
                 jackdaw::scene_io::load_inline_assets(world, &jsn.assets, parent_path);
-            let original_parents = jsn
+            let original_parent_indices = jsn
                 .scene
                 .iter()
-                .map(|entity| entity.parent)
+                .map(|scene_entity| scene_entity.parent)
                 .collect::<Vec<_>>();
             let mut root_scene = jsn.scene.clone();
-            for entity in &mut root_scene {
-                entity.parent = None;
+            for scene_entity in &mut root_scene {
+                // Load roots first so scene ownership can be applied before parenting is restored.
+                scene_entity.parent = None;
             }
 
-            let spawned = jackdaw::scene_io::load_scene_from_jsn(
+            let spawned_entities = jackdaw::scene_io::load_scene_from_jsn(
                 world,
                 &root_scene,
                 parent_path,
                 &local_assets,
             );
             info!(
-                "Editor Play spawned {} entities for scene-stack scene `{path}`",
-                spawned.len()
+                "Editor Play spawned {} entities for scene-stack scene `{scene_asset_path}`",
+                spawned_entities.len()
             );
-            for entity in spawned.iter().copied() {
-                if let Ok(mut entity) = world.get_entity_mut(entity) {
-                    entity.insert((SceneOwner { scene_id }, jackdaw::EditorHidden));
-                    if let Some(mut camera) = entity.get_mut::<Camera>() {
+            for spawned_entity in spawned_entities.iter().copied() {
+                // Tag every spawned entity before parent links are restored.
+                if let Ok(mut spawned_entity_mut) = world.get_entity_mut(spawned_entity) {
+                    let scene_owner = SceneOwner { scene_id };
+                    spawned_entity_mut.insert((scene_owner, jackdaw::EditorHidden));
+                    if let Some(mut camera) = spawned_entity_mut.get_mut::<Camera>() {
                         camera.is_active = false;
                     }
                 }
             }
-            for (child_index, parent_index) in original_parents.into_iter().enumerate() {
-                let Some(parent_index) = parent_index else {
+            for (child_scene_index, parent_scene_index) in
+                original_parent_indices.into_iter().enumerate()
+            {
+                // Rebuild authored hierarchy after ownership and editor-hidden tags are applied.
+                let Some(parent_scene_index) = parent_scene_index else {
                     continue;
                 };
-                let (Some(&child), Some(&parent)) =
-                    (spawned.get(child_index), spawned.get(parent_index))
-                else {
+                let (Some(&child_entity), Some(&parent_entity)) = (
+                    spawned_entities.get(child_scene_index),
+                    spawned_entities.get(parent_scene_index),
+                ) else {
                     continue;
                 };
-                if world.get_entity(child).is_ok() && world.get_entity(parent).is_ok() {
-                    world.entity_mut(child).insert(ChildOf(parent));
+                if world.get_entity(child_entity).is_ok() && world.get_entity(parent_entity).is_ok()
+                {
+                    world
+                        .entity_mut(child_entity)
+                        .insert(ChildOf(parent_entity));
                 }
             }
         });
@@ -835,11 +906,15 @@ type GameplayUiRootQuery<'w, 's> = Query<
 fn detach_scene_stack_ui_roots(
     mut commands: Commands,
     roots: GameplayUiRootQuery,
-    owners: Query<&SceneOwner>,
+    scene_owners: Query<&SceneOwner>,
 ) {
-    for (root, child_of) in &roots {
-        if let Ok(owner) = owners.get(child_of.0) {
-            commands.entity(root).insert(*owner).remove::<ChildOf>();
+    for (ui_root_entity, child_link) in &roots {
+        if let Ok(scene_owner) = scene_owners.get(child_link.0) {
+            // Detach scene UI roots so Bevy UI treats them as top-level runtime UI.
+            commands
+                .entity(ui_root_entity)
+                .insert(*scene_owner)
+                .remove::<ChildOf>();
         }
     }
 }
@@ -858,11 +933,14 @@ fn update_scene_stack_ui_root_z_indices(
     mut commands: Commands,
     roots: SceneStackUiRootZIndexQuery,
 ) {
-    for (root, owner, has_global_z_index) in &roots {
+    for (ui_root_entity, scene_owner, has_global_z_index) in &roots {
         if !has_global_z_index {
+            // Space UI layers by scene ID so later stack entries render above earlier ones.
+            let z_index_spacing = 10;
+            let root_z_index = scene_owner.scene_id.0.saturating_mul(z_index_spacing) as i32;
             commands
-                .entity(root)
-                .insert(GlobalZIndex(owner.scene_id.0.saturating_mul(10) as i32));
+                .entity(ui_root_entity)
+                .insert(GlobalZIndex(root_z_index));
         }
     }
 }
@@ -876,17 +954,18 @@ fn complete_authored_ui_text_components(
         Without<FoundationGeneratedMenuUi>,
     >,
 ) {
-    for (entity, scene_owner) in &ui_nodes {
+    for (ui_node_entity, scene_owner) in &ui_nodes {
+        // Jackdaw-authored UI nodes should not keep transform components at runtime.
         if !should_process_runtime_scene_entity(scene_owner) {
             continue;
         }
         commands
-            .entity(entity)
+            .entity(ui_node_entity)
             .remove::<(Transform, GlobalTransform)>();
     }
 
     let mut parents_to_rebuild = std::collections::HashSet::new();
-    for (entity, parent, scene_owner) in &texts {
+    for (text_entity, parent_link, scene_owner) in &texts {
         if !should_process_runtime_scene_entity(scene_owner) {
             continue;
         }
@@ -894,10 +973,10 @@ fn complete_authored_ui_text_components(
         // bypass Bevy's typed `Text` required-components path. Add the UI text
         // measure/layout components that `commands.spawn(Text::new(...))` would
         // normally provide, while preserving the authored Text/TextFont/TextColor.
-        if let Some(parent) = parent {
-            parents_to_rebuild.insert(parent.0);
+        if let Some(parent_link) = parent_link {
+            parents_to_rebuild.insert(parent_link.0);
         }
-        commands.entity(entity).insert((
+        commands.entity(text_entity).insert((
             TemplateUiTextCompleted,
             Node::default(),
             TextLayout::new_with_justify(Justify::Center),
@@ -910,34 +989,39 @@ fn complete_authored_ui_text_components(
         ));
     }
 
-    for parent in parents_to_rebuild {
-        let mut children = child_links
+    for parent_entity in parents_to_rebuild {
+        // Rebuild child order from authored metadata so UI layout is deterministic.
+        let mut ordered_children = child_links
             .iter()
-            .filter_map(|(child, child_of, order)| {
-                (child_of.0 == parent).then_some((child, order.map(|order| order.order)))
+            .filter_map(|(child_entity, child_link, authored_order)| {
+                let child_order = authored_order.map(|authored_order| authored_order.order);
+                (child_link.0 == parent_entity).then_some((child_entity, child_order))
             })
             .collect::<Vec<_>>();
-        children.sort_by_key(|(child, order)| (order.unwrap_or(u32::MAX), child.index_u32()));
-        let children = children
+        ordered_children.sort_by_key(|(child_entity, child_order)| {
+            (child_order.unwrap_or(u32::MAX), child_entity.index_u32())
+        });
+        let children = ordered_children
             .into_iter()
-            .map(|(child, _)| child)
+            .map(|(child_entity, _)| child_entity)
             .collect::<Vec<_>>();
-        safe_replace_children(&mut commands, parent, children);
+        safe_replace_children(&mut commands, parent_entity, children);
     }
 }
 
-fn safe_replace_children(commands: &mut Commands, parent: Entity, children: Vec<Entity>) {
+fn safe_replace_children(commands: &mut Commands, parent_entity: Entity, children: Vec<Entity>) {
     commands.queue(move |world: &mut World| {
-        if world.get_entity(parent).is_err() {
+        if world.get_entity(parent_entity).is_err() {
             return;
         }
 
+        // Discard children that were despawned while the replacement command was queued.
         let existing_children = children
             .into_iter()
-            .filter(|child| world.get_entity(*child).is_ok())
+            .filter(|child_entity| world.get_entity(*child_entity).is_ok())
             .collect::<Vec<_>>();
-        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
-            parent_entity.replace_children(&existing_children);
+        if let Ok(mut parent_entity_mut) = world.get_entity_mut(parent_entity) {
+            parent_entity_mut.replace_children(&existing_children);
         }
     });
 }
@@ -954,27 +1038,30 @@ fn initialize_fullscreen_backgrounds(
         }
 
         let ui_root = if has_authored_root {
+            // Authored background roots already contain the UI node we need to target.
             background_entity
         } else {
+            // Generate a fullscreen UI root when the scene only authored a marker entity.
+            let root_edge_offset = Val::Px(0.0);
+            let root_size = Val::Percent(100.0);
+            let background_color = Color::srgb(background.red, background.green, background.blue);
+            let background_z_index = GlobalZIndex(-1000);
+
             let ui_root = commands
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        left: Val::Px(0.0),
-                        right: Val::Px(0.0),
-                        top: Val::Px(0.0),
-                        bottom: Val::Px(0.0),
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        left: root_edge_offset,
+                        right: root_edge_offset,
+                        top: root_edge_offset,
+                        bottom: root_edge_offset,
+                        width: root_size,
+                        height: root_size,
                         overflow: Overflow::clip(),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(
-                        background.red,
-                        background.green,
-                        background.blue,
-                    )),
-                    GlobalZIndex(-1000),
+                    BackgroundColor(background_color),
+                    background_z_index,
                     GeneratedFullscreenBackground {
                         source: background_entity,
                     },
@@ -989,6 +1076,7 @@ fn initialize_fullscreen_backgrounds(
             ui_root
         };
 
+        // Attach or target the root after it exists so editor and standalone paths share code.
         attach_gameplay_ui_root(
             &mut commands,
             ui_root,
@@ -1005,6 +1093,7 @@ fn cleanup_orphaned_fullscreen_backgrounds(
 ) {
     for (generated_entity, generated_background) in &generated_backgrounds {
         if background_sources.get(generated_background.source).is_err() {
+            // Remove generated UI once its authored marker source has been despawned.
             commands.entity(generated_entity).despawn();
         }
     }
@@ -1016,6 +1105,7 @@ fn initialize_landing_pages(
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
     ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
+    // Cache target resources once so every landing page uses the same viewport routing.
     let ui_target_camera = ui_target_camera.as_ref().map(|target| target.0);
     let ui_parent = ui_parent.as_ref().map(|parent| parent.0);
     for (landing_entity, scene_owner) in &landing_pages {
@@ -1042,6 +1132,7 @@ fn advance_landing_pages(
     }
 
     for (landing_entity, landing_page) in &landing_pages {
+        // Remove the runtime marker before clearing so repeated input cannot double-open scenes.
         commands
             .entity(landing_entity)
             .remove::<TemplateLandingPageRuntime>();
@@ -1057,6 +1148,7 @@ fn initialize_main_menus(
     ui_target_camera: Option<Res<FoundationSplashUiTargetCamera>>,
     ui_parent: Option<Res<FoundationSplashUiParent>>,
 ) {
+    // Cache target resources once so every main menu uses the same viewport routing.
     let ui_target_camera = ui_target_camera.as_ref().map(|target| target.0);
     let ui_parent = ui_parent.as_ref().map(|parent| parent.0);
     for (menu_entity, scene_owner) in &menus {
@@ -1069,11 +1161,15 @@ fn initialize_main_menus(
 
 #[allow(dead_code)]
 fn update_main_menu_button_interactions(mut buttons: MenuButtonInteractionQuery) {
+    let pressed_button_color = Color::srgb(0.45, 0.50, 0.85);
+    let hovered_button_color = Color::srgb(0.28, 0.32, 0.62);
+    let normal_button_color = Color::srgb(0.12, 0.14, 0.25);
+
     for (interaction, mut background) in &mut buttons {
         background.0 = match *interaction {
-            Interaction::Pressed => Color::srgb(0.45, 0.50, 0.85),
-            Interaction::Hovered => Color::srgb(0.28, 0.32, 0.62),
-            Interaction::None => Color::srgb(0.12, 0.14, 0.25),
+            Interaction::Pressed => pressed_button_color,
+            Interaction::Hovered => hovered_button_color,
+            Interaction::None => normal_button_color,
         };
     }
 }
@@ -1140,9 +1236,9 @@ pub struct SpinningCube {
 }
 
 fn spin_cube(time: Res<Time>, mut cubes: Query<(&SpinningCube, &mut Transform)>) {
-    let dt = time.delta_secs();
+    let delta_seconds = time.delta_secs();
     for (cube, mut transform) in &mut cubes {
-        transform.rotate_y(cube.speed * dt);
+        transform.rotate_y(cube.speed * delta_seconds);
     }
 }
 
