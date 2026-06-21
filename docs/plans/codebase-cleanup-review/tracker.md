@@ -253,3 +253,4 @@
 - `2026-06-21`: User confirmed all features are still working correctly after review/refactor.
 - `2026-06-21`: Added `docs/scene-system.md` scene-system instruction manual after user confirmation.
 - `2026-06-21`: `scripts/doc-project.cmd` and `scripts/validate-project.cmd` passed after adding the scene-system manual.
+- `2026-06-21`: User chose to remove the older `docs/foundation-scene-stack.md` document so `docs/scene-system.md` is the single canonical scene-system guide.
