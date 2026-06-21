@@ -5,20 +5,20 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/codebase-cleanup-review`
-- Overall status: `In progress`
+- Overall status: `Awaiting user feature confirmation`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation in progress with gpt-5.4`
+- Current handoff state: `Implementation checkpoint complete; waiting for user smoke confirmation before scene-system manual`
 - Created: `2026-06-21`
 - Last updated: `2026-06-21`
 
 ## Branch And Push State
 - Planned branch: `feature/codebase-cleanup-review`
-- Current branch during planning: `feature/codebase-cleanup-review`
-- Branch base: Created from `dev` during planning.
+- Current branch during implementation: `feature/codebase-cleanup-review`
+- Branch base: Created from `dev` during planning; `dev` is an ancestor of `HEAD`.
 - Remote `origin`: Configured (`https://github.com/JonLangfordUK/Foundation.git`).
-- Push status: Pending; no implementation commit has been made yet.
+- Push status: Planning commit `31a0d9c` pushed. Cleanup checkpoint commit pending.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -33,7 +33,7 @@
   - `scripts/validate-project.cmd`
 
 ## Phase 0: Planning Approval
-**Status:** In progress  
+**Status:** Complete  
 **Goal:** Confirm scope, feature classification, and implementation expectations before code edits.
 
 ### Tasks
@@ -56,143 +56,170 @@
 - Tests: Not required for planning-only document creation
 - Build: Not required for planning-only document creation
 - Documentation generation: Not required for planning-only document creation
-- Full validation wrapper: Not required yet
-- User confirmation: Pending
+- Full validation wrapper: Not required for planning-only document creation
+- User confirmation: Complete
 
 ### Notes
-- Implementation must not begin until user approves this plan/tracker.
+- Planning commit `31a0d9c` was pushed to `origin/feature/codebase-cleanup-review`.
 
 ## Phase 1: Baseline Audit And Validation
-**Status:** In progress  
+**Status:** Complete  
 **Goal:** Capture the current validation state and identify concrete cleanup/robustness findings before making fixes.
 
 ### Tasks
 - [x] Verify branch state and read required implementation skills.
   - Status: Complete
   - Notes: Read feature tracker/update, plan docs, Rust workspace, Rust coding standards, and Gitflow skills. Active branch is `feature/codebase-cleanup-review`; `dev` is an ancestor of `HEAD`.
-- [ ] Run baseline validation wrappers and record results.
-  - Status: Planned
-  - Notes: Include format, lint, tests, build, docs, and full validation when practical.
-- [ ] Audit `crates/foundation-library` source, tests, docs, and manifest.
-  - Status: Planned
-  - Notes: Review scene stack, menu, splash screen, prelude, reflection registration, and public API documentation.
-- [ ] Audit `games/template-game` source, tests, docs, manifests, and launcher config.
-  - Status: Planned
-  - Notes: Review standalone/editor flows, cfg boundaries, UI targeting, asset paths, component registrations, and tests.
-- [ ] Audit `games/template-game/assets/*.jsn` consistency.
-  - Status: Planned
-  - Notes: Check component paths, scene paths, parent/order metadata, UI roots, and flow consistency.
-- [ ] Record findings and proposed fix tasks in this tracker.
-  - Status: Planned
-  - Notes: Categorize findings by correctness, robustness, maintainability, docs, tests, assets, and config.
-- [ ] Add scene-system instruction manual requirement to implementation scope.
-  - Status: Planned after user confirmation
+- [x] Run baseline validation wrappers and record results.
+  - Status: Complete
+  - Notes: `scripts/format-project.cmd`, `scripts/lint-project.cmd`, `scripts/test-project.cmd`, `scripts/compile-project.cmd`, `scripts/doc-project.cmd`, and `scripts/validate-project.cmd` passed during this work session.
+- [x] Audit `crates/foundation-library` source, tests, docs, and manifest.
+  - Status: Complete
+  - Notes: Reviewed scene stack, menu, splash screen, prelude, reflection registration, and public API documentation. Existing validation and tests passed; no FoundationLibrary code changes were required in this pass.
+- [x] Audit `games/template-game` source, tests, docs, manifests, and launcher config.
+  - Status: Complete
+  - Notes: Found Jackdaw run configuration targeted `template_game` while Cargo metadata names the binary `template-game`; fixed `jackdaw.toml`. Removed an unnecessary `#[allow(dead_code)]` from a system that is registered by the plugin.
+- [x] Audit `games/template-game/assets/*.jsn` consistency.
+  - Status: Complete
+  - Notes: Added tests proving TemplateGame scene constants point at existing asset files and authored scene assets reference expected next/menu/pause scene paths.
+- [x] Record findings and proposed fix tasks in this tracker.
+  - Status: Complete
+  - Notes: Findings and fixes are recorded under Issues / Findings Log and Progress Log.
+- [x] Add scene-system instruction manual requirement to implementation scope.
+  - Status: Complete, gated
   - Notes: User requested a clear, concise, illustrative document explaining the scene system, standalone runtime, editor edit mode, editor play/game mode, Jackdaw integration, and recommended usage. User clarified that this manual must only be written after they confirm all features still work following the code review/refactor.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- User confirmation: Not required yet
+- Format: Passed (`scripts/format-project.cmd`)
+- Lint: Passed (`scripts/lint-project.cmd`)
+- Tests: Passed (`scripts/test-project.cmd`)
+- Build: Passed (`scripts/compile-project.cmd`)
+- Documentation generation: Passed (`scripts/doc-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Not required for baseline audit
 
 ### Notes
-- Baseline failures should be recorded before fixes are made.
+- Baseline validation passed. No pre-existing validation blockers were found.
 
 ## Phase 2: FoundationLibrary Cleanup And Robustness Fixes
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Apply focused fixes to `foundation-library` based on the Phase 1 audit.
 
 ### Tasks
-- [ ] Fix scene-stack issues or documentation gaps.
-  - Status: Planned
-  - Notes: Scope depends on Phase 1 findings; preserve lifecycle semantics unless a defect is identified.
-- [ ] Fix menu/pause/generated UI issues or documentation gaps.
-  - Status: Planned
-  - Notes: Include tests for action, ownership, or edge-case changes where practical.
-- [ ] Fix splash-screen issues or documentation gaps.
-  - Status: Planned
-  - Notes: Include tests for timing, cleanup, or transition semantics where practical.
-- [ ] Review public prelude and plugin registration consistency.
-  - Status: Planned
-  - Notes: Update Rustdoc for changed public APIs.
+- [x] Fix scene-stack issues or documentation gaps.
+  - Status: Complete
+  - Notes: Audit found existing scene-stack tests and docs sufficient for this pass; no behavior changes required.
+- [x] Fix menu/pause/generated UI issues or documentation gaps.
+  - Status: Complete
+  - Notes: Audit found existing menu tests and docs sufficient for this pass; no behavior changes required.
+- [x] Fix splash-screen issues or documentation gaps.
+  - Status: Complete
+  - Notes: Audit found existing splash-screen tests and docs sufficient for this pass; no behavior changes required.
+- [x] Review public prelude and plugin registration consistency.
+  - Status: Complete
+  - Notes: Prelude and plugin registration remain consistent with current public APIs.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending / Not required until phase end unless broad changes are made
-- User confirmation: Not required yet
+- Format: Passed (`scripts/format-project.cmd`)
+- Lint: Passed (`scripts/lint-project.cmd`)
+- Tests: Passed (`scripts/test-project.cmd`)
+- Build: Passed (`scripts/compile-project.cmd`)
+- Documentation generation: Passed (`scripts/doc-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Not required
 
 ### Notes
-- Commit completed FoundationLibrary task/fix checkpoints separately when practical.
+- No `foundation-library` source changes were needed in this checkpoint.
 
 ## Phase 3: TemplateGame Cleanup And Robustness Fixes
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Apply focused fixes to TemplateGame runtime/editor code, assets, tests, and config based on the Phase 1 audit.
 
 ### Tasks
-- [ ] Fix TemplateGame runtime/standalone issues or documentation gaps.
-  - Status: Planned
-  - Notes: Include startup scene flow, asset root handling, UI camera behavior, and game-specific systems.
-- [ ] Fix TemplateGame editor integration issues or documentation gaps.
-  - Status: Planned
-  - Notes: Include play-mode setup/cleanup, scene loading bridge, UI viewport routing, and cfg-gated tests.
-- [ ] Fix TemplateGame asset/config inconsistencies.
-  - Status: Planned
-  - Notes: Include `.jsn` scene path/component consistency, `.cargo/config.toml`, and `jackdaw.toml` if needed.
-- [ ] Add or update TemplateGame tests for changed behavior.
-  - Status: Planned
-  - Notes: Consider default and `editor` feature coverage.
+- [x] Fix TemplateGame runtime/standalone issues or documentation gaps.
+  - Status: Complete
+  - Notes: Removed unnecessary `#[allow(dead_code)]` from the registered main-menu interaction system. Existing standalone flow validation passed.
+- [x] Fix TemplateGame editor integration issues or documentation gaps.
+  - Status: Complete
+  - Notes: Fixed `games/template-game/jackdaw.toml` to target Cargo's `template-game` binary name. Existing editor-feature tests passed through `--all-features` validation.
+- [x] Fix TemplateGame asset/config inconsistencies.
+  - Status: Complete
+  - Notes: Added regression tests covering scene constant asset existence and authored asset scene-path references.
+- [x] Add or update TemplateGame tests for changed behavior.
+  - Status: Complete
+  - Notes: Added `scene_path_constants_match_existing_assets`, `jackdaw_run_config_targets_template_game_binary`, and `authored_scene_assets_reference_known_scene_paths` tests.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending / Not required until phase end unless broad changes are made
-- User confirmation: Not required yet
+- Format: Passed (`scripts/format-project.cmd`)
+- Lint: Passed (`scripts/lint-project.cmd`)
+- Tests: Passed (`scripts/test-project.cmd`)
+- Build: Passed (`scripts/compile-project.cmd`)
+- Documentation generation: Passed (`scripts/doc-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Not required
 
 ### Notes
-- Manual editor smoke testing may be needed if automated tests cannot cover play-mode behavior.
+- Manual editor smoke testing may still be useful because automated tests do not open the Jackdaw editor window.
 
-## Phase 4: Final Validation, Documentation, And Handoff
-**Status:** Planned  
-**Goal:** Prove the cleanup is complete, record evidence, and prepare for optional final review.
+## Phase 4: User Feature Confirmation And Scene-System Manual
+**Status:** Waiting for user  
+**Goal:** Let the user confirm all reviewed/refactored features still work, then write the deferred scene-system instruction manual.
 
 ### Tasks
-- [ ] Run full standard validation.
-  - Status: Planned
-  - Notes: Prefer `scripts/validate-project.cmd`; record individual command outcomes if run separately.
-- [ ] Generate documentation and verify public API docs.
-  - Status: Planned
-  - Notes: Use `scripts/doc-project.cmd`.
-- [ ] Record postponed work, waivers, and manual-verification gaps.
-  - Status: Planned
-  - Notes: Any accepted risk must be explicit.
-- [ ] Commit final phase and push checkpoints.
-  - Status: Planned
-  - Notes: Use required Gitflow commit message format and push to `origin` when available.
-- [ ] Offer optional `gpt-5.5` final sanity review.
-  - Status: Planned
-  - Notes: Review should focus on high-risk ECS/editor/asset interactions and validation evidence.
+- [ ] User confirms all features still work after the code review/refactor.
+  - Status: Pending user action
+  - Notes: The user explicitly requested that the scene-system manual be written only after this confirmation.
+- [ ] Write scene-system instruction manual under `docs/`.
+  - Status: Blocked by user confirmation
+  - Notes: Must explain what the scene system is, how it works with Jackdaw, standalone game behavior, editor edit-mode behavior, editor play/game-mode behavior, and best utilization guidance for new developers.
+- [ ] Validate documentation after the manual is written.
+  - Status: Pending
+  - Notes: Run formatting/validation as appropriate after documentation is added.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- User confirmation: Pending final acceptance or optional review decision
+- Format: Pending after manual
+- Lint: Pending after manual if Rust changes are made
+- Tests: Pending after manual if Rust changes are made
+- Build: Pending after manual if Rust changes are made
+- Documentation generation: Pending after manual
+- Full validation wrapper: Pending after manual
+- User confirmation: Pending
 
 ### Notes
-- Do not mark the feature complete until validation and documentation generation are recorded or a waiver is approved.
+- No manual has been written yet, per user instruction.
+
+## Phase 5: Final Validation, Commit, And Handoff
+**Status:** In progress  
+**Goal:** Prove the cleanup checkpoint is complete, record evidence, and prepare for the deferred documentation/manual checkpoint.
+
+### Tasks
+- [x] Run full standard validation.
+  - Status: Complete
+  - Notes: `scripts/validate-project.cmd` passed after cleanup changes.
+- [x] Generate documentation and verify public API docs.
+  - Status: Complete
+  - Notes: `scripts/doc-project.cmd` passed after cleanup changes.
+- [x] Record postponed work, waivers, and manual-verification gaps.
+  - Status: Complete
+  - Notes: Scene-system manual is intentionally gated until user confirms features still work after this review/refactor. Manual standalone/editor smoke checks are pending user confirmation.
+- [ ] Commit cleanup checkpoint and push.
+  - Status: In progress
+  - Notes: Planning commit `31a0d9c` was pushed. Cleanup commit pending.
+- [ ] Offer optional `gpt-5.5` final sanity review.
+  - Status: Planned
+  - Notes: Review should focus on high-risk ECS/editor/asset interactions and validation evidence after user feature confirmation and manual completion.
+
+### Validation
+- Format: Passed (`scripts/format-project.cmd`)
+- Lint: Passed (`scripts/lint-project.cmd`)
+- Tests: Passed (`scripts/test-project.cmd`)
+- Build: Passed (`scripts/compile-project.cmd`)
+- Documentation generation: Passed (`scripts/doc-project.cmd`)
+- Full validation wrapper: Passed (`scripts/validate-project.cmd`)
+- User confirmation: Pending feature smoke confirmation before writing scene-system manual
+
+### Notes
+- Do not mark the overall feature complete until the user confirms features still work, the deferred manual is written, and final validation is recorded.
 
 ## Implementation / Review Handoff Notes
 - Use `gpt-5.4` for implementation.
@@ -204,12 +231,18 @@
 - Use `gpt-5.5` only for planning or optional final sanity review.
 
 ## Postponed Work
-- None.
+- Scene-system instruction manual under `docs/`.
+  - Original location: Documentation expectation in `docs/plans/codebase-cleanup-review/plan.md`.
+  - New location/timing: Phase 4 of this tracker, after user confirms all features still work following review/refactor.
+  - Reason: User explicitly requested that the manual be written only after feature smoke confirmation.
+  - Impact: Documentation remains pending, but no code/manual work violates the user's sequencing requirement.
 
 ## Issues / Findings Log
 - User-approved scope update: Add an instruction-manual style scene-system document under `docs/` covering how the scene system works, standalone mode, editor edit mode, editor play/game mode, Jackdaw integration, and best practices, but only after the user confirms all features still work after review/refactor.
-- Planning note: Static scan found only test `expect(...)` calls in `crates/foundation-library/src/scene_stack.rs` and one `#[allow(dead_code)]` in `games/template-game/src/lib.rs`; review during Phase 1.
-- Planning note: TemplateGame assets contain component paths for Foundation and TemplateGame reflected components; audit consistency during Phase 1.
+- Finding: `games/template-game/jackdaw.toml` targeted `template_game`, while Cargo metadata names the binary `template-game`. Fixed the run config and added a regression test.
+- Finding: `games/template-game/src/lib.rs` carried an unnecessary `#[allow(dead_code)]` on a system registered by `TemplateGamePlugin`. Removed it.
+- Finding: TemplateGame scene constants and authored `.jsn` scene references were not directly tested. Added regression tests for asset existence and key scene-path references.
+- Static scan note: Remaining `expect(...)` calls are in tests only.
 
 ## Progress Log
 - `2026-06-21`: Created branch `feature/codebase-cleanup-review` from `dev` for planning and future implementation.
@@ -218,3 +251,5 @@
 - `2026-06-21`: Created plan and tracker. Awaiting user review/approval before implementation.
 - `2026-06-21`: User approved the plan and requested an additional scene-system instruction manual. Implementation started on `feature/codebase-cleanup-review`.
 - `2026-06-21`: User clarified the scene-system manual must only be written after they confirm all features still work following the code review/refactor. Plan/tracker updated accordingly.
+- `2026-06-21`: Committed and pushed planning documents as `31a0d9c`.
+- `2026-06-21`: Completed cleanup checkpoint: fixed TemplateGame Jackdaw run config, removed unnecessary allow attribute, added TemplateGame asset/config regression tests, and passed full validation.
