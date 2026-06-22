@@ -21,6 +21,7 @@ impl Plugin for FoundationAssetPickerPlugin {
                 handle_asset_picker_interactions,
                 refresh_asset_picker_previews_after_selection,
                 populate_added_asset_picker_previews,
+                sync_asset_picker_previews_from_value_labels,
             )
                 .chain(),
         );
@@ -429,6 +430,46 @@ fn populate_added_asset_picker_previews(
             preview.asset_path.as_deref(),
         );
     }
+}
+
+fn sync_asset_picker_previews_from_value_labels(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    value_labels: Query<(&FoundationAssetPickerValueLabel, &Text), Changed<Text>>,
+    mut previews: Query<(Entity, &mut FoundationAssetPickerPreview, Option<&Children>)>,
+) {
+    for (value_label, value_text) in &value_labels {
+        let selected_asset_path = selected_asset_path_from_label(value_text);
+        for (preview_entity, mut preview, preview_children) in &mut previews {
+            if preview.picker_id != value_label.picker_id {
+                continue;
+            }
+            if preview.asset_path == selected_asset_path {
+                continue;
+            }
+
+            // Settings windows can refresh labels from persisted settings after the
+            // picker row is spawned. Mirror that value so thumbnails are ready as
+            // soon as a window opens, not only after the user changes selection.
+            preview.asset_path.clone_from(&selected_asset_path);
+            rebuild_asset_picker_preview(
+                &mut commands,
+                &asset_server,
+                preview_entity,
+                preview_children,
+                preview.asset_path.as_deref(),
+            );
+        }
+    }
+}
+
+fn selected_asset_path_from_label(value_text: &Text) -> Option<String> {
+    let selected_asset_path = value_text.as_str();
+    if selected_asset_path == "None" {
+        return None;
+    }
+
+    non_empty_string(selected_asset_path)
 }
 
 fn rebuild_asset_picker_preview(
