@@ -149,7 +149,7 @@ Startup
 Pixel Perfect splash completes
   Stack: splash_bevy
 
-Bevy splash completes
+Bevy splash completes, or player presses Escape to skip
   Stack cleared, then landing_page opens
 
 Player presses any button
@@ -208,7 +208,7 @@ When Jackdaw enters `PlayState::Playing`, TemplateGame runs:
 1. `hide_editor_authored_scene_for_play`
 2. `open_initial_scene`
 
-TemplateGame hides the edit-mode authored UI roots so the player only sees runtime scene-stack copies. It also enables Foundation splash runtime and configures UI targeting for the active editor viewport.
+TemplateGame hides the edit-mode authored UI roots so the player only sees runtime scene-stack copies. It also enables Foundation splash runtime and configures UI targeting for the active editor viewport. Pressing Escape while a splash is active skips that splash to its configured completion scene.
 
 ### Choosing the first scene
 
