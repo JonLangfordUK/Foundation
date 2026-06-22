@@ -160,6 +160,19 @@
         },
         "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
+        },
+        "bevy_ui::ui_node::BackgroundColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 0.0,
+            "green": 0.0,
+            "red": 0.0
+          }
+        },
+        "template_game::TemplateFullscreenBackground": {
+          "blue": 0.0,
+          "green": 0.0,
+          "red": 0.0
         }
       }
     },
