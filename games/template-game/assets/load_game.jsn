@@ -155,12 +155,12 @@
         },
         "template_game::TemplateGameplayUiRoot": {},
         "bevy_ecs::name::Name": "Load Game UI Root",
-        "foundation_library::menu::FoundationCloseOnEscape": {},
-        "foundation_library::menu::FoundationPlaceholderMenu": {
+        "foundation_runtime_library::menu::FoundationCloseOnEscape": {},
+        "foundation_runtime_library::menu::FoundationPlaceholderMenu": {
           "title": "Load Game",
           "body": "Load game scene placeholder."
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
         }
       }

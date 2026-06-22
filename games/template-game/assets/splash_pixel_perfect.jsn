@@ -20,7 +20,7 @@
   "scene": [
     {
       "components": {
-        "foundation_library::splash_screen::FoundationSplashUiRoot": {},
+        "foundation_runtime_library::splash_screen::FoundationSplashUiRoot": {},
         "bevy_ecs::name::Name": "Pixel Perfect Splash UI Root",
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
@@ -147,7 +147,7 @@
             "Percent": 100.0
           }
         },
-        "foundation_library::splash_screen::FoundationSplashScreen": {
+        "foundation_runtime_library::splash_screen::FoundationSplashScreen": {
           "font_size": 72.0,
           "next_scene_path": "splash_bevy.jsn",
           "replace_current_scene": true,
@@ -158,7 +158,7 @@
             "hold_seconds": 2.0
           }
         },
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
         }
       }
@@ -184,8 +184,8 @@
         },
         "bevy_ui::widget::text::Text": "Pixel Perfect",
         "bevy_ecs::name::Name": "Pixel Perfect Splash Text",
-        "foundation_library::splash_screen::FoundationSplashText": {},
-        "foundation_library::menu::FoundationUiOrder": {
+        "foundation_runtime_library::splash_screen::FoundationSplashText": {},
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 1
         }
       }

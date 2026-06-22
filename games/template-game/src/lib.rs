@@ -11,7 +11,7 @@ use bevy::{
     text::{ComputedTextBlock, FontHinting, LineHeight, TextLayout, TextLayoutInfo},
     ui::{ContentSize, widget::TextNodeFlags},
 };
-use foundation_library::prelude::*;
+use foundation_runtime_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 /// Jackdaw scene path for the persistent startup background.
@@ -352,12 +352,27 @@ pub fn initial_scene_commands() -> [SceneCommand; 2] {
 }
 
 #[cfg(not(feature = "editor"))]
-fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
-    // Clear any stale stack entries before replaying the fixed startup sequence.
+fn open_initial_scene(
+    settings: Res<FoundationGameSettings>,
+    mut scene_commands: MessageWriter<SceneCommand>,
+) {
+    // Clear any stale stack entries before replaying the configured startup sequence.
     scene_commands.write(SceneCommand::Clear);
-    for command in initial_scene_commands() {
+    for command in standalone_startup_scene_commands(&settings) {
         scene_commands.write(command);
     }
+}
+
+#[cfg_attr(feature = "editor", allow(dead_code))]
+fn standalone_startup_scene_commands(settings: &FoundationGameSettings) -> Vec<SceneCommand> {
+    if let Some(startup_map_path) = settings.startup_map_path() {
+        // A configured startup map intentionally bypasses the example splash flow.
+        return vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+            startup_map_path,
+        ))];
+    }
+
+    initial_scene_commands().into_iter().collect()
 }
 
 #[cfg(feature = "editor")]
@@ -587,28 +602,61 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
     let current_scene = editor_current_scene_asset_path(world);
 
     match current_scene.as_deref() {
-        // No current scene means Play starts from the normal standalone startup sequence.
-        None | Some(SPLASH_BACKGROUND_SCENE) => initial_scene_commands().into_iter().collect(),
+        // No useful current scene means Play starts from the configured editor startup map.
+        None | Some(SPLASH_BACKGROUND_SCENE) => editor_default_startup_scene_commands(world),
         // Splash scenes need the persistent background below the selected overlay.
-        Some(splash_scene @ (PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE)) => vec![
-            SceneCommand::open_with_options(
-                SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
-                OpenSceneOptions::default()
-                    .with_key("splash-background")
-                    .with_presentation(ScenePresentation::FULLSCREEN),
-            ),
-            SceneCommand::open_with_options(
-                SceneSource::jsn_level(splash_scene),
-                OpenSceneOptions::default()
-                    .with_key(editor_scene_key(splash_scene))
-                    .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
-            ),
-        ],
+        Some(splash_scene @ (PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE)) => {
+            splash_scene_commands(splash_scene)
+        }
         // Any other open scene plays directly so authors can test the current file.
-        Some(scene_path) => vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
-            scene_path,
-        ))],
+        Some(scene_path) => direct_scene_commands(scene_path),
     }
+}
+
+#[cfg(feature = "editor")]
+fn editor_default_startup_scene_commands(world: &World) -> Vec<SceneCommand> {
+    if let Some(editor_startup_map_path) = world
+        .get_resource::<FoundationGameSettings>()
+        .and_then(|settings| settings.editor_startup_map_path())
+    {
+        // The editor startup map is only a fallback; an open authoring scene still wins.
+        return editor_configured_scene_commands(editor_startup_map_path);
+    }
+
+    initial_scene_commands().into_iter().collect()
+}
+
+#[cfg(feature = "editor")]
+fn editor_configured_scene_commands(scene_path: &str) -> Vec<SceneCommand> {
+    match scene_path {
+        PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE => splash_scene_commands(scene_path),
+        configured_scene_path => direct_scene_commands(configured_scene_path),
+    }
+}
+
+#[cfg(feature = "editor")]
+fn splash_scene_commands(splash_scene_path: &str) -> Vec<SceneCommand> {
+    vec![
+        SceneCommand::open_with_options(
+            SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
+            OpenSceneOptions::default()
+                .with_key("splash-background")
+                .with_presentation(ScenePresentation::FULLSCREEN),
+        ),
+        SceneCommand::open_with_options(
+            SceneSource::jsn_level(splash_scene_path),
+            OpenSceneOptions::default()
+                .with_key(editor_scene_key(splash_scene_path))
+                .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
+        ),
+    ]
+}
+
+#[cfg(feature = "editor")]
+fn direct_scene_commands(scene_path: &str) -> Vec<SceneCommand> {
+    vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+        scene_path,
+    ))]
 }
 
 #[cfg(feature = "editor")]
@@ -1360,6 +1408,31 @@ mod tests {
     }
 
     #[test]
+    fn startup_map_setting_replaces_default_splash_flow() {
+        let settings = FoundationGameSettings {
+            startup_map: MAIN_MENU_SCENE.to_string(),
+            editor_startup_map: String::new(),
+        };
+
+        assert_eq!(
+            standalone_startup_scene_commands(&settings),
+            vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+                MAIN_MENU_SCENE
+            ))]
+        );
+    }
+
+    #[test]
+    fn missing_startup_map_setting_uses_default_splash_flow() {
+        let settings = FoundationGameSettings::default();
+
+        assert_eq!(
+            standalone_startup_scene_commands(&settings),
+            initial_scene_commands().into_iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn default_landing_page_leads_to_main_menu() {
         let landing_page = TemplateLandingPage::default();
         assert_eq!(landing_page.title, "Template Game");
@@ -1389,6 +1462,24 @@ mod tests {
         assert_eq!(
             scene_asset_path_from_path("D:/other/custom_scene.jsn", asset_root),
             Some("custom_scene.jsn".to_string())
+        );
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn editor_play_command_uses_editor_startup_map_when_no_scene_is_open() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(FoundationGameSettings {
+            startup_map: String::new(),
+            editor_startup_map: MAIN_MENU_SCENE.to_string(),
+        });
+
+        assert_eq!(
+            editor_play_scene_commands(app.world()),
+            vec![SceneCommand::clear_and_open(SceneSource::jsn_level(
+                MAIN_MENU_SCENE
+            ))]
         );
     }
 

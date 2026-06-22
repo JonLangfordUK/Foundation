@@ -5,7 +5,7 @@ use bevy::{
     image::{ImageAddressMode, ImagePlugin, ImageSamplerDescriptor},
     prelude::*,
 };
-use foundation_library::prelude::*;
+use foundation_runtime_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 fn main() -> AppExit {
@@ -21,9 +21,16 @@ fn main() -> AppExit {
         .to_string();
 
     let clear_color = Color::srgb(0.0, 0.0, 0.0);
+    let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let foundation_game_settings = FoundationGameSettings::load_from_project_root(project_root)
+        .unwrap_or_else(|error| {
+            warn!("Failed to load Foundation game settings: {error}");
+            FoundationGameSettings::default()
+        });
 
     App::new()
         .insert_resource(ClearColor(clear_color))
+        .insert_resource(foundation_game_settings)
         .set_error_handler(bevy::ecs::error::error)
         .add_plugins(
             DefaultPlugins
