@@ -28,7 +28,7 @@
 ## Branch And Working Tree State
 - Branch: `feature/credits-scene`
 - Branch base: Created from `dev` during planning on 2026-06-22; verified with `git merge-base --is-ancestor dev HEAD` before implementation.
-- Push status: Planning commit `3b64972` pushed to `origin/feature/credits-scene`; latest implementation commit pending push.
+- Push status: Planning commit `3b64972` and implementation commit `0039ff7` pushed to `origin/feature/credits-scene`.
 - Pre-existing working tree note: `games/template-game/.jsn/project.jsn` was modified before feature planning began and remains unrelated/uncommitted.
 
 ## Phase 1: Credits Data Model And Runtime Ownership
@@ -132,7 +132,7 @@
 - Preserved pre-existing unrelated changes in `games/template-game/.jsn/project.jsn` by not staging them.
 
 ## Phase 4: Validation, Documentation, And Commit Checkpoints
-**Status:** Complete pending implementation push  
+**Status:** Complete  
 **Goal:** Prove the feature is complete, documented, and ready for optional review.
 
 ### Tasks
@@ -158,8 +158,8 @@
   - Status: Complete
   - Notes: Passed on 2026-06-22.
 - [x] Commit completed tasks/phases and push to `origin` when available.
-  - Status: Complete pending push verification
-  - Notes: Implementation committed; push verification pending.
+  - Status: Complete
+  - Notes: Implementation committed as `0039ff7` and pushed to `origin/feature/credits-scene`.
 
 ### Validation
 - Format: Passed via `scripts/format-project.cmd` and `scripts/validate-project.cmd` on 2026-06-22
@@ -171,7 +171,7 @@
 - User confirmation: Received approval to proceed on 2026-06-22
 
 ### Notes
-- Implementation commit created; push verification pending.
+- Implementation commit `0039ff7` pushed to `origin/feature/credits-scene`.
 
 ## Implementation / Review Handoff Notes
 - Use `gpt-5.4` for implementation.
@@ -201,4 +201,4 @@
 - `2026-06-22`: Implemented reusable Foundation credits runtime, recursive JSON model, depth-based header sizing, TemplateGame credits assets, and main-menu Credits button.
 - `2026-06-22`: Focused validation passed: `cargo test -p foundation-runtime-library --all-features` and `cargo test -p template-game --all-features`.
 - `2026-06-22`: Full validation passed with `scripts/validate-project.cmd`; `scripts/format-project.cmd` also passed separately.
-- `2026-06-22`: Implementation committed; final tracker commit metadata update prepared before push.
+- `2026-06-22`: Implementation committed as `0039ff7` and pushed to `origin/feature/credits-scene`.
