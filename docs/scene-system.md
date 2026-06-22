@@ -124,8 +124,10 @@ main.rs
 `open_initial_scene` writes:
 
 1. `SceneCommand::Clear`
-2. Open `splash_background.jsn` as `FULLSCREEN`
-3. Open `splash_pixel_perfect.jsn` as `INPUT_BLOCKING_OVERLAY`
+2. Open `splash_pixel_perfect.jsn` as `FULLSCREEN`
+
+Each `.jsn` scene owns its own background choice. Splash scenes include their
+own black background so they are easy to preview directly in the editor.
 
 ### Loading `.jsn` scenes
 
@@ -142,12 +144,12 @@ Jackdaw Runtime loads the `.jsn` content through Bevy's asset system. Foundation
 
 ```text
 Startup
-  Stack: splash_background + splash_pixel_perfect
+  Stack: splash_pixel_perfect
 
 Pixel Perfect splash completes
-  Stack: splash_background + splash_bevy
+  Stack: splash_bevy
 
-Bevy splash completes
+Bevy splash completes, or player presses Escape to skip
   Stack cleared, then landing_page opens
 
 Player presses any button
@@ -206,7 +208,7 @@ When Jackdaw enters `PlayState::Playing`, TemplateGame runs:
 1. `hide_editor_authored_scene_for_play`
 2. `open_initial_scene`
 
-TemplateGame hides the edit-mode authored UI roots so the player only sees runtime scene-stack copies. It also enables Foundation splash runtime and configures UI targeting for the active editor viewport.
+TemplateGame hides the edit-mode authored UI roots so the player only sees runtime scene-stack copies. It also enables Foundation splash runtime and configures UI targeting for the active editor viewport. Pressing Escape while a splash is active skips that splash to its configured completion scene.
 
 ### Choosing the first scene
 
@@ -214,9 +216,8 @@ TemplateGame hides the edit-mode authored UI roots so the player only sees runti
 
 | Open editor scene | Play-mode behavior |
 | --- | --- |
-| No scene or `splash_background.jsn` | Start normal TemplateGame startup flow |
-| Splash scene | Open persistent background, then selected splash overlay |
-| Any other scene | Clear stack and play that scene directly |
+| No scene | Start normal TemplateGame startup flow |
+| Any open scene | Clear stack and play that scene directly |
 
 This lets developers press Play while editing a specific menu or level and test it directly.
 

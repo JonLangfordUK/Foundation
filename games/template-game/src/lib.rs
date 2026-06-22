@@ -14,8 +14,6 @@ use bevy::{
 use foundation_runtime_library::prelude::*;
 use jackdaw_runtime::prelude::*;
 
-/// Jackdaw scene path for the persistent startup background.
-pub const SPLASH_BACKGROUND_SCENE: &str = "splash_background.jsn";
 /// Jackdaw scene path for the first startup splash screen.
 pub const PIXEL_PERFECT_SPLASH_SCENE: &str = "splash_pixel_perfect.jsn";
 /// Jackdaw scene path for the second startup splash screen.
@@ -135,8 +133,8 @@ impl Plugin for TemplateGamePlugin {
 
 /// Marker for a TemplateGame full-screen background scene.
 ///
-/// This is authored in `.jsn` so splash screens can be transparent UI overlays
-/// above a persistent scene-stack background.
+/// This is authored per `.jsn` scene so each scene controls whether it has a
+/// fullscreen background when viewed in the editor or played at runtime.
 #[derive(Component, Reflect)]
 #[reflect(Component, @EditorCategory::new("TemplateGame"))]
 pub struct TemplateFullscreenBackground {
@@ -334,21 +332,13 @@ impl Default for TemplateMainMenu {
 }
 
 /// Creates the startup scene-stack commands for TemplateGame.
-pub fn initial_scene_commands() -> [SceneCommand; 2] {
-    [
-        SceneCommand::open_with_options(
-            SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
-            OpenSceneOptions::default()
-                .with_key("splash-background")
-                .with_presentation(ScenePresentation::FULLSCREEN),
-        ),
-        SceneCommand::open_with_options(
-            SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
-            OpenSceneOptions::default()
-                .with_key("pixel-perfect-splash")
-                .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
-        ),
-    ]
+pub fn initial_scene_commands() -> [SceneCommand; 1] {
+    [SceneCommand::open_with_options(
+        SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
+        OpenSceneOptions::default()
+            .with_key("pixel-perfect-splash")
+            .with_presentation(ScenePresentation::FULLSCREEN),
+    )]
 }
 
 #[cfg(not(feature = "editor"))]
@@ -603,12 +593,8 @@ fn editor_play_scene_commands(world: &World) -> Vec<SceneCommand> {
 
     match current_scene.as_deref() {
         // No useful current scene means Play starts from the configured editor startup map.
-        None | Some(SPLASH_BACKGROUND_SCENE) => editor_default_startup_scene_commands(world),
-        // Splash scenes need the persistent background below the selected overlay.
-        Some(splash_scene @ (PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE)) => {
-            splash_scene_commands(splash_scene)
-        }
-        // Any other open scene plays directly so authors can test the current file.
+        None => editor_default_startup_scene_commands(world),
+        // Any open scene plays directly so authors can test the current file exactly as authored.
         Some(scene_path) => direct_scene_commands(scene_path),
     }
 }
@@ -628,28 +614,7 @@ fn editor_default_startup_scene_commands(world: &World) -> Vec<SceneCommand> {
 
 #[cfg(feature = "editor")]
 fn editor_configured_scene_commands(scene_path: &str) -> Vec<SceneCommand> {
-    match scene_path {
-        PIXEL_PERFECT_SPLASH_SCENE | BEVY_SPLASH_SCENE => splash_scene_commands(scene_path),
-        configured_scene_path => direct_scene_commands(configured_scene_path),
-    }
-}
-
-#[cfg(feature = "editor")]
-fn splash_scene_commands(splash_scene_path: &str) -> Vec<SceneCommand> {
-    vec![
-        SceneCommand::open_with_options(
-            SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
-            OpenSceneOptions::default()
-                .with_key("splash-background")
-                .with_presentation(ScenePresentation::FULLSCREEN),
-        ),
-        SceneCommand::open_with_options(
-            SceneSource::jsn_level(splash_scene_path),
-            OpenSceneOptions::default()
-                .with_key(editor_scene_key(splash_scene_path))
-                .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
-        ),
-    ]
+    direct_scene_commands(scene_path)
 }
 
 #[cfg(feature = "editor")]
@@ -695,22 +660,6 @@ fn scene_asset_path_from_path(
         });
 
     Some(relative.to_string_lossy().replace('\\', "/"))
-}
-
-#[cfg(feature = "editor")]
-fn editor_scene_key(scene_asset_path: &str) -> &'static str {
-    match scene_asset_path {
-        SPLASH_BACKGROUND_SCENE => "splash-background",
-        PIXEL_PERFECT_SPLASH_SCENE => "pixel-perfect-splash",
-        BEVY_SPLASH_SCENE => "bevy-splash",
-        LANDING_PAGE_SCENE => "landing-page",
-        MAIN_MENU_SCENE => "main-menu",
-        OPTIONS_MENU_SCENE => "options-menu",
-        LOAD_GAME_SCENE => "load-game",
-        GAMEPLAY_LEVEL_SCENE => "gameplay-level",
-        PAUSE_MENU_SCENE => "pause-menu",
-        _ => "editor-scene",
-    }
 }
 
 #[cfg(feature = "editor")]
@@ -1318,7 +1267,6 @@ mod tests {
 
     #[test]
     fn scene_paths_match_stack_example_assets() {
-        assert_eq!(SPLASH_BACKGROUND_SCENE, "splash_background.jsn");
         assert_eq!(PIXEL_PERFECT_SPLASH_SCENE, "splash_pixel_perfect.jsn");
         assert_eq!(BEVY_SPLASH_SCENE, "splash_bevy.jsn");
         assert_eq!(LANDING_PAGE_SCENE, "landing_page.jsn");
@@ -1332,7 +1280,6 @@ mod tests {
     #[test]
     fn scene_path_constants_match_existing_assets() {
         let scene_asset_paths = [
-            SPLASH_BACKGROUND_SCENE,
             PIXEL_PERFECT_SPLASH_SCENE,
             BEVY_SPLASH_SCENE,
             LANDING_PAGE_SCENE,
@@ -1387,23 +1334,26 @@ mod tests {
     }
 
     #[test]
-    fn initial_scene_commands_open_background_then_pixel_perfect_splash() {
+    fn splash_scenes_define_their_own_backgrounds() {
+        let pixel_perfect_splash_scene = include_str!("../assets/splash_pixel_perfect.jsn");
+        let bevy_splash_scene = include_str!("../assets/splash_bevy.jsn");
+
+        assert!(pixel_perfect_splash_scene.contains("bevy_ui::ui_node::BackgroundColor"));
+        assert!(pixel_perfect_splash_scene.contains("template_game::TemplateFullscreenBackground"));
+        assert!(bevy_splash_scene.contains("bevy_ui::ui_node::BackgroundColor"));
+        assert!(bevy_splash_scene.contains("template_game::TemplateFullscreenBackground"));
+    }
+
+    #[test]
+    fn initial_scene_commands_open_pixel_perfect_splash_only() {
         assert_eq!(
             initial_scene_commands(),
-            [
-                SceneCommand::Open {
-                    source: SceneSource::jsn_level(SPLASH_BACKGROUND_SCENE),
-                    options: OpenSceneOptions::default()
-                        .with_key("splash-background")
-                        .with_presentation(ScenePresentation::FULLSCREEN),
-                },
-                SceneCommand::Open {
-                    source: SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
-                    options: OpenSceneOptions::default()
-                        .with_key("pixel-perfect-splash")
-                        .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
-                },
-            ]
+            [SceneCommand::Open {
+                source: SceneSource::jsn_level(PIXEL_PERFECT_SPLASH_SCENE),
+                options: OpenSceneOptions::default()
+                    .with_key("pixel-perfect-splash")
+                    .with_presentation(ScenePresentation::FULLSCREEN),
+            }]
         );
     }
 

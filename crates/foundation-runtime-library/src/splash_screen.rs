@@ -396,6 +396,7 @@ fn safe_add_child(commands: &mut Commands, parent_entity: Entity, child_entity: 
 fn advance_splash_screens(
     mut commands: Commands,
     time: Res<Time>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut splashes: Query<(&FoundationSplashScreen, &mut FoundationSplashRuntime)>,
     mut text_colors: Query<&mut TextColor>,
     mut scene_commands: MessageWriter<SceneCommand>,
@@ -408,7 +409,15 @@ fn advance_splash_screens(
         // Advance a local phase copy before writing back to avoid partial runtime updates.
         let mut phase = runtime.phase;
         let mut phase_elapsed = runtime.phase_elapsed + time.delta_secs();
-        let alpha = advance_phase(&mut phase, &mut phase_elapsed, splash.timings);
+        let alpha = if splash_skip_requested(&keyboard) {
+            // Escape is a direct cutscene skip, so jump to the same completion path
+            // the timed fade-out would eventually reach.
+            phase = SplashPhase::Complete;
+            phase_elapsed = 0.0;
+            0.0
+        } else {
+            advance_phase(&mut phase, &mut phase_elapsed, splash.timings)
+        };
         runtime.phase = phase;
         runtime.phase_elapsed = phase_elapsed;
 
@@ -427,6 +436,10 @@ fn advance_splash_screens(
             }
         }
     }
+}
+
+fn splash_skip_requested(keyboard: &ButtonInput<KeyCode>) -> bool {
+    keyboard.just_pressed(KeyCode::Escape)
 }
 
 fn advance_phase(
@@ -538,5 +551,14 @@ mod tests {
         elapsed = 1.5;
         assert_eq!(advance_phase(&mut phase, &mut elapsed, timings), 0.0);
         assert_eq!(phase, SplashPhase::Complete);
+    }
+
+    #[test]
+    fn escape_key_requests_splash_skip() {
+        let mut keyboard = ButtonInput::<KeyCode>::default();
+        assert!(!splash_skip_requested(&keyboard));
+
+        keyboard.press(KeyCode::Escape);
+        assert!(splash_skip_requested(&keyboard));
     }
 }
