@@ -1,0 +1,501 @@
+//! Reusable JSON-authored credits roll support for Foundation games.
+//!
+//! Credits are authored as recursive JSON groups. Runtime systems load that JSON,
+//! flatten the group tree into display rows, and generate a scrolling Bevy UI roll
+//! beneath an authored [`FoundationCreditsRoll`] marker entity.
+
+use std::{fs, path::PathBuf};
+
+use bevy::prelude::*;
+use jackdaw_runtime::prelude::*;
+use serde::{Deserialize, Serialize};
+
+use crate::scene_stack::SceneOwner;
+
+/// Installs reusable Foundation credits roll components and systems.
+#[derive(Default)]
+pub struct FoundationCreditsPlugin;
+
+impl Plugin for FoundationCreditsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<FoundationCreditsRuntimeSettings>()
+            .register_type::<FoundationCreditsRoll>()
+            .register_type::<FoundationCreditsRuntime>()
+            .register_type::<FoundationCreditsRuntimeSettings>()
+            .add_systems(Update, (initialize_credits_rolls, scroll_credits_rolls));
+    }
+}
+
+/// Runtime policy for reusable Foundation credits systems.
+///
+/// Standalone games use the default policy: credits systems process any authored
+/// credits entity. Editors that keep the authored scene alive during Play should
+/// require [`SceneOwner`] so credits UI is generated only for scene-stack runtime
+/// copies, not the open editor scene.
+#[derive(Clone, Copy, Debug, Default, Reflect, Resource)]
+#[reflect(Resource)]
+pub struct FoundationCreditsRuntimeSettings {
+    /// If true, credits systems ignore entities that are not owned by the scene stack.
+    pub require_scene_owner: bool,
+}
+
+/// Author-authored marker for a JSON-backed scrolling credits roll.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component, @EditorCategory::new("Foundation/Credits"))]
+pub struct FoundationCreditsRoll {
+    /// Asset-relative or project-relative path to the credits JSON file.
+    pub credits_path: String,
+    /// Vertical scroll speed in pixels per second.
+    pub scroll_speed_pixels_per_second: f32,
+    /// Starting top offset for the generated roll content, in pixels.
+    pub start_offset_pixels: f32,
+    /// Largest group header font size used for top-level groups.
+    pub top_level_header_font_size: f32,
+    /// Amount removed from group header font size for each nested level.
+    pub header_font_size_step: f32,
+    /// Smallest allowed group header font size for deeply nested groups.
+    pub minimum_header_font_size: f32,
+    /// Font size for person rows.
+    pub person_font_size: f32,
+    /// Left indentation added for each nested group level, in pixels.
+    pub indentation_pixels_per_level: f32,
+    /// Vertical space after each generated row, in pixels.
+    pub row_gap_pixels: f32,
+}
+
+impl Default for FoundationCreditsRoll {
+    fn default() -> Self {
+        Self {
+            credits_path: "credits.json".to_string(),
+            scroll_speed_pixels_per_second: 45.0,
+            start_offset_pixels: 720.0,
+            top_level_header_font_size: 48.0,
+            header_font_size_step: 6.0,
+            minimum_header_font_size: 24.0,
+            person_font_size: 24.0,
+            indentation_pixels_per_level: 32.0,
+            row_gap_pixels: 12.0,
+        }
+    }
+}
+
+/// Runtime state for an initialized credits roll.
+#[derive(Clone, Copy, Debug, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationCreditsRuntime {
+    /// Generated UI content entity moved by the scrolling system.
+    pub content_entity: Entity,
+    /// Current top offset of the generated content, in pixels.
+    pub current_top_pixels: f32,
+}
+
+/// Root JSON document for recursive credits data.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct CreditsDocument {
+    /// Top-level credits groups.
+    #[serde(default)]
+    pub groups: Vec<CreditsGroup>,
+}
+
+/// A recursive credits group with people and child groups.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct CreditsGroup {
+    /// Group display name.
+    pub name: String,
+    /// People credited directly under this group.
+    #[serde(default)]
+    pub people: Vec<CreditPerson>,
+    /// Child groups using the same schema at any nesting depth.
+    #[serde(default)]
+    pub groups: Vec<CreditsGroup>,
+}
+
+/// A single credited person and role.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct CreditPerson {
+    /// Person display name.
+    pub name: String,
+    /// Person role or contribution.
+    pub role: String,
+}
+
+/// A flattened row ready for credits UI generation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CreditsDisplayRow {
+    /// Group heading at the supplied nesting depth.
+    Group { name: String, depth: usize },
+    /// Person row under the supplied group nesting depth.
+    Person {
+        name: String,
+        role: String,
+        depth: usize,
+    },
+}
+
+/// Flattens a recursive credits document into deterministic pre-order rows.
+pub fn flatten_credits_document(document: &CreditsDocument) -> Vec<CreditsDisplayRow> {
+    let mut display_rows = Vec::new();
+    for credits_group in &document.groups {
+        flatten_credits_group(credits_group, 0, &mut display_rows);
+    }
+    display_rows
+}
+
+/// Returns the group header font size for a nesting depth.
+pub fn header_font_size_for_depth(credits_roll: &FoundationCreditsRoll, group_depth: usize) -> f32 {
+    let depth_reduction = credits_roll.header_font_size_step * group_depth as f32;
+    let unclamped_font_size = credits_roll.top_level_header_font_size - depth_reduction;
+    unclamped_font_size.max(credits_roll.minimum_header_font_size)
+}
+
+fn flatten_credits_group(
+    credits_group: &CreditsGroup,
+    group_depth: usize,
+    display_rows: &mut Vec<CreditsDisplayRow>,
+) {
+    // Push each group before its contents so the roll reads like a nested outline.
+    display_rows.push(CreditsDisplayRow::Group {
+        name: credits_group.name.clone(),
+        depth: group_depth,
+    });
+
+    for credited_person in &credits_group.people {
+        display_rows.push(CreditsDisplayRow::Person {
+            name: credited_person.name.clone(),
+            role: credited_person.role.clone(),
+            depth: group_depth,
+        });
+    }
+
+    let child_group_depth = group_depth.saturating_add(1);
+    for child_group in &credits_group.groups {
+        flatten_credits_group(child_group, child_group_depth, display_rows);
+    }
+}
+
+type CreditsRollInitQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static FoundationCreditsRoll,
+        Option<&'static SceneOwner>,
+    ),
+    Without<FoundationCreditsRuntime>,
+>;
+
+type CreditsRuntimeQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static FoundationCreditsRoll,
+        &'static mut FoundationCreditsRuntime,
+    ),
+>;
+
+fn initialize_credits_rolls(
+    mut commands: Commands,
+    settings: Res<FoundationCreditsRuntimeSettings>,
+    credits_rolls: CreditsRollInitQuery,
+) {
+    for (credits_roll_entity, credits_roll, scene_owner) in &credits_rolls {
+        if should_skip_credits_runtime_entity(&settings, scene_owner) {
+            continue;
+        }
+        let credits_document = match load_credits_document(&credits_roll.credits_path) {
+            Ok(credits_document) => credits_document,
+            Err(load_error) => {
+                warn!(
+                    "Failed to load FoundationCreditsRoll JSON `{}`: {load_error}",
+                    credits_roll.credits_path
+                );
+                CreditsDocument::default()
+            }
+        };
+        let display_rows = flatten_credits_document(&credits_document);
+        let content_entity = spawn_credits_content(
+            &mut commands,
+            credits_roll,
+            &display_rows,
+            scene_owner.copied(),
+        );
+        commands
+            .entity(credits_roll_entity)
+            .replace_children(&[content_entity]);
+        commands
+            .entity(credits_roll_entity)
+            .insert(FoundationCreditsRuntime {
+                content_entity,
+                current_top_pixels: credits_roll.start_offset_pixels,
+            });
+    }
+}
+
+fn scroll_credits_rolls(
+    time: Res<Time>,
+    mut credits_rolls: CreditsRuntimeQuery,
+    mut content_nodes: Query<&mut Node>,
+) {
+    let delta_seconds = time.delta_secs();
+    for (credits_roll, mut credits_runtime) in &mut credits_rolls {
+        credits_runtime.current_top_pixels -=
+            credits_roll.scroll_speed_pixels_per_second * delta_seconds;
+        if let Ok(mut content_node) = content_nodes.get_mut(credits_runtime.content_entity) {
+            content_node.top = Val::Px(credits_runtime.current_top_pixels);
+        }
+    }
+}
+
+fn spawn_credits_content(
+    commands: &mut Commands,
+    credits_roll: &FoundationCreditsRoll,
+    display_rows: &[CreditsDisplayRow],
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let content_width = Val::Percent(100.0);
+    let content_top = Val::Px(credits_roll.start_offset_pixels);
+    let content_entity = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: content_top,
+                width: content_width,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: Val::Px(credits_roll.row_gap_pixels),
+                ..default()
+            },
+            Name::new("Foundation Credits Content"),
+        ))
+        .id();
+    insert_scene_owner(commands, content_entity, scene_owner);
+
+    let row_entities = display_rows
+        .iter()
+        .map(|display_row| spawn_credits_row(commands, credits_roll, display_row, scene_owner))
+        .collect::<Vec<_>>();
+    commands
+        .entity(content_entity)
+        .replace_children(&row_entities);
+
+    content_entity
+}
+
+fn spawn_credits_row(
+    commands: &mut Commands,
+    credits_roll: &FoundationCreditsRoll,
+    display_row: &CreditsDisplayRow,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let (row_text, row_font_size, row_depth) = match display_row {
+        CreditsDisplayRow::Group { name, depth } => {
+            let header_font_size = header_font_size_for_depth(credits_roll, *depth);
+            (name.clone(), header_font_size, *depth)
+        }
+        CreditsDisplayRow::Person { name, role, depth } => {
+            let person_text = format!("{name} — {role}");
+            (person_text, credits_roll.person_font_size, *depth)
+        }
+    };
+
+    let row_left_margin = Val::Px(credits_roll.indentation_pixels_per_level * row_depth as f32);
+    let row_entity = commands
+        .spawn((
+            Node {
+                margin: UiRect::left(row_left_margin),
+                ..default()
+            },
+            Text::new(row_text.clone()),
+            TextFont::from_font_size(row_font_size),
+            TextColor(Color::WHITE),
+            Name::new(row_text),
+        ))
+        .id();
+    insert_scene_owner(commands, row_entity, scene_owner);
+    row_entity
+}
+
+fn load_credits_document(credits_path: &str) -> Result<CreditsDocument, String> {
+    let credits_file_path = resolve_credits_file_path(credits_path)
+        .ok_or_else(|| format!("could not resolve credits path `{credits_path}`"))?;
+    let credits_json = fs::read_to_string(&credits_file_path)
+        .map_err(|read_error| format!("{} ({read_error})", credits_file_path.display()))?;
+    serde_json::from_str::<CreditsDocument>(&credits_json)
+        .map_err(|parse_error| format!("{} ({parse_error})", credits_file_path.display()))
+}
+
+fn resolve_credits_file_path(credits_path: &str) -> Option<PathBuf> {
+    let requested_credits_path = PathBuf::from(credits_path.trim());
+    if requested_credits_path.is_absolute() && requested_credits_path.is_file() {
+        return Some(requested_credits_path);
+    }
+
+    let current_directory = std::env::current_dir().ok()?;
+    let candidate_paths = [
+        current_directory.join(&requested_credits_path),
+        current_directory
+            .join("assets")
+            .join(&requested_credits_path),
+        current_directory
+            .join("games")
+            .join("template-game")
+            .join("assets")
+            .join(&requested_credits_path),
+    ];
+
+    candidate_paths
+        .into_iter()
+        .find(|candidate_path| candidate_path.is_file())
+}
+
+fn insert_scene_owner(
+    commands: &mut Commands,
+    owned_entity: Entity,
+    scene_owner: Option<SceneOwner>,
+) {
+    if let Some(scene_owner) = scene_owner {
+        commands.entity(owned_entity).insert(scene_owner);
+    }
+}
+
+fn should_skip_credits_runtime_entity(
+    settings: &FoundationCreditsRuntimeSettings,
+    scene_owner: Option<&SceneOwner>,
+) -> bool {
+    settings.require_scene_owner && scene_owner.is_none()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn credits_document_flattens_recursive_groups_in_pre_order() {
+        let credits_document = serde_json::from_str::<CreditsDocument>(
+            r#"
+            {
+                "groups": [
+                    {
+                        "name": "Studio A",
+                        "people": [],
+                        "groups": [
+                            {
+                                "name": "Team 1",
+                                "people": [
+                                    { "name": "Alice", "role": "Developer" },
+                                    { "name": "Bob", "role": "Designer" }
+                                ],
+                                "groups": []
+                            },
+                            {
+                                "name": "Team 2",
+                                "people": [
+                                    { "name": "Charlie", "role": "Tester" }
+                                ],
+                                "groups": []
+                            }
+                        ]
+                    }
+                ]
+            }
+            "#,
+        )
+        .expect("Credits JSON should match the documented recursive schema");
+
+        assert_eq!(
+            flatten_credits_document(&credits_document),
+            vec![
+                CreditsDisplayRow::Group {
+                    name: "Studio A".to_string(),
+                    depth: 0,
+                },
+                CreditsDisplayRow::Group {
+                    name: "Team 1".to_string(),
+                    depth: 1,
+                },
+                CreditsDisplayRow::Person {
+                    name: "Alice".to_string(),
+                    role: "Developer".to_string(),
+                    depth: 1,
+                },
+                CreditsDisplayRow::Person {
+                    name: "Bob".to_string(),
+                    role: "Designer".to_string(),
+                    depth: 1,
+                },
+                CreditsDisplayRow::Group {
+                    name: "Team 2".to_string(),
+                    depth: 1,
+                },
+                CreditsDisplayRow::Person {
+                    name: "Charlie".to_string(),
+                    role: "Tester".to_string(),
+                    depth: 1,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn credits_document_supports_deeply_nested_groups() {
+        let deepest_group = CreditsGroup {
+            name: "Depth 3".to_string(),
+            people: vec![CreditPerson {
+                name: "Deep Person".to_string(),
+                role: "Deep Role".to_string(),
+            }],
+            groups: Vec::new(),
+        };
+        let credits_document = CreditsDocument {
+            groups: vec![CreditsGroup {
+                name: "Depth 0".to_string(),
+                people: Vec::new(),
+                groups: vec![CreditsGroup {
+                    name: "Depth 1".to_string(),
+                    people: Vec::new(),
+                    groups: vec![CreditsGroup {
+                        name: "Depth 2".to_string(),
+                        people: Vec::new(),
+                        groups: vec![deepest_group],
+                    }],
+                }],
+            }],
+        };
+
+        let display_rows = flatten_credits_document(&credits_document);
+
+        assert_eq!(
+            display_rows.last(),
+            Some(&CreditsDisplayRow::Person {
+                name: "Deep Person".to_string(),
+                role: "Deep Role".to_string(),
+                depth: 3,
+            })
+        );
+    }
+
+    #[test]
+    fn group_header_font_size_shrinks_by_depth_and_clamps() {
+        let credits_roll = FoundationCreditsRoll {
+            top_level_header_font_size: 48.0,
+            header_font_size_step: 8.0,
+            minimum_header_font_size: 28.0,
+            ..default()
+        };
+
+        assert_eq!(header_font_size_for_depth(&credits_roll, 0), 48.0);
+        assert_eq!(header_font_size_for_depth(&credits_roll, 1), 40.0);
+        assert_eq!(header_font_size_for_depth(&credits_roll, 2), 32.0);
+        assert_eq!(header_font_size_for_depth(&credits_roll, 99), 28.0);
+    }
+
+    #[test]
+    fn credits_roll_defaults_to_readable_scrolling_values() {
+        let credits_roll = FoundationCreditsRoll::default();
+
+        assert_eq!(credits_roll.credits_path, "credits.json");
+        assert!(credits_roll.scroll_speed_pixels_per_second > 0.0);
+        assert!(credits_roll.top_level_header_font_size > credits_roll.minimum_header_font_size);
+        assert!(credits_roll.person_font_size >= credits_roll.minimum_header_font_size);
+    }
+}

@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
+pub mod credits;
 pub mod game_settings;
 pub mod menu;
 pub mod scene_stack;
@@ -30,6 +31,7 @@ impl Plugin for FoundationPlugin {
             scene_stack::FoundationSceneStackPlugin,
             splash_screen::FoundationSplashScreenPlugin,
             menu::FoundationMenuPlugin,
+            credits::FoundationCreditsPlugin,
         ))
         // Keep common settings and actors visible to the editor and reflection tests.
         .register_type::<game_settings::FoundationGameSettings>()
@@ -75,6 +77,11 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
+    pub use crate::credits::{
+        flatten_credits_document, header_font_size_for_depth, CreditPerson, CreditsDisplayRow,
+        CreditsDocument, CreditsGroup, FoundationCreditsPlugin, FoundationCreditsRoll,
+        FoundationCreditsRuntime, FoundationCreditsRuntimeSettings,
+    };
     pub use crate::game_settings::{
         FoundationGameSettings, FoundationGameSettingsIoError, FOUNDATION_GAME_SETTINGS_FILE_NAME,
     };

@@ -1,0 +1,50 @@
+{
+  "groups": [
+    {
+      "name": "Studio A",
+      "people": [],
+      "groups": [
+        {
+          "name": "Team 1",
+          "people": [
+            {
+              "name": "Alice",
+              "role": "Developer"
+            },
+            {
+              "name": "Bob",
+              "role": "Designer"
+            }
+          ],
+          "groups": []
+        },
+        {
+          "name": "Team 2",
+          "people": [
+            {
+              "name": "Charlie",
+              "role": "Tester"
+            }
+          ],
+          "groups": []
+        }
+      ]
+    },
+    {
+      "name": "Studio B",
+      "people": [],
+      "groups": [
+        {
+          "name": "Team 3",
+          "people": [
+            {
+              "name": "David",
+              "role": "Manager"
+            }
+          ],
+          "groups": []
+        }
+      ]
+    }
+  ]
+}

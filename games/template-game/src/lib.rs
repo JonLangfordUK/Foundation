@@ -24,6 +24,8 @@ pub const LANDING_PAGE_SCENE: &str = "landing_page.jsn";
 pub const MAIN_MENU_SCENE: &str = "main_menu.jsn";
 /// Jackdaw scene path for the stack-based options menu.
 pub const OPTIONS_MENU_SCENE: &str = "options_menu.jsn";
+/// Jackdaw scene path for the JSON-authored credits roll.
+pub const CREDITS_SCENE: &str = "credits.jsn";
 /// Jackdaw scene path for the dummy load-game menu.
 pub const LOAD_GAME_SCENE: &str = "load_game.jsn";
 /// Jackdaw scene path for the small sample gameplay level.
@@ -71,6 +73,9 @@ impl Plugin for TemplateGamePlugin {
             require_scene_owner: true,
         })
         .insert_resource(FoundationMenuRuntimeSettings {
+            require_scene_owner: true,
+        })
+        .insert_resource(FoundationCreditsRuntimeSettings {
             require_scene_owner: true,
         })
         .add_systems(
@@ -1272,6 +1277,7 @@ mod tests {
         assert_eq!(LANDING_PAGE_SCENE, "landing_page.jsn");
         assert_eq!(MAIN_MENU_SCENE, "main_menu.jsn");
         assert_eq!(OPTIONS_MENU_SCENE, "options_menu.jsn");
+        assert_eq!(CREDITS_SCENE, "credits.jsn");
         assert_eq!(LOAD_GAME_SCENE, "load_game.jsn");
         assert_eq!(GAMEPLAY_LEVEL_SCENE, "gameplay_level.jsn");
         assert_eq!(PAUSE_MENU_SCENE, "pause_menu.jsn");
@@ -1285,6 +1291,7 @@ mod tests {
             LANDING_PAGE_SCENE,
             MAIN_MENU_SCENE,
             OPTIONS_MENU_SCENE,
+            CREDITS_SCENE,
             LOAD_GAME_SCENE,
             GAMEPLAY_LEVEL_SCENE,
             PAUSE_MENU_SCENE,
@@ -1320,6 +1327,8 @@ mod tests {
         let landing_page_scene = include_str!("../assets/landing_page.jsn");
         let main_menu_scene = include_str!("../assets/main_menu.jsn");
         let gameplay_level_scene = include_str!("../assets/gameplay_level.jsn");
+        let credits_scene = include_str!("../assets/credits.jsn");
+        let credits_json = include_str!("../assets/credits.json");
         let pause_menu_scene = include_str!("../assets/pause_menu.jsn");
 
         assert!(pixel_perfect_splash_scene.contains(BEVY_SPLASH_SCENE));
@@ -1328,6 +1337,9 @@ mod tests {
         assert!(main_menu_scene.contains(GAMEPLAY_LEVEL_SCENE));
         assert!(main_menu_scene.contains(LOAD_GAME_SCENE));
         assert!(main_menu_scene.contains(OPTIONS_MENU_SCENE));
+        assert!(main_menu_scene.contains(CREDITS_SCENE));
+        assert!(credits_scene.contains("credits.json"));
+        assert!(credits_json.contains("groups"));
         assert!(gameplay_level_scene.contains(PAUSE_MENU_SCENE));
         assert!(pause_menu_scene.contains(OPTIONS_MENU_SCENE));
         assert!(pause_menu_scene.contains(MAIN_MENU_SCENE));
