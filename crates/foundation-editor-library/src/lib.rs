@@ -1,282 +1,51 @@
-//! FoundationEditorLibrary provides reusable Jackdaw editor extensions.
+//! FoundationEditorLibrary provides reusable Jackdaw editor integrations.
 //!
 //! Runtime/game systems belong in `foundation-runtime-library`; this crate owns
 //! editor-shell integrations that depend on the full Jackdaw editor API.
 
 use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;
-use jackdaw::prelude::*;
 
 pub mod asset_picker;
 
-use asset_picker::{
-    spawn_foundation_asset_picker, FoundationAssetPicked, FoundationAssetPickerFilter,
-    FoundationAssetPickerPlugin, FoundationAssetPickerProps, FoundationAssetPickerValueLabel,
-};
-
-/// Unique Jackdaw extension identifier for the Foundation game settings window.
-pub const FOUNDATION_GAME_SETTINGS_EXTENSION_ID: &str = "foundation.game_settings";
-/// Unique dock-window identifier for the Foundation game settings window.
-pub const FOUNDATION_GAME_SETTINGS_WINDOW_ID: &str = "foundation.game_settings.window";
+use asset_picker::FoundationAssetPickerPlugin;
 
 /// Installs reusable Foundation editor systems.
 ///
 /// Add this plugin to game-specific editor binaries alongside Jackdaw's editor
-/// plugins. Register [`FoundationGameSettingsExtension`] through Jackdaw's
-/// [`ExtensionPlugin`] so the dockable window appears in the editor UI.
+/// plugins. Foundation settings are edited manually in
+/// `foundation.settings.toml`; this plugin creates that file with defaults when
+/// it is missing and loads the configured editor startup map.
 #[derive(Default)]
 pub struct FoundationEditorPlugin;
 
 impl Plugin for FoundationEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FoundationAssetPickerPlugin)
-            // Keep the project settings resource populated before editor UI refreshes labels.
+            // Keep the project settings resource populated for editor-only systems.
             .add_systems(Startup, load_foundation_game_settings_from_project_root)
             // Project auto-open loads Jackdaw's default `assets/scene.jsn` first.
             // This follow-up replaces it with the configured editor startup map.
             .add_systems(
                 OnEnter(jackdaw::AppState::Editor),
                 load_editor_startup_scene_from_settings,
-            )
-            .add_systems(Update, apply_game_settings_asset_picker_changes)
-            .add_systems(Update, refresh_game_settings_window_labels);
-    }
-}
-
-/// Jackdaw extension that contributes the Foundation Game Settings window.
-#[derive(Default)]
-pub struct FoundationGameSettingsExtension;
-
-impl JackdawExtension for FoundationGameSettingsExtension {
-    fn id(&self) -> String {
-        FOUNDATION_GAME_SETTINGS_EXTENSION_ID.to_string()
-    }
-
-    fn label(&self) -> String {
-        "Foundation Game Settings".to_string()
-    }
-
-    fn description(&self) -> String {
-        "Adds a reusable game settings window for Foundation-based games.".to_string()
-    }
-
-    fn register(&self, extension_context: &mut ExtensionContext) {
-        extension_context
-            .init_resource::<FoundationGameSettingsWindowStatus>()
-            .register_operator::<SetStartupMapFromOpenSceneOp>()
-            .register_operator::<SetEditorStartupMapFromOpenSceneOp>()
-            .register_operator::<SaveGameSettingsOp>()
-            .register_operator::<ReloadGameSettingsOp>()
-            .register_window(
-                WindowDescriptor::new(FOUNDATION_GAME_SETTINGS_WINDOW_ID)
-                    .with_name("Game Settings")
-                    .with_default_area(DefaultArea::RightSidebar)
-                    .with_build(spawn_game_settings_window),
             );
     }
 }
 
-/// Current status text displayed in the game settings window.
-#[derive(Clone, Debug, Resource)]
-pub struct FoundationGameSettingsWindowStatus {
-    message: String,
-}
-
-impl Default for FoundationGameSettingsWindowStatus {
-    fn default() -> Self {
-        Self {
-            message: "Settings are loaded from the current project.".to_string(),
-        }
-    }
-}
-
-const STARTUP_MAP_PICKER_ID: &str = "foundation.game_settings.startup_map";
-const EDITOR_STARTUP_MAP_PICKER_ID: &str = "foundation.game_settings.editor_startup_map";
-
-#[derive(Component)]
-struct GameSettingsStatusLabel;
-
-type AssetPickerValueLabelQuery<'world, 'state> = Query<
-    'world,
-    'state,
-    (&'static FoundationAssetPickerValueLabel, &'static mut Text),
-    Without<GameSettingsStatusLabel>,
->;
-
-type GameSettingsStatusLabelQuery<'world, 'state> = Query<
-    'world,
-    'state,
-    &'static mut Text,
-    (
-        With<GameSettingsStatusLabel>,
-        Without<FoundationAssetPickerValueLabel>,
-    ),
->;
-
-#[operator(
-    id = "foundation.game_settings.set_startup_map_from_open_scene",
-    label = "Use Open Scene For Startup Map",
-    description = "Sets the standalone startup map to the currently open Jackdaw scene."
-)]
-fn set_startup_map_from_open_scene(
-    _: In<OperatorParameters>,
-    scene_file_path: Option<Res<jackdaw::scene_io::SceneFilePath>>,
-    mut settings: ResMut<FoundationGameSettings>,
-    mut status: ResMut<FoundationGameSettingsWindowStatus>,
-) -> OperatorResult {
-    let Some(open_scene_asset_path) = current_open_scene_asset_path(scene_file_path.as_deref())
-    else {
-        status.message = "No open .jsn scene is available for the startup map.".to_string();
-        return OperatorResult::Finished;
-    };
-
-    settings.startup_map = open_scene_asset_path;
-    status.message = "Startup map updated from the open scene.".to_string();
-    OperatorResult::Finished
-}
-
-#[operator(
-    id = "foundation.game_settings.set_editor_startup_map_from_open_scene",
-    label = "Use Open Scene For Editor Startup Map",
-    description = "Sets the editor startup map to the currently open Jackdaw scene."
-)]
-fn set_editor_startup_map_from_open_scene(
-    _: In<OperatorParameters>,
-    scene_file_path: Option<Res<jackdaw::scene_io::SceneFilePath>>,
-    mut settings: ResMut<FoundationGameSettings>,
-    mut status: ResMut<FoundationGameSettingsWindowStatus>,
-) -> OperatorResult {
-    let Some(open_scene_asset_path) = current_open_scene_asset_path(scene_file_path.as_deref())
-    else {
-        status.message = "No open .jsn scene is available for the editor startup map.".to_string();
-        return OperatorResult::Finished;
-    };
-
-    settings.editor_startup_map = open_scene_asset_path;
-    status.message = "Editor startup map updated from the open scene.".to_string();
-    OperatorResult::Finished
-}
-
-#[operator(
-    id = "foundation.game_settings.save",
-    label = "Save Game Settings",
-    description = "Saves Foundation game settings to the current project."
-)]
-fn save_game_settings(
-    _: In<OperatorParameters>,
-    settings: Res<FoundationGameSettings>,
-    mut status: ResMut<FoundationGameSettingsWindowStatus>,
-) -> OperatorResult {
+fn load_foundation_game_settings_from_project_root(mut commands: Commands) {
     let project_root = current_project_root();
-    match settings.save_to_project_root(&project_root) {
-        Ok(()) => {
-            status.message = format!(
-                "Saved settings to {}.",
-                project_root
-                    .join(FOUNDATION_GAME_SETTINGS_FILE_NAME)
-                    .display()
-            );
-        }
-        Err(error) => {
-            status.message = format!("Failed to save settings: {error}");
-        }
-    }
-
-    OperatorResult::Finished
-}
-
-#[operator(
-    id = "foundation.game_settings.reload",
-    label = "Reload Game Settings",
-    description = "Reloads Foundation game settings from the current project."
-)]
-fn reload_game_settings(
-    _: In<OperatorParameters>,
-    mut settings: ResMut<FoundationGameSettings>,
-    mut status: ResMut<FoundationGameSettingsWindowStatus>,
-) -> OperatorResult {
-    let project_root = current_project_root();
-    match FoundationGameSettings::load_from_project_root(&project_root) {
-        Ok(loaded_settings) => {
-            *settings = loaded_settings;
-            status.message = format!(
-                "Reloaded settings from {}.",
-                project_root
-                    .join(FOUNDATION_GAME_SETTINGS_FILE_NAME)
-                    .display()
-            );
-        }
-        Err(error) => {
-            status.message = format!("Failed to reload settings: {error}");
-        }
-    }
-
-    OperatorResult::Finished
-}
-
-fn spawn_game_settings_window(window_spawner: &mut ChildSpawner) {
-    let section_margin = UiRect::all(px(8.0));
-
-    window_spawner
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: px(8.0),
-                margin: section_margin,
-                ..default()
-            },
-            children![
-                (Text::new("Foundation Game Settings"),),
-                (GameSettingsStatusLabel, Text::new("<loading>")),
-                (
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: px(8.0),
-                        ..default()
-                    },
-                    children![
-                        button(ButtonProps::from_operator::<SaveGameSettingsOp>()),
-                        button(ButtonProps::from_operator::<ReloadGameSettingsOp>()),
-                    ],
-                ),
-            ],
-        ))
-        .with_children(|settings_window| {
-            let scene_filter = FoundationAssetPickerFilter::jackdaw_scenes();
-            spawn_foundation_asset_picker(
-                settings_window,
-                FoundationAssetPickerProps::new(STARTUP_MAP_PICKER_ID, "Startup Map")
-                    .with_filter(scene_filter.clone()),
-            );
-            spawn_foundation_asset_picker(
-                settings_window,
-                FoundationAssetPickerProps::new(EDITOR_STARTUP_MAP_PICKER_ID, "Editor Startup Map")
-                    .with_filter(scene_filter),
-            );
-        });
-}
-
-fn load_foundation_game_settings_from_project_root(
-    mut commands: Commands,
-    mut status: Option<ResMut<FoundationGameSettingsWindowStatus>>,
-) {
-    let project_root = current_project_root();
-    match FoundationGameSettings::load_from_project_root(&project_root) {
+    match FoundationGameSettings::load_or_create_from_project_root(&project_root) {
         Ok(settings) => {
             commands.insert_resource(settings);
-            if let Some(status) = status.as_deref_mut() {
-                status.message = format!(
-                    "Loaded settings from {}.",
-                    project_root
-                        .join(FOUNDATION_GAME_SETTINGS_FILE_NAME)
-                        .display()
-                );
-            }
         }
         Err(error) => {
-            if let Some(status) = status.as_deref_mut() {
-                status.message = format!("Failed to load settings: {error}");
-            }
+            warn!(
+                "Failed to load or create Foundation game settings at {}: {error}",
+                project_root
+                    .join(FOUNDATION_GAME_SETTINGS_FILE_NAME)
+                    .display()
+            );
         }
     }
 }
@@ -292,13 +61,6 @@ fn load_editor_startup_scene_from_settings(world: &mut World) {
     };
 
     jackdaw::scene_io::load_scene_from_file(world, &editor_startup_scene_path);
-
-    if let Some(mut status) = world.get_resource_mut::<FoundationGameSettingsWindowStatus>() {
-        status.message = format!(
-            "Loaded editor startup map {}.",
-            editor_startup_scene_path.display()
-        );
-    }
 }
 
 fn editor_startup_scene_file_path(
@@ -324,64 +86,7 @@ fn editor_startup_scene_file_path(
     Some(scene_file_path)
 }
 
-fn apply_game_settings_asset_picker_changes(
-    mut picked_assets: MessageReader<FoundationAssetPicked>,
-    mut settings: ResMut<FoundationGameSettings>,
-    mut status: Option<ResMut<FoundationGameSettingsWindowStatus>>,
-) {
-    for picked_asset in picked_assets.read() {
-        let selected_asset_path = picked_asset.asset_path.clone().unwrap_or_default();
-        match picked_asset.picker_id.as_str() {
-            STARTUP_MAP_PICKER_ID => {
-                settings.startup_map = selected_asset_path;
-                if let Some(status) = status.as_deref_mut() {
-                    status.message = "Startup map selection changed.".to_string();
-                }
-            }
-            EDITOR_STARTUP_MAP_PICKER_ID => {
-                settings.editor_startup_map = selected_asset_path;
-                if let Some(status) = status.as_deref_mut() {
-                    status.message = "Editor startup map selection changed.".to_string();
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-fn refresh_game_settings_window_labels(
-    settings: Res<FoundationGameSettings>,
-    status: Option<Res<FoundationGameSettingsWindowStatus>>,
-    mut asset_picker_labels: AssetPickerValueLabelQuery,
-    mut status_labels: GameSettingsStatusLabelQuery,
-) {
-    let status_message = status
-        .as_deref()
-        .map(|status| status.message.as_str())
-        .unwrap_or("Settings window is ready.")
-        .to_string();
-
-    for (asset_picker_label, mut asset_picker_text) in &mut asset_picker_labels {
-        let selected_asset_path = match asset_picker_label.picker_id.as_str() {
-            STARTUP_MAP_PICKER_ID => settings.startup_map_path(),
-            EDITOR_STARTUP_MAP_PICKER_ID => settings.editor_startup_map_path(),
-            _ => None,
-        };
-        **asset_picker_text = selected_asset_path.unwrap_or("None").to_string();
-    }
-
-    for mut status_text in &mut status_labels {
-        **status_text = status_message.clone();
-    }
-}
-
-fn current_open_scene_asset_path(
-    scene_file_path: Option<&jackdaw::scene_io::SceneFilePath>,
-) -> Option<String> {
-    let scene_path = scene_file_path?.path.as_deref()?;
-    scene_path_to_asset_path(scene_path)
-}
-
+#[cfg(test)]
 fn scene_path_to_asset_path(scene_path: &str) -> Option<String> {
     let normalized_scene_path = scene_path.replace('\\', "/");
     let asset_marker = "/assets/";
@@ -395,6 +100,7 @@ fn scene_path_to_asset_path(scene_path: &str) -> Option<String> {
     non_empty_string(scene_file_name.as_ref())
 }
 
+#[cfg(test)]
 fn non_empty_string(value: &str) -> Option<String> {
     let trimmed_value = value.trim();
     if trimmed_value.is_empty() {
@@ -414,27 +120,12 @@ pub mod prelude {
         spawn_foundation_asset_picker, FoundationAssetPicked, FoundationAssetPickerFilter,
         FoundationAssetPickerPlugin, FoundationAssetPickerProps,
     };
-    pub use crate::{
-        FoundationEditorPlugin, FoundationGameSettingsExtension,
-        FOUNDATION_GAME_SETTINGS_EXTENSION_ID, FOUNDATION_GAME_SETTINGS_WINDOW_ID,
-    };
+    pub use crate::FoundationEditorPlugin;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn extension_metadata_has_stable_ids() {
-        let extension = FoundationGameSettingsExtension;
-
-        assert_eq!(extension.id(), FOUNDATION_GAME_SETTINGS_EXTENSION_ID);
-        assert_eq!(
-            FOUNDATION_GAME_SETTINGS_WINDOW_ID,
-            "foundation.game_settings.window"
-        );
-        assert_eq!(extension.label(), "Foundation Game Settings");
-    }
 
     #[test]
     fn scene_path_to_asset_path_prefers_assets_relative_path() {

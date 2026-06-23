@@ -55,11 +55,7 @@ fn main() -> AppExit {
                 }),
         )
         .add_plugins((PhysicsPlugins::default(), EnhancedInputPlugin))
-        .add_plugins(
-            EditorPlugins::default().set(
-                ExtensionPlugin::default().with_extension::<FoundationGameSettingsExtension>(),
-            ),
-        )
+        .add_plugins(EditorPlugins::default())
         .add_plugins(FoundationEditorPlugin)
         .add_plugins(FoundationPlugin)
         .add_plugins(template_game::TemplateGamePlugin);
