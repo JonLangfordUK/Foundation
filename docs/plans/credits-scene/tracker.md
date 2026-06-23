@@ -186,7 +186,7 @@
 - Final production credits copy is postponed until the user provides real names/roles; current `credits.json` uses the user's sample placeholder content.
 
 ## Open Issues And Questions
-- User confirmed pass-through main-menu interaction is fixed, but credits scene still renders no credits text. User requested taking the credits scene back to basics. Working-tree change now removes the generated credits roll, scrolling, Back button, and background from `credits.jsn`, leaving only a centered authored `Hello World` text line under the gameplay UI root.
+- User confirmed pass-through main-menu interaction is fixed. The minimal authored `Hello World` scene worked. Next working-tree change replaces the authored `Hello World` with static generated credits text from `credits.json`, leaves the positioning centered, disables scrolling with `scroll_speed_pixels_per_second = 0.0`, and keeps the first generated credits line at screen center.
 - Ownership split resolved: reusable `foundation-runtime-library` credits component with TemplateGame-owned JSON and scene assets.
 - Final credits copy is not provided. Current `credits.json` uses the user's sample JSON as placeholder content.
 - End-of-roll behavior resolved as no automatic scene transition; credits remain closable by Back/Escape.
@@ -208,4 +208,5 @@
 - `2026-06-23`: Marked generated credits UI with `FoundationGeneratedCreditsUi`, excluded it from TemplateGame authored UI repair, added fallback visible error rows for failed credits JSON loading, added full-screen `FocusPolicy::Block` on detached gameplay UI roots, resolved credits roll scene ownership from parent UI roots, and lowered the credits start offset from 720px to 220px.
 - `2026-06-23`: Removed the credits scene authored black background and `TemplateFullscreenBackground` per user request; focused `cargo test -p template-game --all-features` passed.
 - `2026-06-23`: Replaced `credits.jsn` contents with a minimal centered authored `Hello World` text line and updated the scene reference test accordingly; focused `cargo test -p template-game --all-features` passed. User verified this minimal scene works and requested committing it as a checkpoint.
+- `2026-06-23`: Replaced authored `Hello World` with static generated credits from `credits.json`; scrolling is disabled and generated content starts at `top: 50%` so the first credits line appears in the same centered position. `cargo test -p foundation-runtime-library --all-features` and `cargo test -p template-game --lib --all-features` passed. Full `cargo test -p template-game --all-features` could not replace `target/debug/template-game.exe` because the executable was locked by another process.
 - `2026-06-23`: Validation passed with focused `cargo test -p foundation-runtime-library --all-features`, focused `cargo test -p template-game --all-features`, and full `scripts/validate-project.cmd`. Changes intentionally left uncommitted pending user verification.

@@ -45,7 +45,7 @@ pub struct FoundationCreditsRuntimeSettings {
 pub struct FoundationCreditsRoll {
     /// Asset-relative or project-relative path to the credits JSON file.
     pub credits_path: String,
-    /// Vertical scroll speed in pixels per second.
+    /// Vertical scroll speed in pixels per second. Use `0.0` for static centered credits.
     pub scroll_speed_pixels_per_second: f32,
     /// Starting top offset for the generated roll content, in pixels.
     pub start_offset_pixels: f32,
@@ -247,6 +247,11 @@ fn scroll_credits_rolls(
 ) {
     let delta_seconds = time.delta_secs();
     for (credits_roll, mut credits_runtime) in &mut credits_rolls {
+        if credits_roll.scroll_speed_pixels_per_second == 0.0 {
+            // Static credits keep their initial percent-based centered position.
+            continue;
+        }
+
         credits_runtime.current_top_pixels -=
             credits_roll.scroll_speed_pixels_per_second * delta_seconds;
         if let Ok(mut content_node) = content_nodes.get_mut(credits_runtime.content_entity) {
@@ -262,7 +267,12 @@ fn spawn_credits_content(
     scene_owner: Option<SceneOwner>,
 ) -> Entity {
     let content_width = Val::Percent(100.0);
-    let content_top = Val::Px(credits_roll.start_offset_pixels);
+    let content_top = if credits_roll.scroll_speed_pixels_per_second == 0.0 {
+        // Static credits start at screen center to match the working authored text baseline.
+        Val::Percent(50.0)
+    } else {
+        Val::Px(credits_roll.start_offset_pixels)
+    };
     let content_entity = commands
         .spawn((
             Node {
