@@ -437,6 +437,15 @@ fn spawn_credit_person_row(
     credited_person_role: &str,
     scene_owner: Option<SceneOwner>,
 ) -> Entity {
+    if credited_person_role.trim().is_empty() {
+        return spawn_centered_credit_text(
+            commands,
+            credited_person_name,
+            credits_roll.person_font_size,
+            scene_owner,
+        );
+    }
+
     let name_column_width = Val::Px(300.0);
     let role_column_width = Val::Px(300.0);
     let center_gap_width = Val::Px(28.0);
@@ -477,6 +486,29 @@ fn spawn_credit_person_row(
         .replace_children(&[name_text_entity, role_text_entity]);
 
     row_entity
+}
+
+fn spawn_centered_credit_text(
+    commands: &mut Commands,
+    text_value: &str,
+    font_size: f32,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let text_entity = commands
+        .spawn((
+            Node {
+                align_self: AlignSelf::Center,
+                ..default()
+            },
+            Text::new(text_value.to_string()),
+            TextFont::from_font_size(font_size),
+            TextColor(Color::WHITE),
+            FoundationGeneratedCreditsUi,
+            Name::new(text_value.to_string()),
+        ))
+        .id();
+    insert_scene_owner(commands, text_entity, scene_owner);
+    text_entity
 }
 
 fn spawn_credit_person_text(
