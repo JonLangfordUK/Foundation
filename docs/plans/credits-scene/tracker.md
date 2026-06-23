@@ -28,7 +28,7 @@
 ## Branch And Working Tree State
 - Branch: `feature/credits-scene`
 - Branch base: Created from `dev` during planning on 2026-06-22; verified with `git merge-base --is-ancestor dev HEAD` before implementation.
-- Push status: Planning commit `3b64972`, implementation commit `0039ff7`, and interaction fix commit `d225eba` pushed to `origin/feature/credits-scene`; minimal Hello World checkpoint pending commit/push.
+- Push status: Feature commits pushed through `69a56da`; final Unicode font support commit pending before merge.
 - Pre-existing working tree note: `games/template-game/.jsn/project.jsn` was modified before feature planning began and remains unrelated/uncommitted.
 
 ## Phase 1: Credits Data Model And Runtime Ownership
@@ -217,4 +217,5 @@
 - `2026-06-23`: Scraped `https://bevy.org/community/people/` into `credits.json` under `Bevy/Maintainers`, `Bevy/Members`, and `Bevy/Community`. Maintainer/member roles come from site tags with `SME-` removed and multiple tags joined with ` | `; community roles are empty. Empty role rows now render as centered names without a separator. Focused `cargo test -p foundation-runtime-library --all-features` and `cargo test -p template-game --lib --all-features` passed.
 - `2026-06-23`: Cleaned `credits.json` names by removing emoji and capitalizing the first letter of each word. Focused `cargo test -p template-game --lib --all-features` passed.
 - `2026-06-23`: Scraped Jackdaw contributors from GitHub commits since 2026-03-21, matching the requested contributors graph timeframe. Added a root `Jackdaw` credits group with Joe Buehler (`jbuehler23`) first as `Project Lead`, de-duplicated from contributors, and added remaining contributors using GitHub profile real names where available with handles as fallback. Focused `cargo test -p template-game --lib --all-features` passed.
+- `2026-06-23`: Added NotoSans-Regular font asset and `FoundationCreditsRoll.font_path` so generated credits text can render names with Unicode characters. Full `scripts/validate-project.cmd` passed before final commit/merge.
 - `2026-06-23`: Validation passed with focused `cargo test -p foundation-runtime-library --all-features`, focused `cargo test -p template-game --all-features`, and full `scripts/validate-project.cmd`. Changes intentionally left uncommitted pending user verification.

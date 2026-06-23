@@ -162,7 +162,8 @@
           "indentation_pixels_per_level": 32.0,
           "row_gap_pixels": 12.0,
           "group_bottom_margin_pixels": 20.0,
-          "group_top_margin_pixels": 0.0
+          "group_top_margin_pixels": 0.0,
+          "font_path": "fonts/NotoSans-Regular.ttf"
         },
         "bevy_ui::ui_node::BackgroundColor": {
           "Srgba": {

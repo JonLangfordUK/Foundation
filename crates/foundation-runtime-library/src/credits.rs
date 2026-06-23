@@ -47,6 +47,8 @@ pub struct FoundationCreditsRuntimeSettings {
 pub struct FoundationCreditsRoll {
     /// Asset-relative or project-relative path to the credits JSON file.
     pub credits_path: String,
+    /// Asset-relative font path used for generated credits text.
+    pub font_path: String,
     /// Vertical scroll speed in pixels per second. Use `0.0` for static centered credits.
     pub scroll_speed_pixels_per_second: f32,
     /// Starting top offset for the generated roll content, in pixels.
@@ -73,6 +75,7 @@ impl Default for FoundationCreditsRoll {
     fn default() -> Self {
         Self {
             credits_path: "credits.json".to_string(),
+            font_path: "fonts/NotoSans-Regular.ttf".to_string(),
             scroll_speed_pixels_per_second: 45.0,
             start_offset_pixels: 220.0,
             top_level_header_font_size: 48.0,
@@ -261,6 +264,7 @@ type CreditsRuntimeQuery<'w, 's> = Query<
 fn initialize_credits_rolls(
     mut commands: Commands,
     settings: Res<FoundationCreditsRuntimeSettings>,
+    asset_server: Res<AssetServer>,
     credits_rolls: CreditsRollInitQuery,
     scene_owners: Query<&SceneOwner>,
 ) {
@@ -286,6 +290,7 @@ fn initialize_credits_rolls(
             estimate_credits_content_height(credits_roll, &display_rows);
         let content_entity = spawn_credits_content(
             &mut commands,
+            &asset_server,
             credits_roll,
             &display_rows,
             credits_scene_owner,
@@ -352,6 +357,7 @@ fn estimate_credits_content_height(
 
 fn spawn_credits_content(
     commands: &mut Commands,
+    asset_server: &AssetServer,
     credits_roll: &FoundationCreditsRoll,
     display_rows: &[CreditsDisplayRow],
     scene_owner: Option<SceneOwner>,
@@ -382,7 +388,15 @@ fn spawn_credits_content(
 
     let row_entities = display_rows
         .iter()
-        .map(|display_row| spawn_credits_row(commands, credits_roll, display_row, scene_owner))
+        .map(|display_row| {
+            spawn_credits_row(
+                commands,
+                asset_server,
+                credits_roll,
+                display_row,
+                scene_owner,
+            )
+        })
         .collect::<Vec<_>>();
     commands
         .entity(content_entity)
@@ -393,6 +407,7 @@ fn spawn_credits_content(
 
 fn spawn_credits_row(
     commands: &mut Commands,
+    asset_server: &AssetServer,
     credits_roll: &FoundationCreditsRoll,
     display_row: &CreditsDisplayRow,
     scene_owner: Option<SceneOwner>,
@@ -406,7 +421,14 @@ fn spawn_credits_row(
             (name.to_uppercase(), header_font_size)
         }
         CreditsDisplayRow::Person { name, role, .. } => {
-            return spawn_credit_person_row(commands, credits_roll, name, role, scene_owner);
+            return spawn_credit_person_row(
+                commands,
+                asset_server,
+                credits_roll,
+                name,
+                role,
+                scene_owner,
+            );
         }
         CreditsDisplayRow::GroupBottomMargin { pixels } => {
             return spawn_group_margin(commands, *pixels, scene_owner);
@@ -420,7 +442,7 @@ fn spawn_credits_row(
                 ..default()
             },
             Text::new(row_text.clone()),
-            TextFont::from_font_size(row_font_size),
+            credits_text_font(asset_server, credits_roll, row_font_size),
             TextColor(Color::WHITE),
             FoundationGeneratedCreditsUi,
             Name::new(row_text),
@@ -432,6 +454,7 @@ fn spawn_credits_row(
 
 fn spawn_credit_person_row(
     commands: &mut Commands,
+    asset_server: &AssetServer,
     credits_roll: &FoundationCreditsRoll,
     credited_person_name: &str,
     credited_person_role: &str,
@@ -440,6 +463,8 @@ fn spawn_credit_person_row(
     if credited_person_role.trim().is_empty() {
         return spawn_centered_credit_text(
             commands,
+            asset_server,
+            credits_roll,
             credited_person_name,
             credits_roll.person_font_size,
             scene_owner,
@@ -465,22 +490,22 @@ fn spawn_credit_person_row(
         .id();
     insert_scene_owner(commands, row_entity, scene_owner);
 
-    let name_text_entity = spawn_credit_person_text(
-        commands,
-        credited_person_name,
-        credits_roll.person_font_size,
-        name_column_width,
-        Justify::Right,
-        scene_owner,
-    );
-    let role_text_entity = spawn_credit_person_text(
-        commands,
-        credited_person_role,
-        credits_roll.person_font_size,
-        role_column_width,
-        Justify::Left,
-        scene_owner,
-    );
+    let name_text = CreditPersonTextSpec {
+        value: credited_person_name,
+        font_size: credits_roll.person_font_size,
+        column_width: name_column_width,
+        justify: Justify::Right,
+    };
+    let name_text_entity =
+        spawn_credit_person_text(commands, asset_server, credits_roll, name_text, scene_owner);
+    let role_text = CreditPersonTextSpec {
+        value: credited_person_role,
+        font_size: credits_roll.person_font_size,
+        column_width: role_column_width,
+        justify: Justify::Left,
+    };
+    let role_text_entity =
+        spawn_credit_person_text(commands, asset_server, credits_roll, role_text, scene_owner);
     commands
         .entity(row_entity)
         .replace_children(&[name_text_entity, role_text_entity]);
@@ -490,6 +515,8 @@ fn spawn_credit_person_row(
 
 fn spawn_centered_credit_text(
     commands: &mut Commands,
+    asset_server: &AssetServer,
+    credits_roll: &FoundationCreditsRoll,
     text_value: &str,
     font_size: f32,
     scene_owner: Option<SceneOwner>,
@@ -501,7 +528,7 @@ fn spawn_centered_credit_text(
                 ..default()
             },
             Text::new(text_value.to_string()),
-            TextFont::from_font_size(font_size),
+            credits_text_font(asset_server, credits_roll, font_size),
             TextColor(Color::WHITE),
             FoundationGeneratedCreditsUi,
             Name::new(text_value.to_string()),
@@ -511,30 +538,53 @@ fn spawn_centered_credit_text(
     text_entity
 }
 
+struct CreditPersonTextSpec<'a> {
+    value: &'a str,
+    font_size: f32,
+    column_width: Val,
+    justify: Justify,
+}
+
 fn spawn_credit_person_text(
     commands: &mut Commands,
-    text_value: &str,
-    font_size: f32,
-    text_column_width: Val,
-    text_justify: Justify,
+    asset_server: &AssetServer,
+    credits_roll: &FoundationCreditsRoll,
+    text_spec: CreditPersonTextSpec,
     scene_owner: Option<SceneOwner>,
 ) -> Entity {
     let text_entity = commands
         .spawn((
             Node {
-                width: text_column_width,
+                width: text_spec.column_width,
                 ..default()
             },
-            Text::new(text_value.to_string()),
-            TextFont::from_font_size(font_size),
+            Text::new(text_spec.value.to_string()),
+            credits_text_font(asset_server, credits_roll, text_spec.font_size),
             TextColor(Color::WHITE),
-            TextLayout::new_with_justify(text_justify),
+            TextLayout::new_with_justify(text_spec.justify),
             FoundationGeneratedCreditsUi,
-            Name::new(text_value.to_string()),
+            Name::new(text_spec.value.to_string()),
         ))
         .id();
     insert_scene_owner(commands, text_entity, scene_owner);
     text_entity
+}
+
+fn credits_text_font(
+    asset_server: &AssetServer,
+    credits_roll: &FoundationCreditsRoll,
+    font_size: f32,
+) -> TextFont {
+    let font_path = credits_roll.font_path.trim();
+    if font_path.is_empty() {
+        return TextFont::from_font_size(font_size);
+    }
+
+    TextFont {
+        font: asset_server.load(font_path.to_string()),
+        font_size,
+        ..default()
+    }
 }
 
 fn spawn_group_margin(
@@ -823,6 +873,7 @@ mod tests {
         let credits_roll = FoundationCreditsRoll::default();
 
         assert_eq!(credits_roll.credits_path, "credits.json");
+        assert_eq!(credits_roll.font_path, "fonts/NotoSans-Regular.ttf");
         assert!(credits_roll.scroll_speed_pixels_per_second > 0.0);
         assert!(credits_roll.top_level_header_font_size > credits_roll.minimum_header_font_size);
         assert!(credits_roll.person_font_size < credits_roll.minimum_header_font_size);
