@@ -18,6 +18,32 @@ The template can be adapted into:
 - Use `gpt-5.5` for review.
 - Never use Anthropic models.
 
+## Required Pi project resources
+This repository expects Pi project resources to be available after cloning and trusting the project.
+
+### Project-local skills
+The following skills are part of the repository and are mandatory when their matching task descriptions apply:
+- `.pi/skills/feature-plan-docs/SKILL.md`
+- `.pi/skills/feature-review-handoff/SKILL.md`
+- `.pi/skills/feature-tracker-update/SKILL.md`
+- `.pi/skills/foundation-architecture/SKILL.md`
+- `.pi/skills/gitflow-workflow/SKILL.md`
+- `.pi/skills/rust-coding-standards/SKILL.md`
+- `.pi/skills/rust-workspace-dev/SKILL.md`
+
+Do not skip these skills when this file says they are required for a task. If a cloned checkout is missing one of these files, stop and report that the repository is incomplete.
+
+### Project Pi packages and extensions
+The project declares Pi package dependencies in `.pi/settings.json`. At the time this file was updated, the required package entry is:
+- `npm:@ifi/oh-pi`
+
+That package is expected to provide the current oh-pi extension/content bundle, including extensions such as git guard, session naming, footer/tool metadata, scheduler, usage tracking, watchdog/background-process helpers, external editor/worktree helpers, background tasks, diagnostics, ant-colony, subagents, plan/spec workflow, web remote, themes, prompts, and oh-pi skills.
+
+A Pi instance working in this project should honor `.pi/settings.json` package loading. If the required package or its extension-provided tools/commands are unavailable when needed, stop and tell the user to install or reload the project Pi packages rather than silently substituting another workflow.
+
+### Non-project skills currently expected when available
+The `librarian` skill may be provided by the global `pi-web-access` installation rather than by this repository. Use it when the task asks for evidence-backed open-source library research with GitHub permalinks. Because it is not vendored under `.pi/skills`, a fresh clone may not have it until the user's Pi environment installs `pi-web-access`; if it is missing, report that limitation instead of pretending the skill was used.
+
 ## Standard workflow
 When the user asks for Rust workspace, crate, module, test, build, lint, dependency, or template work:
 1. Read `.pi/skills/rust-workspace-dev/SKILL.md` first.
