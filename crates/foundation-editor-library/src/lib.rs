@@ -25,10 +25,12 @@ impl Plugin for FoundationEditorPlugin {
             // Keep the project settings resource populated for editor-only systems.
             .add_systems(Startup, load_foundation_game_settings_from_project_root)
             // Project auto-open loads Jackdaw's default `assets/scene.jsn` first.
-            // This follow-up replaces it with the configured editor startup map.
+            // This follow-up waits for the Outliner before replacing it so UI-only roots are
+            // indexed.
+            .init_resource::<FoundationEditorStartupSceneState>()
             .add_systems(
-                OnEnter(jackdaw::AppState::Editor),
-                load_editor_startup_scene_from_settings,
+                Update,
+                load_editor_startup_scene_from_settings.run_if(in_state(jackdaw::AppState::Editor)),
             );
     }
 }
@@ -50,7 +52,27 @@ fn load_foundation_game_settings_from_project_root(mut commands: Commands) {
     }
 }
 
+#[derive(Default, Resource)]
+struct FoundationEditorStartupSceneState {
+    has_loaded_configured_scene: bool,
+}
+
 fn load_editor_startup_scene_from_settings(world: &mut World) {
+    if world
+        .resource::<FoundationEditorStartupSceneState>()
+        .has_loaded_configured_scene
+    {
+        return;
+    }
+
+    if !has_hierarchy_tree_container(world) {
+        return;
+    }
+
+    world
+        .resource_mut::<FoundationEditorStartupSceneState>()
+        .has_loaded_configured_scene = true;
+
     let project_root = current_project_root();
     let Some(settings) = world.get_resource::<FoundationGameSettings>() else {
         return;
@@ -60,7 +82,15 @@ fn load_editor_startup_scene_from_settings(world: &mut World) {
         return;
     };
 
+    // Jackdaw indexes UI-only root entities through spawn observers when the Outliner already
+    // exists. Loading before the tree container is mounted leaves those roots invisible there.
     jackdaw::scene_io::load_scene_from_file(world, &editor_startup_scene_path);
+}
+
+fn has_hierarchy_tree_container(world: &mut World) -> bool {
+    let mut hierarchy_container_query =
+        world.query_filtered::<Entity, With<jackdaw::hierarchy::HierarchyTreeContainer>>();
+    hierarchy_container_query.iter(world).next().is_some()
 }
 
 fn editor_startup_scene_file_path(
