@@ -217,6 +217,7 @@ type AuthoredUiNodeCompletionQuery<'w, 's> = Query<
             With<Text>,
         )>,
         Without<FoundationGeneratedMenuUi>,
+        Without<FoundationGeneratedCreditsUi>,
     ),
 >;
 
@@ -232,6 +233,17 @@ type AuthoredUiTextCompletionQuery<'w, 's> = Query<
         With<Text>,
         Without<TemplateUiTextCompleted>,
         Without<FoundationGeneratedMenuUi>,
+        Without<FoundationGeneratedCreditsUi>,
+    ),
+>;
+
+type AuthoredUiChildLinkQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static ChildOf, Option<&'static FoundationUiOrder>),
+    (
+        Without<FoundationGeneratedMenuUi>,
+        Without<FoundationGeneratedCreditsUi>,
     ),
 >;
 
@@ -951,10 +963,7 @@ fn complete_authored_ui_text_components(
     mut commands: Commands,
     ui_nodes: AuthoredUiNodeCompletionQuery,
     texts: AuthoredUiTextCompletionQuery,
-    child_links: Query<
-        (Entity, &ChildOf, Option<&FoundationUiOrder>),
-        Without<FoundationGeneratedMenuUi>,
-    >,
+    child_links: AuthoredUiChildLinkQuery,
 ) {
     for (ui_node_entity, scene_owner) in &ui_nodes {
         // Jackdaw-authored UI nodes should not keep transform components at runtime.

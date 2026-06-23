@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `game`
 - Branch: `feature/credits-scene`
-- Overall status: `Implementation complete; validation passed`
+- Overall status: `Fix complete; validation passed`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.5 sanity review or user acceptance`
+- Current handoff state: `Credits scene interaction fix ready for user verification`
 - Created: `2026-06-22`
 - Last updated: `2026-06-22`
 
@@ -186,6 +186,7 @@
 - Final production credits copy is postponed until the user provides real names/roles; current `credits.json` uses the user's sample placeholder content.
 
 ## Open Issues And Questions
+- User reported that opening the credits scene shows a black screen and the underlying main menu buttons remain interactive. Fixed by making scene-stack-owned menu interactions respect `SceneRuntimeFlags::interactive`, isolating generated credits UI from authored UI repair, and reducing the credits roll start offset so content appears sooner.
 - Ownership split resolved: reusable `foundation-runtime-library` credits component with TemplateGame-owned JSON and scene assets.
 - Final credits copy is not provided. Current `credits.json` uses the user's sample JSON as placeholder content.
 - End-of-roll behavior resolved as no automatic scene transition; credits remain closable by Back/Escape.
@@ -202,3 +203,7 @@
 - `2026-06-22`: Focused validation passed: `cargo test -p foundation-runtime-library --all-features` and `cargo test -p template-game --all-features`.
 - `2026-06-22`: Full validation passed with `scripts/validate-project.cmd`; `scripts/format-project.cmd` also passed separately.
 - `2026-06-22`: Implementation committed as `0039ff7` and pushed to `origin/feature/credits-scene`.
+- `2026-06-23`: User reported credits scene opens to a black screen while underlying main-menu buttons remain interactive; started gpt-5.4 fix on `feature/credits-scene` with branch base re-verified.
+- `2026-06-23`: Fixed covered scene menu input by checking scene-stack interactivity for menu buttons, options tabs, pause openers, and Escape-close markers.
+- `2026-06-23`: Marked generated credits UI with `FoundationGeneratedCreditsUi`, excluded it from TemplateGame authored UI repair, and lowered the credits start offset from 720px to 420px.
+- `2026-06-23`: Validation passed with focused `cargo test -p foundation-runtime-library --all-features`, focused `cargo test -p template-game --all-features`, and full `scripts/validate-project.cmd`.

@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 
 use crate::scene_stack::{
-    OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource,
+    OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource, SceneStack,
 };
 
 /// Installs reusable Foundation menu components and systems.
@@ -752,6 +752,7 @@ type FoundationMenuButtonInteractionQuery<'w, 's> = Query<
 fn open_pause_menus(
     keyboard: Res<ButtonInput<KeyCode>>,
     settings: Res<FoundationMenuRuntimeSettings>,
+    scene_stack: Option<Res<SceneStack>>,
     mut pause_state: ResMut<FoundationPauseState>,
     pause_openers: Query<(&FoundationPauseOpener, Option<&SceneOwner>)>,
     mut scene_commands: MessageWriter<SceneCommand>,
@@ -761,10 +762,9 @@ fn open_pause_menus(
     }
 
     // Use the first active opener so scene-authored levels decide which pause menu opens.
-    let Some((opener, _)) = pause_openers
-        .iter()
-        .find(|(_, scene_owner)| !should_skip_menu_runtime_entity(&settings, *scene_owner))
-    else {
+    let Some((opener, _)) = pause_openers.iter().find(|(_, scene_owner)| {
+        !should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), *scene_owner)
+    }) else {
         return;
     };
     let pause_scene_path = opener.pause_scene_path.trim();
@@ -789,13 +789,14 @@ fn open_pause_menus(
 
 fn update_foundation_menu_button_interactions(
     settings: Res<FoundationMenuRuntimeSettings>,
+    scene_stack: Option<Res<SceneStack>>,
     mut buttons: FoundationMenuButtonInteractionQuery,
     mut scene_commands: MessageWriter<SceneCommand>,
     mut exit_requested: MessageWriter<FoundationExitRequested>,
     mut pause_state: ResMut<FoundationPauseState>,
 ) {
     for (interaction, button, mut background, scene_owner) in &mut buttons {
-        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+        if should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), scene_owner) {
             continue;
         }
         background.0 = match *interaction {
@@ -927,12 +928,13 @@ type OptionsSettingTextQuery<'w, 's> = Query<
 
 fn update_options_tab_button_interactions(
     settings: Res<FoundationMenuRuntimeSettings>,
+    scene_stack: Option<Res<SceneStack>>,
     mut buttons: OptionsTabInteractionQuery,
     mut menus: Query<(&mut FoundationOptionsRuntime, Option<&SceneOwner>)>,
     mut setting_texts: OptionsSettingTextQuery,
 ) {
     for (interaction, tab_button, mut background, scene_owner) in &mut buttons {
-        if should_skip_menu_runtime_entity(&settings, scene_owner) {
+        if should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), scene_owner) {
             continue;
         }
         let mut selected = false;
@@ -1006,6 +1008,7 @@ fn inherit_scene_owner_to_generated_menu_ui(
 fn close_on_escape(
     keyboard: Res<ButtonInput<KeyCode>>,
     settings: Res<FoundationMenuRuntimeSettings>,
+    scene_stack: Option<Res<SceneStack>>,
     close_markers: Query<Option<&SceneOwner>, With<FoundationCloseOnEscape>>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
@@ -1013,9 +1016,9 @@ fn close_on_escape(
         return;
     }
 
-    let has_close_marker = close_markers
-        .iter()
-        .any(|scene_owner| !should_skip_menu_runtime_entity(&settings, scene_owner));
+    let has_close_marker = close_markers.iter().any(|scene_owner| {
+        !should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), scene_owner)
+    });
     if has_close_marker {
         scene_commands.write(SceneCommand::CloseCurrent);
     }
@@ -1026,6 +1029,29 @@ fn should_skip_menu_runtime_entity(
     scene_owner: Option<&SceneOwner>,
 ) -> bool {
     settings.require_scene_owner && scene_owner.is_none()
+}
+
+fn should_skip_scene_stack_menu_input(
+    settings: &FoundationMenuRuntimeSettings,
+    scene_stack: Option<&SceneStack>,
+    scene_owner: Option<&SceneOwner>,
+) -> bool {
+    if should_skip_menu_runtime_entity(settings, scene_owner) {
+        return true;
+    }
+
+    let Some(scene_owner) = scene_owner else {
+        return false;
+    };
+
+    let Some(scene_stack) = scene_stack else {
+        return false;
+    };
+
+    // Scene-stack presentation flags are the runtime source of truth for covered menus.
+    scene_stack
+        .get(scene_owner.scene_id)
+        .is_none_or(|scene_entry| !scene_entry.flags.interactive)
 }
 
 #[cfg(test)]
@@ -1069,6 +1095,38 @@ mod tests {
     #[test]
     fn foundation_spin_defaults_to_one_radian_per_second() {
         assert_eq!(FoundationSpin::default().radians_per_second, 1.0);
+    }
+
+    #[test]
+    fn scene_stack_menu_input_skips_covered_scene_buttons() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("credits")));
+        app.update();
+
+        let scene_stack = app.world().resource::<SceneStack>();
+        let settings = FoundationMenuRuntimeSettings::default();
+        let covered_menu_owner = SceneOwner {
+            scene_id: crate::scene_stack::SceneId(1),
+        };
+        let focused_credits_owner = SceneOwner {
+            scene_id: crate::scene_stack::SceneId(2),
+        };
+
+        assert!(should_skip_scene_stack_menu_input(
+            &settings,
+            Some(scene_stack),
+            Some(&covered_menu_owner),
+        ));
+        assert!(!should_skip_scene_stack_menu_input(
+            &settings,
+            Some(scene_stack),
+            Some(&focused_credits_owner),
+        ));
     }
 
     #[test]

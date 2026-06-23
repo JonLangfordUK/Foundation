@@ -80,7 +80,7 @@ pub mod prelude {
     pub use crate::credits::{
         flatten_credits_document, header_font_size_for_depth, CreditPerson, CreditsDisplayRow,
         CreditsDocument, CreditsGroup, FoundationCreditsPlugin, FoundationCreditsRoll,
-        FoundationCreditsRuntime, FoundationCreditsRuntimeSettings,
+        FoundationCreditsRuntime, FoundationCreditsRuntimeSettings, FoundationGeneratedCreditsUi,
     };
     pub use crate::game_settings::{
         FoundationGameSettings, FoundationGameSettingsIoError, FOUNDATION_GAME_SETTINGS_FILE_NAME,

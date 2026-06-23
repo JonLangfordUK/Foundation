@@ -293,7 +293,7 @@
         "foundation_runtime_library::credits::FoundationCreditsRoll": {
           "credits_path": "credits.json",
           "scroll_speed_pixels_per_second": 45.0,
-          "start_offset_pixels": 720.0,
+          "start_offset_pixels": 420.0,
           "top_level_header_font_size": 48.0,
           "header_font_size_step": 6.0,
           "minimum_header_font_size": 24.0,
