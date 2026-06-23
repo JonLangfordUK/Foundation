@@ -10,7 +10,7 @@
   },
   "metadata": {
     "name": "Credits",
-    "description": "Basic credits scene rendering static text loaded from credits.json.",
+    "description": "Credits scene rendering JSON-authored text scrolling from bottom to top over a black background.",
     "author": "",
     "created": "2026-06-22T00:00:00Z",
     "modified": "2026-06-23T00:00:00Z"
@@ -153,14 +153,24 @@
         },
         "foundation_runtime_library::credits::FoundationCreditsRoll": {
           "credits_path": "credits.json",
-          "scroll_speed_pixels_per_second": 0.0,
-          "start_offset_pixels": 0.0,
+          "scroll_speed_pixels_per_second": 45.0,
+          "start_offset_pixels": 720.0,
           "top_level_header_font_size": 48.0,
           "header_font_size_step": 6.0,
           "minimum_header_font_size": 24.0,
           "person_font_size": 24.0,
           "indentation_pixels_per_level": 32.0,
-          "row_gap_pixels": 12.0
+          "row_gap_pixels": 12.0,
+          "group_bottom_margin_pixels": 20.0,
+          "group_top_margin_pixels": 0.0
+        },
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.0,
+            "green": 0.0,
+            "red": 0.0
+          }
         }
       }
     }

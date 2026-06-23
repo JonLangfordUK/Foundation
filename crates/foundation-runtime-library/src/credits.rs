@@ -10,7 +10,9 @@ use bevy::prelude::*;
 use jackdaw_runtime::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::scene_stack::SceneOwner;
+use crate::scene_stack::{SceneCommand, SceneOwner};
+
+const CREDITS_EXIT_PADDING_PIXELS: f32 = 480.0;
 
 /// Installs reusable Foundation credits roll components and systems.
 #[derive(Default)]
@@ -61,6 +63,10 @@ pub struct FoundationCreditsRoll {
     pub indentation_pixels_per_level: f32,
     /// Vertical space after each generated row, in pixels.
     pub row_gap_pixels: f32,
+    /// Default vertical space inserted before each group, in pixels.
+    pub group_top_margin_pixels: f32,
+    /// Default vertical space inserted after a group header and its direct people, in pixels.
+    pub group_bottom_margin_pixels: f32,
 }
 
 impl Default for FoundationCreditsRoll {
@@ -75,6 +81,8 @@ impl Default for FoundationCreditsRoll {
             person_font_size: 24.0,
             indentation_pixels_per_level: 32.0,
             row_gap_pixels: 12.0,
+            group_top_margin_pixels: 0.0,
+            group_bottom_margin_pixels: 20.0,
         }
     }
 }
@@ -94,6 +102,8 @@ pub struct FoundationCreditsRuntime {
     pub content_entity: Entity,
     /// Current top offset of the generated content, in pixels.
     pub current_top_pixels: f32,
+    /// Estimated total content height used to close the scene after scrolling ends.
+    pub estimated_content_height_pixels: f32,
 }
 
 /// Root JSON document for recursive credits data.
@@ -115,6 +125,12 @@ pub struct CreditsGroup {
     /// Child groups using the same schema at any nesting depth.
     #[serde(default)]
     pub groups: Vec<CreditsGroup>,
+    /// Optional override for this group's top margin, in pixels.
+    #[serde(default)]
+    pub top_margin_pixels: Option<f32>,
+    /// Optional override for this group's bottom margin, in pixels.
+    #[serde(default)]
+    pub bottom_margin_pixels: Option<f32>,
 }
 
 /// A single credited person and role.
@@ -127,8 +143,10 @@ pub struct CreditPerson {
 }
 
 /// A flattened row ready for credits UI generation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CreditsDisplayRow {
+    /// Spacer inserted before a group.
+    GroupTopMargin { pixels: f32 },
     /// Group heading at the supplied nesting depth.
     Group { name: String, depth: usize },
     /// Person row under the supplied group nesting depth.
@@ -137,13 +155,28 @@ pub enum CreditsDisplayRow {
         role: String,
         depth: usize,
     },
+    /// Spacer inserted after a group's direct heading and people rows.
+    GroupBottomMargin { pixels: f32 },
 }
 
 /// Flattens a recursive credits document into deterministic pre-order rows.
 pub fn flatten_credits_document(document: &CreditsDocument) -> Vec<CreditsDisplayRow> {
+    flatten_credits_document_with_default_margin(document, 20.0)
+}
+
+fn flatten_credits_document_with_default_margin(
+    document: &CreditsDocument,
+    default_group_bottom_margin_pixels: f32,
+) -> Vec<CreditsDisplayRow> {
     let mut display_rows = Vec::new();
     for credits_group in &document.groups {
-        flatten_credits_group(credits_group, 0, &mut display_rows);
+        flatten_credits_group(
+            credits_group,
+            0,
+            0.0,
+            default_group_bottom_margin_pixels,
+            &mut display_rows,
+        );
     }
     display_rows
 }
@@ -158,8 +191,19 @@ pub fn header_font_size_for_depth(credits_roll: &FoundationCreditsRoll, group_de
 fn flatten_credits_group(
     credits_group: &CreditsGroup,
     group_depth: usize,
+    default_group_top_margin_pixels: f32,
+    default_group_bottom_margin_pixels: f32,
     display_rows: &mut Vec<CreditsDisplayRow>,
 ) {
+    let group_top_margin_pixels = credits_group
+        .top_margin_pixels
+        .unwrap_or(default_group_top_margin_pixels);
+    if group_top_margin_pixels > 0.0 {
+        display_rows.push(CreditsDisplayRow::GroupTopMargin {
+            pixels: group_top_margin_pixels,
+        });
+    }
+
     // Push each group before its contents so the roll reads like a nested outline.
     display_rows.push(CreditsDisplayRow::Group {
         name: credits_group.name.clone(),
@@ -174,9 +218,22 @@ fn flatten_credits_group(
         });
     }
 
+    let group_bottom_margin_pixels = credits_group
+        .bottom_margin_pixels
+        .unwrap_or(default_group_bottom_margin_pixels);
+    display_rows.push(CreditsDisplayRow::GroupBottomMargin {
+        pixels: group_bottom_margin_pixels,
+    });
+
     let child_group_depth = group_depth.saturating_add(1);
     for child_group in &credits_group.groups {
-        flatten_credits_group(child_group, child_group_depth, display_rows);
+        flatten_credits_group(
+            child_group,
+            child_group_depth,
+            default_group_top_margin_pixels,
+            default_group_bottom_margin_pixels,
+            display_rows,
+        );
     }
 }
 
@@ -213,7 +270,10 @@ fn initialize_credits_rolls(
             continue;
         }
         let display_rows = match load_credits_document(&credits_roll.credits_path) {
-            Ok(credits_document) => flatten_credits_document(&credits_document),
+            Ok(credits_document) => flatten_credits_document_with_default_margin(
+                &credits_document,
+                credits_roll.group_bottom_margin_pixels,
+            ),
             Err(load_error) => {
                 warn!(
                     "Failed to load FoundationCreditsRoll JSON `{}`: {load_error}",
@@ -222,6 +282,8 @@ fn initialize_credits_rolls(
                 fallback_credits_error_rows(&load_error)
             }
         };
+        let estimated_content_height_pixels =
+            estimate_credits_content_height(credits_roll, &display_rows);
         let content_entity = spawn_credits_content(
             &mut commands,
             credits_roll,
@@ -236,6 +298,7 @@ fn initialize_credits_rolls(
             .insert(FoundationCreditsRuntime {
                 content_entity,
                 current_top_pixels: credits_roll.start_offset_pixels,
+                estimated_content_height_pixels,
             });
     }
 }
@@ -244,6 +307,7 @@ fn scroll_credits_rolls(
     time: Res<Time>,
     mut credits_rolls: CreditsRuntimeQuery,
     mut content_nodes: Query<&mut Node>,
+    mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     let delta_seconds = time.delta_secs();
     for (credits_roll, mut credits_runtime) in &mut credits_rolls {
@@ -257,7 +321,33 @@ fn scroll_credits_rolls(
         if let Ok(mut content_node) = content_nodes.get_mut(credits_runtime.content_entity) {
             content_node.top = Val::Px(credits_runtime.current_top_pixels);
         }
+
+        let content_bottom_pixels =
+            credits_runtime.current_top_pixels + credits_runtime.estimated_content_height_pixels;
+        if content_bottom_pixels < -CREDITS_EXIT_PADDING_PIXELS {
+            // Keep a safety margin because Bevy text layout can be taller than raw font sizes.
+            scene_commands.write(SceneCommand::CloseCurrent);
+        }
     }
+}
+
+fn estimate_credits_content_height(
+    credits_roll: &FoundationCreditsRoll,
+    display_rows: &[CreditsDisplayRow],
+) -> f32 {
+    let rows_height = display_rows
+        .iter()
+        .map(|display_row| match display_row {
+            CreditsDisplayRow::Group { depth, .. } => {
+                header_font_size_for_depth(credits_roll, *depth)
+            }
+            CreditsDisplayRow::Person { .. } => credits_roll.person_font_size,
+            CreditsDisplayRow::GroupTopMargin { pixels } => *pixels,
+            CreditsDisplayRow::GroupBottomMargin { pixels } => *pixels,
+        })
+        .sum::<f32>();
+    let row_gap_count = display_rows.len().saturating_sub(1) as f32;
+    rows_height + credits_roll.row_gap_pixels * row_gap_count
 }
 
 fn spawn_credits_content(
@@ -307,22 +397,27 @@ fn spawn_credits_row(
     display_row: &CreditsDisplayRow,
     scene_owner: Option<SceneOwner>,
 ) -> Entity {
-    let (row_text, row_font_size, row_depth) = match display_row {
+    let (row_text, row_font_size) = match display_row {
+        CreditsDisplayRow::GroupTopMargin { pixels } => {
+            return spawn_group_margin(commands, *pixels, scene_owner);
+        }
         CreditsDisplayRow::Group { name, depth } => {
             let header_font_size = header_font_size_for_depth(credits_roll, *depth);
-            (name.clone(), header_font_size, *depth)
+            (name.clone(), header_font_size)
         }
-        CreditsDisplayRow::Person { name, role, depth } => {
+        CreditsDisplayRow::Person { name, role, .. } => {
             let person_text = format!("{name} — {role}");
-            (person_text, credits_roll.person_font_size, *depth)
+            (person_text, credits_roll.person_font_size)
+        }
+        CreditsDisplayRow::GroupBottomMargin { pixels } => {
+            return spawn_group_margin(commands, *pixels, scene_owner);
         }
     };
 
-    let row_left_margin = Val::Px(credits_roll.indentation_pixels_per_level * row_depth as f32);
     let row_entity = commands
         .spawn((
             Node {
-                margin: UiRect::left(row_left_margin),
+                align_self: AlignSelf::Center,
                 ..default()
             },
             Text::new(row_text.clone()),
@@ -334,6 +429,27 @@ fn spawn_credits_row(
         .id();
     insert_scene_owner(commands, row_entity, scene_owner);
     row_entity
+}
+
+fn spawn_group_margin(
+    commands: &mut Commands,
+    group_margin_pixels: f32,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let spacer_height = Val::Px(group_margin_pixels);
+    let spacer_entity = commands
+        .spawn((
+            Node {
+                align_self: AlignSelf::Center,
+                height: spacer_height,
+                ..default()
+            },
+            FoundationGeneratedCreditsUi,
+            Name::new("Foundation Credits Group Margin"),
+        ))
+        .id();
+    insert_scene_owner(commands, spacer_entity, scene_owner);
+    spacer_entity
 }
 
 fn load_credits_document(credits_path: &str) -> Result<CreditsDocument, String> {
@@ -455,6 +571,7 @@ mod tests {
                     name: "Studio A".to_string(),
                     depth: 0,
                 },
+                CreditsDisplayRow::GroupBottomMargin { pixels: 20.0 },
                 CreditsDisplayRow::Group {
                     name: "Team 1".to_string(),
                     depth: 1,
@@ -469,6 +586,7 @@ mod tests {
                     role: "Designer".to_string(),
                     depth: 1,
                 },
+                CreditsDisplayRow::GroupBottomMargin { pixels: 20.0 },
                 CreditsDisplayRow::Group {
                     name: "Team 2".to_string(),
                     depth: 1,
@@ -478,6 +596,7 @@ mod tests {
                     role: "Tester".to_string(),
                     depth: 1,
                 },
+                CreditsDisplayRow::GroupBottomMargin { pixels: 20.0 },
             ]
         );
     }
@@ -491,6 +610,8 @@ mod tests {
                 role: "Deep Role".to_string(),
             }],
             groups: Vec::new(),
+            top_margin_pixels: None,
+            bottom_margin_pixels: None,
         };
         let credits_document = CreditsDocument {
             groups: vec![CreditsGroup {
@@ -503,20 +624,76 @@ mod tests {
                         name: "Depth 2".to_string(),
                         people: Vec::new(),
                         groups: vec![deepest_group],
+                        top_margin_pixels: None,
+                        bottom_margin_pixels: None,
                     }],
+                    top_margin_pixels: None,
+                    bottom_margin_pixels: None,
                 }],
+                top_margin_pixels: None,
+                bottom_margin_pixels: None,
             }],
         };
 
         let display_rows = flatten_credits_document(&credits_document);
 
+        assert!(display_rows.contains(&CreditsDisplayRow::Person {
+            name: "Deep Person".to_string(),
+            role: "Deep Role".to_string(),
+            depth: 3,
+        }));
         assert_eq!(
             display_rows.last(),
-            Some(&CreditsDisplayRow::Person {
-                name: "Deep Person".to_string(),
-                role: "Deep Role".to_string(),
-                depth: 3,
-            })
+            Some(&CreditsDisplayRow::GroupBottomMargin { pixels: 20.0 })
+        );
+    }
+
+    #[test]
+    fn credits_group_bottom_margin_can_be_overridden_per_group() {
+        let credits_document = CreditsDocument {
+            groups: vec![CreditsGroup {
+                name: "Custom Spacing".to_string(),
+                people: Vec::new(),
+                groups: Vec::new(),
+                top_margin_pixels: None,
+                bottom_margin_pixels: Some(64.0),
+            }],
+        };
+
+        assert_eq!(
+            flatten_credits_document(&credits_document),
+            vec![
+                CreditsDisplayRow::Group {
+                    name: "Custom Spacing".to_string(),
+                    depth: 0,
+                },
+                CreditsDisplayRow::GroupBottomMargin { pixels: 64.0 },
+            ]
+        );
+    }
+
+    #[test]
+    fn credits_group_top_margin_can_be_overridden_per_group() {
+        let credits_document = CreditsDocument {
+            groups: vec![CreditsGroup {
+                name: "Top Spacing".to_string(),
+                people: Vec::new(),
+                groups: Vec::new(),
+                top_margin_pixels: Some(48.0),
+                bottom_margin_pixels: None,
+            }],
+        };
+
+        assert_eq!(
+            flatten_credits_document(&credits_document),
+            vec![
+                CreditsDisplayRow::GroupTopMargin { pixels: 48.0 },
+                CreditsDisplayRow::Group {
+                    name: "Top Spacing".to_string(),
+                    depth: 0,
+                },
+                CreditsDisplayRow::GroupBottomMargin { pixels: 20.0 },
+            ]
         );
     }
 
@@ -543,5 +720,7 @@ mod tests {
         assert!(credits_roll.scroll_speed_pixels_per_second > 0.0);
         assert!(credits_roll.top_level_header_font_size > credits_roll.minimum_header_font_size);
         assert!(credits_roll.person_font_size >= credits_roll.minimum_header_font_size);
+        assert_eq!(credits_roll.group_top_margin_pixels, 0.0);
+        assert_eq!(credits_roll.group_bottom_margin_pixels, 20.0);
     }
 }
