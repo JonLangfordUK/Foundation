@@ -158,7 +158,7 @@
           "top_level_header_font_size": 48.0,
           "header_font_size_step": 6.0,
           "minimum_header_font_size": 24.0,
-          "person_font_size": 24.0,
+          "person_font_size": 18.0,
           "indentation_pixels_per_level": 32.0,
           "row_gap_pixels": 12.0,
           "group_bottom_margin_pixels": 20.0,

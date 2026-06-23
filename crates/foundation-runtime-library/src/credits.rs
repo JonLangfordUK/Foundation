@@ -78,7 +78,7 @@ impl Default for FoundationCreditsRoll {
             top_level_header_font_size: 48.0,
             header_font_size_step: 6.0,
             minimum_header_font_size: 24.0,
-            person_font_size: 24.0,
+            person_font_size: 18.0,
             indentation_pixels_per_level: 32.0,
             row_gap_pixels: 12.0,
             group_top_margin_pixels: 0.0,
@@ -403,11 +403,10 @@ fn spawn_credits_row(
         }
         CreditsDisplayRow::Group { name, depth } => {
             let header_font_size = header_font_size_for_depth(credits_roll, *depth);
-            (name.clone(), header_font_size)
+            (name.to_uppercase(), header_font_size)
         }
         CreditsDisplayRow::Person { name, role, .. } => {
-            let person_text = format!("{name} — {role}");
-            (person_text, credits_roll.person_font_size)
+            return spawn_credit_person_row(commands, credits_roll, name, role, scene_owner);
         }
         CreditsDisplayRow::GroupBottomMargin { pixels } => {
             return spawn_group_margin(commands, *pixels, scene_owner);
@@ -429,6 +428,81 @@ fn spawn_credits_row(
         .id();
     insert_scene_owner(commands, row_entity, scene_owner);
     row_entity
+}
+
+fn spawn_credit_person_row(
+    commands: &mut Commands,
+    credits_roll: &FoundationCreditsRoll,
+    credited_person_name: &str,
+    credited_person_role: &str,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let name_column_width = Val::Px(300.0);
+    let role_column_width = Val::Px(300.0);
+    let center_gap_width = Val::Px(28.0);
+    let row_entity = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
+                column_gap: center_gap_width,
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            FoundationGeneratedCreditsUi,
+            Name::new(format!("{credited_person_name} Credit Row")),
+        ))
+        .id();
+    insert_scene_owner(commands, row_entity, scene_owner);
+
+    let name_text_entity = spawn_credit_person_text(
+        commands,
+        credited_person_name,
+        credits_roll.person_font_size,
+        name_column_width,
+        Justify::Right,
+        scene_owner,
+    );
+    let role_text_entity = spawn_credit_person_text(
+        commands,
+        credited_person_role,
+        credits_roll.person_font_size,
+        role_column_width,
+        Justify::Left,
+        scene_owner,
+    );
+    commands
+        .entity(row_entity)
+        .replace_children(&[name_text_entity, role_text_entity]);
+
+    row_entity
+}
+
+fn spawn_credit_person_text(
+    commands: &mut Commands,
+    text_value: &str,
+    font_size: f32,
+    text_column_width: Val,
+    text_justify: Justify,
+    scene_owner: Option<SceneOwner>,
+) -> Entity {
+    let text_entity = commands
+        .spawn((
+            Node {
+                width: text_column_width,
+                ..default()
+            },
+            Text::new(text_value.to_string()),
+            TextFont::from_font_size(font_size),
+            TextColor(Color::WHITE),
+            TextLayout::new_with_justify(text_justify),
+            FoundationGeneratedCreditsUi,
+            Name::new(text_value.to_string()),
+        ))
+        .id();
+    insert_scene_owner(commands, text_entity, scene_owner);
+    text_entity
 }
 
 fn spawn_group_margin(
@@ -719,7 +793,7 @@ mod tests {
         assert_eq!(credits_roll.credits_path, "credits.json");
         assert!(credits_roll.scroll_speed_pixels_per_second > 0.0);
         assert!(credits_roll.top_level_header_font_size > credits_roll.minimum_header_font_size);
-        assert!(credits_roll.person_font_size >= credits_roll.minimum_header_font_size);
+        assert!(credits_roll.person_font_size < credits_roll.minimum_header_font_size);
         assert_eq!(credits_roll.group_top_margin_pixels, 0.0);
         assert_eq!(credits_roll.group_bottom_margin_pixels, 20.0);
     }
