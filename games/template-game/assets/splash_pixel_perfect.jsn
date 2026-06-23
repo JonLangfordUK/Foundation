@@ -13,15 +13,925 @@
     "description": "TemplateGame startup splash with authored UI and Foundation runtime fade behavior.",
     "author": "",
     "created": "2026-06-20T00:00:00Z",
-    "modified": "2026-06-20T00:00:00Z"
+    "modified": "2026-06-23T21:42:08Z"
   },
   "assets": {},
   "editor": null,
   "scene": [
     {
+      "parent": 1,
+      "components": {
+        "bevy_ui::ui_node::ZIndex": 0,
+        "bevy_camera::visibility::Visibility": "Inherited",
+        "bevy_ui::ui_node::BorderColor": {
+          "bottom": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          },
+          "left": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          },
+          "right": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          },
+          "top": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          }
+        },
+        "bevy_text::text::TextLayout": {
+          "justify": "Left",
+          "linebreak": "WordBoundary"
+        },
+        "bevy_ecs::name::Name": "Pixel Perfect Splash Text",
+        "bevy_ui::ui_node::ComputedNode": {
+          "border": {
+            "max_inset": [
+              0.0,
+              0.0
+            ],
+            "min_inset": [
+              0.0,
+              0.0
+            ]
+          },
+          "border_radius": {
+            "bottom_left": 0.0,
+            "bottom_right": 0.0,
+            "top_left": 0.0,
+            "top_right": 0.0
+          },
+          "content_size": [
+            406.0,
+            87.0
+          ],
+          "inverse_scale_factor": 1.0,
+          "outline_offset": 0.0,
+          "outline_width": 0.0,
+          "padding": {
+            "max_inset": [
+              0.0,
+              0.0
+            ],
+            "min_inset": [
+              0.0,
+              0.0
+            ]
+          },
+          "scroll_position": [
+            0.0,
+            0.0
+          ],
+          "scrollbar_size": [
+            0.0,
+            0.0
+          ],
+          "size": [
+            406.0,
+            87.0
+          ],
+          "stack_index": 1,
+          "unrounded_size": [
+            406.0,
+            87.0
+          ]
+        },
+        "bevy_text::pipeline::TextLayoutInfo": {
+          "glyphs": [
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 0,
+                  "offset": [
+                    7,
+                    50
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 0,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                23.5,
+                42.0
+              ],
+              "size": [
+                33.0,
+                50.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 1,
+                  "offset": [
+                    6,
+                    56
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 1,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                52.0,
+                39.0
+              ],
+              "size": [
+                10.0,
+                56.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 2,
+                  "offset": [
+                    1,
+                    38
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 2,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                79.5,
+                48.0
+              ],
+              "size": [
+                35.0,
+                38.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 3,
+                  "offset": [
+                    4,
+                    39
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 3,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                116.0,
+                48.0
+              ],
+              "size": [
+                32.0,
+                40.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 4,
+                  "offset": [
+                    6,
+                    54
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 4,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                148.0,
+                40.5
+              ],
+              "size": [
+                14.0,
+                55.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 5,
+                  "offset": [
+                    0,
+                    0
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 5,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                156.5,
+                67.0
+              ],
+              "size": [
+                1.0,
+                0.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 6,
+                  "offset": [
+                    7,
+                    50
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 6,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                199.0,
+                42.0
+              ],
+              "size": [
+                34.0,
+                50.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 3,
+                  "offset": [
+                    4,
+                    39
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 7,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                235.0,
+                48.0
+              ],
+              "size": [
+                32.0,
+                40.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 7,
+                  "offset": [
+                    7,
+                    39
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 8,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                271.5,
+                47.5
+              ],
+              "size": [
+                21.0,
+                39.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 8,
+                  "offset": [
+                    0,
+                    55
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 9,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                296.5,
+                39.5
+              ],
+              "size": [
+                29.0,
+                55.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 9,
+                  "offset": [
+                    4,
+                    39
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 10,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                325.0,
+                48.0
+              ],
+              "size": [
+                32.0,
+                40.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 10,
+                  "offset": [
+                    4,
+                    39
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 11,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                362.5,
+                48.0
+              ],
+              "size": [
+                29.0,
+                40.0
+              ],
+              "span_index": 0
+            },
+            {
+              "atlas_info": {
+                "location": {
+                  "glyph_index": 11,
+                  "offset": [
+                    0,
+                    48
+                  ]
+                },
+                "texture": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 14
+                    }
+                  }
+                },
+                "texture_atlas": {
+                  "Index": {
+                    "index": {
+                      "generation": 0,
+                      "index": 2
+                    }
+                  }
+                }
+              },
+              "byte_index": 12,
+              "byte_length": 1,
+              "line_index": 0,
+              "position": [
+                392.0,
+                43.5
+              ],
+              "size": [
+                26.0,
+                49.0
+              ],
+              "span_index": 0
+            }
+          ],
+          "run_geometry": [
+            {
+              "bounds": {
+                "max": [
+                  405.07196044921875,
+                  86.4000015258789
+                ],
+                "min": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "span_index": 0,
+              "strikethrough_thickness": 4.0,
+              "strikethrough_y": 44.0,
+              "underline_thickness": 4.0,
+              "underline_y": 72.0
+            }
+          ],
+          "scale_factor": 1.0,
+          "size": [
+            406.0,
+            87.0
+          ]
+        },
+        "bevy_ui::ui_transform::UiTransform": {
+          "rotation": {
+            "cos": 1.0,
+            "sin": 0.0
+          },
+          "scale": [
+            1.0,
+            1.0
+          ],
+          "translation": {
+            "x": {
+              "Px": 0.0
+            },
+            "y": {
+              "Px": 0.0
+            }
+          }
+        },
+        "foundation_runtime_library::menu::FoundationUiOrder": {
+          "order": 1
+        },
+        "bevy_ui::ui_node::ScrollPosition": [
+          0.0,
+          0.0
+        ],
+        "bevy_ui::ui_node::ComputedUiRenderTargetInfo": {
+          "physical_size": [
+            659,
+            461
+          ],
+          "scale_factor": 1.0
+        },
+        "bevy_ui::ui_node::BackgroundColor": {
+          "LinearRgba": {
+            "alpha": 0.0,
+            "blue": 0.0,
+            "green": 0.0,
+            "red": 0.0
+          }
+        },
+        "bevy_ui::focus::FocusPolicy": "Pass",
+        "foundation_runtime_library::splash_screen::FoundationSplashText": {},
+        "bevy_ui::ui_node::CalculatedClip": {
+          "clip": {
+            "max": [
+              659.0,
+              461.0
+            ],
+            "min": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "bevy_ui::ui_transform::UiGlobalTransform": [
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          330.0,
+          230.5
+        ],
+        "bevy_text::text::ComputedTextBlock": {
+          "entities": [
+            {
+              "depth": 0,
+              "entity": 0
+            }
+          ],
+          "needs_rerender": false
+        },
+        "bevy_text::text::LineHeight": {
+          "RelativeToFont": 1.2000000476837158
+        },
+        "bevy_text::text::FontHinting": "Disabled",
+        "bevy_text::text::TextColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 1.0,
+            "green": 1.0,
+            "red": 1.0
+          }
+        },
+        "bevy_ui::ui_node::Node": {
+          "align_content": "Default",
+          "align_items": "Default",
+          "align_self": "Auto",
+          "aspect_ratio": null,
+          "border": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "border_radius": {
+            "bottom_left": {
+              "Px": 0.0
+            },
+            "bottom_right": {
+              "Px": 0.0
+            },
+            "top_left": {
+              "Px": 0.0
+            },
+            "top_right": {
+              "Px": 0.0
+            }
+          },
+          "bottom": "Auto",
+          "box_sizing": "BorderBox",
+          "column_gap": {
+            "Px": 0.0
+          },
+          "display": "Flex",
+          "flex_basis": "Auto",
+          "flex_direction": "Row",
+          "flex_grow": 0.0,
+          "flex_shrink": 1.0,
+          "flex_wrap": "NoWrap",
+          "grid_auto_columns": [],
+          "grid_auto_flow": "Row",
+          "grid_auto_rows": [],
+          "grid_column": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_row": {
+            "end": null,
+            "span": 1,
+            "start": null
+          },
+          "grid_template_columns": [],
+          "grid_template_rows": [],
+          "height": "Auto",
+          "justify_content": "Default",
+          "justify_items": "Default",
+          "justify_self": "Auto",
+          "left": "Auto",
+          "margin": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "max_height": "Auto",
+          "max_width": "Auto",
+          "min_height": "Auto",
+          "min_width": "Auto",
+          "overflow": {
+            "x": "Visible",
+            "y": "Visible"
+          },
+          "overflow_clip_margin": {
+            "margin": 0.0,
+            "visual_box": "PaddingBox"
+          },
+          "padding": {
+            "bottom": {
+              "Px": 0.0
+            },
+            "left": {
+              "Px": 0.0
+            },
+            "right": {
+              "Px": 0.0
+            },
+            "top": {
+              "Px": 0.0
+            }
+          },
+          "position_type": "Relative",
+          "right": "Auto",
+          "row_gap": {
+            "Px": 0.0
+          },
+          "scrollbar_width": 0.0,
+          "top": "Auto",
+          "width": "Auto"
+        },
+        "bevy_ui::widget::text::TextNodeFlags": {
+          "needs_measure_fn": false,
+          "needs_recompute": false
+        },
+        "bevy_ui::measurement::ContentSize": {},
+        "bevy_ui::widget::text::Text": "Pixel Perfect",
+        "bevy_text::text::TextFont": {
+          "font": {
+            "Uuid": "97128bb1-2588-480b-bdc6-87b4adbec477"
+          },
+          "font_features": {
+            "features": []
+          },
+          "font_size": 72.0,
+          "font_smoothing": "AntiAliased",
+          "weight": 400
+        },
+        "bevy_ui::ui_node::ComputedUiTargetCamera": {
+          "camera": null
+        }
+      }
+    },
+    {
       "components": {
         "foundation_runtime_library::splash_screen::FoundationSplashUiRoot": {},
+        "bevy_ui::ui_node::BackgroundColor": {
+          "LinearRgba": {
+            "alpha": 1.0,
+            "blue": 0.0,
+            "green": 0.0,
+            "red": 0.0
+          }
+        },
+        "bevy_ui::ui_node::ScrollPosition": [
+          0.0,
+          0.0
+        ],
+        "bevy_ui::ui_transform::UiGlobalTransform": [
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          329.5,
+          230.5
+        ],
+        "bevy_ui::ui_node::ZIndex": 0,
+        "bevy_ui::ui_node::ComputedUiTargetCamera": {
+          "camera": null
+        },
+        "bevy_ui::ui_node::BorderColor": {
+          "bottom": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          },
+          "left": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          },
+          "right": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          },
+          "top": {
+            "LinearRgba": {
+              "alpha": 0.0,
+              "blue": 0.0,
+              "green": 0.0,
+              "red": 0.0
+            }
+          }
+        },
         "bevy_ecs::name::Name": "Pixel Perfect Splash UI Root",
+        "bevy_camera::visibility::Visibility": "Inherited",
+        "bevy_ui::focus::FocusPolicy": "Pass",
+        "bevy_ui::ui_node::UiTargetCamera": null,
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -147,6 +1057,24 @@
             "Percent": 100.0
           }
         },
+        "bevy_ui::ui_transform::UiTransform": {
+          "rotation": {
+            "cos": 1.0,
+            "sin": 0.0
+          },
+          "scale": [
+            1.0,
+            1.0
+          ],
+          "translation": {
+            "x": {
+              "Px": 0.0
+            },
+            "y": {
+              "Px": 0.0
+            }
+          }
+        },
         "foundation_runtime_library::splash_screen::FoundationSplashScreen": {
           "font_size": 72.0,
           "next_scene_path": "splash_bevy.jsn",
@@ -158,48 +1086,72 @@
             "hold_seconds": 2.0
           }
         },
-        "foundation_runtime_library::menu::FoundationUiOrder": {
-          "order": 0
-        },
-        "bevy_ui::ui_node::BackgroundColor": {
-          "LinearRgba": {
-            "alpha": 1.0,
-            "blue": 0.0,
-            "green": 0.0,
-            "red": 0.0
-          }
+        "bevy_ui::ui_node::ComputedUiRenderTargetInfo": {
+          "physical_size": [
+            659,
+            461
+          ],
+          "scale_factor": 1.0
         },
         "template_game::TemplateFullscreenBackground": {
           "blue": 0.0,
           "green": 0.0,
           "red": 0.0
-        }
-      }
-    },
-    {
-      "parent": 0,
-      "components": {
-        "bevy_text::text::TextColor": {
-          "LinearRgba": {
-            "alpha": 1.0,
-            "blue": 1.0,
-            "green": 1.0,
-            "red": 1.0
-          }
         },
-        "bevy_text::text::TextFont": {
-          "font_features": {
-            "features": []
+        "bevy_ui::ui_node::ComputedNode": {
+          "border": {
+            "max_inset": [
+              0.0,
+              0.0
+            ],
+            "min_inset": [
+              0.0,
+              0.0
+            ]
           },
-          "font_size": 72.0,
-          "font_smoothing": "AntiAliased",
-          "weight": 400
+          "border_radius": {
+            "bottom_left": 0.0,
+            "bottom_right": 0.0,
+            "top_left": 0.0,
+            "top_right": 0.0
+          },
+          "content_size": [
+            533.0,
+            274.0
+          ],
+          "inverse_scale_factor": 1.0,
+          "outline_offset": 0.0,
+          "outline_width": 0.0,
+          "padding": {
+            "max_inset": [
+              0.0,
+              0.0
+            ],
+            "min_inset": [
+              0.0,
+              0.0
+            ]
+          },
+          "scroll_position": [
+            0.0,
+            0.0
+          ],
+          "scrollbar_size": [
+            0.0,
+            0.0
+          ],
+          "size": [
+            659.0,
+            461.0
+          ],
+          "stack_index": 0,
+          "unrounded_size": [
+            659.0,
+            461.0
+          ]
         },
-        "bevy_ui::widget::text::Text": "Pixel Perfect",
-        "bevy_ecs::name::Name": "Pixel Perfect Splash Text",
-        "foundation_runtime_library::splash_screen::FoundationSplashText": {},
         "foundation_runtime_library::menu::FoundationUiOrder": {
-          "order": 1
+          "order": 0
         }
       }
     }

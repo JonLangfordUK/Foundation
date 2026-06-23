@@ -75,16 +75,73 @@ fn load_editor_startup_scene_from_settings(world: &mut World) {
 
     let project_root = current_project_root();
     let Some(settings) = world.get_resource::<FoundationGameSettings>() else {
-        return;
-    };
-    let Some(editor_startup_scene_path) = editor_startup_scene_file_path(settings, &project_root)
-    else {
+        info!("No Foundation game settings resource is available; creating an empty editor scene.");
+        create_empty_editor_scene(world);
         return;
     };
 
-    // Jackdaw indexes UI-only root entities through spawn observers when the Outliner already
-    // exists. Loading before the tree container is mounted leaves those roots invisible there.
-    jackdaw::scene_io::load_scene_from_file(world, &editor_startup_scene_path);
+    match editor_startup_scene_file_path(settings, &project_root) {
+        Some(editor_startup_scene_path) => {
+            // Jackdaw indexes UI-only root entities through spawn observers when the Outliner
+            // already exists. Loading before the tree container is mounted leaves those roots
+            // invisible there.
+            jackdaw::scene_io::load_scene_from_file(world, &editor_startup_scene_path);
+        }
+        None => {
+            info!(
+                "No valid editor_startup_map is configured; creating an empty editor scene instead."
+            );
+            create_empty_editor_scene(world);
+        }
+    }
+}
+
+fn create_empty_editor_scene(world: &mut World) {
+    let empty_scene_file_path = temporary_empty_scene_file_path();
+    let empty_scene_contents = r#"{
+  "jsn": {
+    "format_version": [3, 0, 0],
+    "editor_version": "0.4.0",
+    "bevy_version": "0.18"
+  },
+  "metadata": {
+    "name": "Untitled",
+    "description": "",
+    "author": "",
+    "created": "",
+    "modified": ""
+  },
+  "assets": {},
+  "editor": null,
+  "scene": []
+}"#;
+
+    if let Err(error) = std::fs::write(&empty_scene_file_path, empty_scene_contents) {
+        warn!(
+            "Failed to create temporary empty editor scene at {}: {error}",
+            empty_scene_file_path.display()
+        );
+        return;
+    }
+
+    // Loading through Jackdaw keeps all editor scene bookkeeping consistent while clearing the
+    // project auto-open scene. Reset the path afterward so the scene remains a new unsaved scene.
+    jackdaw::scene_io::load_scene_from_file(world, &empty_scene_file_path);
+    world
+        .resource_mut::<jackdaw::scene_io::SceneFilePath>()
+        .path = None;
+
+    if let Err(error) = std::fs::remove_file(&empty_scene_file_path) {
+        warn!(
+            "Failed to remove temporary empty editor scene at {}: {error}",
+            empty_scene_file_path.display()
+        );
+    }
+}
+
+fn temporary_empty_scene_file_path() -> std::path::PathBuf {
+    let process_id = std::process::id();
+    std::env::temp_dir().join(format!("foundation-empty-editor-scene-{process_id}.jsn"))
 }
 
 fn has_hierarchy_tree_container(world: &mut World) -> bool {
@@ -106,8 +163,8 @@ fn editor_startup_scene_file_path(
     };
 
     if !scene_file_path.is_file() {
-        warn!(
-            "Configured editor startup map {} does not exist; keeping Jackdaw's default scene",
+        info!(
+            "Configured editor_startup_map {} does not exist.",
             scene_file_path.display()
         );
         return None;

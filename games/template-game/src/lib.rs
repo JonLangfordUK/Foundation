@@ -365,6 +365,9 @@ fn open_initial_scene(
 ) {
     // Clear any stale stack entries before replaying the configured startup sequence.
     scene_commands.write(SceneCommand::Clear);
+    if settings.startup_map_path().is_none() {
+        error!("No startup_map is configured; starting with an empty scene stack.");
+    }
     for command in standalone_startup_scene_commands(&settings) {
         scene_commands.write(command);
     }
@@ -379,7 +382,7 @@ fn standalone_startup_scene_commands(settings: &FoundationGameSettings) -> Vec<S
         ))];
     }
 
-    initial_scene_commands().into_iter().collect()
+    Vec::new()
 }
 
 #[cfg(feature = "editor")]
@@ -626,7 +629,7 @@ fn editor_default_startup_scene_commands(world: &World) -> Vec<SceneCommand> {
         return editor_configured_scene_commands(editor_startup_map_path);
     }
 
-    initial_scene_commands().into_iter().collect()
+    Vec::new()
 }
 
 #[cfg(feature = "editor")]
@@ -1394,13 +1397,10 @@ mod tests {
     }
 
     #[test]
-    fn missing_startup_map_setting_uses_default_splash_flow() {
+    fn missing_startup_map_setting_uses_empty_scene_stack() {
         let settings = FoundationGameSettings::default();
 
-        assert_eq!(
-            standalone_startup_scene_commands(&settings),
-            initial_scene_commands().into_iter().collect::<Vec<_>>()
-        );
+        assert!(standalone_startup_scene_commands(&settings).is_empty());
     }
 
     #[test]
@@ -1452,6 +1452,16 @@ mod tests {
                 MAIN_MENU_SCENE
             ))]
         );
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn editor_play_command_uses_empty_scene_stack_without_editor_startup_map() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(FoundationGameSettings::default());
+
+        assert!(editor_play_scene_commands(app.world()).is_empty());
     }
 
     #[cfg(feature = "editor")]
