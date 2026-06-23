@@ -68,7 +68,7 @@ impl Default for FoundationCreditsRoll {
         Self {
             credits_path: "credits.json".to_string(),
             scroll_speed_pixels_per_second: 45.0,
-            start_offset_pixels: 420.0,
+            start_offset_pixels: 220.0,
             top_level_header_font_size: 48.0,
             header_font_size_step: 6.0,
             minimum_header_font_size: 24.0,
@@ -187,6 +187,7 @@ type CreditsRollInitQuery<'w, 's> = Query<
         Entity,
         &'static FoundationCreditsRoll,
         Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
     ),
     Without<FoundationCreditsRuntime>,
 >;
@@ -204,27 +205,28 @@ fn initialize_credits_rolls(
     mut commands: Commands,
     settings: Res<FoundationCreditsRuntimeSettings>,
     credits_rolls: CreditsRollInitQuery,
+    scene_owners: Query<&SceneOwner>,
 ) {
-    for (credits_roll_entity, credits_roll, scene_owner) in &credits_rolls {
-        if should_skip_credits_runtime_entity(&settings, scene_owner) {
+    for (credits_roll_entity, credits_roll, scene_owner, parent_link) in &credits_rolls {
+        let credits_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+        if should_skip_credits_runtime_entity(&settings, credits_scene_owner.as_ref()) {
             continue;
         }
-        let credits_document = match load_credits_document(&credits_roll.credits_path) {
-            Ok(credits_document) => credits_document,
+        let display_rows = match load_credits_document(&credits_roll.credits_path) {
+            Ok(credits_document) => flatten_credits_document(&credits_document),
             Err(load_error) => {
                 warn!(
                     "Failed to load FoundationCreditsRoll JSON `{}`: {load_error}",
                     credits_roll.credits_path
                 );
-                CreditsDocument::default()
+                fallback_credits_error_rows(&load_error)
             }
         };
-        let display_rows = flatten_credits_document(&credits_document);
         let content_entity = spawn_credits_content(
             &mut commands,
             credits_roll,
             &display_rows,
-            scene_owner.copied(),
+            credits_scene_owner,
         );
         commands
             .entity(credits_roll_entity)
@@ -365,6 +367,31 @@ fn insert_scene_owner(
     if let Some(scene_owner) = scene_owner {
         commands.entity(owned_entity).insert(scene_owner);
     }
+}
+
+fn effective_scene_owner(
+    scene_owner: Option<&SceneOwner>,
+    parent_link: Option<&ChildOf>,
+    scene_owners: &Query<&SceneOwner>,
+) -> Option<SceneOwner> {
+    // Authored scene components may inherit ownership from their loaded UI root.
+    scene_owner.copied().or_else(|| {
+        parent_link.and_then(|parent_link| scene_owners.get(parent_link.0).ok().copied())
+    })
+}
+
+fn fallback_credits_error_rows(load_error: &str) -> Vec<CreditsDisplayRow> {
+    vec![
+        CreditsDisplayRow::Group {
+            name: "Credits unavailable".to_string(),
+            depth: 0,
+        },
+        CreditsDisplayRow::Person {
+            name: "Failed to load credits".to_string(),
+            role: load_error.to_string(),
+            depth: 0,
+        },
+    ]
 }
 
 fn should_skip_credits_runtime_entity(

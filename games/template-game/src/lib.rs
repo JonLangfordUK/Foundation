@@ -9,7 +9,7 @@ use bevy::camera::RenderTarget;
 use bevy::{
     prelude::*,
     text::{ComputedTextBlock, FontHinting, LineHeight, TextLayout, TextLayoutInfo},
-    ui::{ContentSize, widget::TextNodeFlags},
+    ui::{ContentSize, FocusPolicy, widget::TextNodeFlags},
 };
 use foundation_runtime_library::prelude::*;
 use jackdaw_runtime::prelude::*;
@@ -927,7 +927,7 @@ fn detach_scene_stack_ui_roots(
             // Detach scene UI roots so Bevy UI treats them as top-level runtime UI.
             commands
                 .entity(ui_root_entity)
-                .insert(*scene_owner)
+                .insert((*scene_owner, FocusPolicy::Block))
                 .remove::<ChildOf>();
         }
     }
@@ -1347,7 +1347,7 @@ mod tests {
         assert!(main_menu_scene.contains(LOAD_GAME_SCENE));
         assert!(main_menu_scene.contains(OPTIONS_MENU_SCENE));
         assert!(main_menu_scene.contains(CREDITS_SCENE));
-        assert!(credits_scene.contains("credits.json"));
+        assert!(credits_scene.contains("Hello World"));
         assert!(credits_json.contains("groups"));
         assert!(gameplay_level_scene.contains(PAUSE_MENU_SCENE));
         assert!(pause_menu_scene.contains(OPTIONS_MENU_SCENE));

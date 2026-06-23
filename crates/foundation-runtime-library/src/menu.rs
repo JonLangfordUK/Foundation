@@ -745,6 +745,7 @@ type FoundationMenuButtonInteractionQuery<'w, 's> = Query<
         &'static FoundationMenuButton,
         &'static mut BackgroundColor,
         Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
     ),
     (Changed<Interaction>, With<Button>),
 >;
@@ -754,7 +755,12 @@ fn open_pause_menus(
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
     mut pause_state: ResMut<FoundationPauseState>,
-    pause_openers: Query<(&FoundationPauseOpener, Option<&SceneOwner>)>,
+    pause_openers: Query<(
+        &FoundationPauseOpener,
+        Option<&SceneOwner>,
+        Option<&ChildOf>,
+    )>,
+    scene_owners: Query<&SceneOwner>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     if pause_state.paused || !keyboard.just_pressed(KeyCode::Escape) {
@@ -762,8 +768,13 @@ fn open_pause_menus(
     }
 
     // Use the first active opener so scene-authored levels decide which pause menu opens.
-    let Some((opener, _)) = pause_openers.iter().find(|(_, scene_owner)| {
-        !should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), *scene_owner)
+    let Some((opener, _, _)) = pause_openers.iter().find(|(_, scene_owner, parent_link)| {
+        let opener_scene_owner = effective_scene_owner(*scene_owner, *parent_link, &scene_owners);
+        !should_skip_scene_stack_menu_input(
+            &settings,
+            scene_stack.as_deref(),
+            opener_scene_owner.as_ref(),
+        )
     }) else {
         return;
     };
@@ -791,12 +802,18 @@ fn update_foundation_menu_button_interactions(
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
     mut buttons: FoundationMenuButtonInteractionQuery,
+    scene_owners: Query<&SceneOwner>,
     mut scene_commands: MessageWriter<SceneCommand>,
     mut exit_requested: MessageWriter<FoundationExitRequested>,
     mut pause_state: ResMut<FoundationPauseState>,
 ) {
-    for (interaction, button, mut background, scene_owner) in &mut buttons {
-        if should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), scene_owner) {
+    for (interaction, button, mut background, scene_owner, parent_link) in &mut buttons {
+        let button_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+        if should_skip_scene_stack_menu_input(
+            &settings,
+            scene_stack.as_deref(),
+            button_scene_owner.as_ref(),
+        ) {
             continue;
         }
         background.0 = match *interaction {
@@ -900,6 +917,7 @@ type OptionsTabInteractionQuery<'w, 's> = Query<
         &'static FoundationOptionsTabButton,
         &'static mut BackgroundColor,
         Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
     ),
     (Changed<Interaction>, With<Button>),
 >;
@@ -931,10 +949,16 @@ fn update_options_tab_button_interactions(
     scene_stack: Option<Res<SceneStack>>,
     mut buttons: OptionsTabInteractionQuery,
     mut menus: Query<(&mut FoundationOptionsRuntime, Option<&SceneOwner>)>,
+    scene_owners: Query<&SceneOwner>,
     mut setting_texts: OptionsSettingTextQuery,
 ) {
-    for (interaction, tab_button, mut background, scene_owner) in &mut buttons {
-        if should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), scene_owner) {
+    for (interaction, tab_button, mut background, scene_owner, parent_link) in &mut buttons {
+        let tab_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+        if should_skip_scene_stack_menu_input(
+            &settings,
+            scene_stack.as_deref(),
+            tab_scene_owner.as_ref(),
+        ) {
             continue;
         }
         let mut selected = false;
@@ -1009,15 +1033,22 @@ fn close_on_escape(
     keyboard: Res<ButtonInput<KeyCode>>,
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
-    close_markers: Query<Option<&SceneOwner>, With<FoundationCloseOnEscape>>,
+    close_markers: Query<(Option<&SceneOwner>, Option<&ChildOf>), With<FoundationCloseOnEscape>>,
+    scene_owners: Query<&SceneOwner>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     if !keyboard.just_pressed(KeyCode::Escape) {
         return;
     }
 
-    let has_close_marker = close_markers.iter().any(|scene_owner| {
-        !should_skip_scene_stack_menu_input(&settings, scene_stack.as_deref(), scene_owner)
+    let has_close_marker = close_markers.iter().any(|(scene_owner, parent_link)| {
+        let close_marker_scene_owner =
+            effective_scene_owner(scene_owner, parent_link, &scene_owners);
+        !should_skip_scene_stack_menu_input(
+            &settings,
+            scene_stack.as_deref(),
+            close_marker_scene_owner.as_ref(),
+        )
     });
     if has_close_marker {
         scene_commands.write(SceneCommand::CloseCurrent);

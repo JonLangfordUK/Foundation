@@ -28,7 +28,7 @@
 ## Branch And Working Tree State
 - Branch: `feature/credits-scene`
 - Branch base: Created from `dev` during planning on 2026-06-22; verified with `git merge-base --is-ancestor dev HEAD` before implementation.
-- Push status: Planning commit `3b64972` and implementation commit `0039ff7` pushed to `origin/feature/credits-scene`.
+- Push status: Planning commit `3b64972`, implementation commit `0039ff7`, and interaction fix commit `d225eba` pushed to `origin/feature/credits-scene`; minimal Hello World checkpoint pending commit/push.
 - Pre-existing working tree note: `games/template-game/.jsn/project.jsn` was modified before feature planning began and remains unrelated/uncommitted.
 
 ## Phase 1: Credits Data Model And Runtime Ownership
@@ -186,7 +186,7 @@
 - Final production credits copy is postponed until the user provides real names/roles; current `credits.json` uses the user's sample placeholder content.
 
 ## Open Issues And Questions
-- User reported that opening the credits scene shows a black screen and the underlying main menu buttons remain interactive. Fixed by making scene-stack-owned menu interactions respect `SceneRuntimeFlags::interactive`, isolating generated credits UI from authored UI repair, and reducing the credits roll start offset so content appears sooner.
+- User confirmed pass-through main-menu interaction is fixed, but credits scene still renders no credits text. User requested taking the credits scene back to basics. Working-tree change now removes the generated credits roll, scrolling, Back button, and background from `credits.jsn`, leaving only a centered authored `Hello World` text line under the gameplay UI root.
 - Ownership split resolved: reusable `foundation-runtime-library` credits component with TemplateGame-owned JSON and scene assets.
 - Final credits copy is not provided. Current `credits.json` uses the user's sample JSON as placeholder content.
 - End-of-roll behavior resolved as no automatic scene transition; credits remain closable by Back/Escape.
@@ -204,6 +204,8 @@
 - `2026-06-22`: Full validation passed with `scripts/validate-project.cmd`; `scripts/format-project.cmd` also passed separately.
 - `2026-06-22`: Implementation committed as `0039ff7` and pushed to `origin/feature/credits-scene`.
 - `2026-06-23`: User reported credits scene opens to a black screen while underlying main-menu buttons remain interactive; started gpt-5.4 fix on `feature/credits-scene` with branch base re-verified.
-- `2026-06-23`: Fixed covered scene menu input by checking scene-stack interactivity for menu buttons, options tabs, pause openers, and Escape-close markers.
-- `2026-06-23`: Marked generated credits UI with `FoundationGeneratedCreditsUi`, excluded it from TemplateGame authored UI repair, and lowered the credits start offset from 720px to 420px.
-- `2026-06-23`: Validation passed with focused `cargo test -p foundation-runtime-library --all-features`, focused `cargo test -p template-game --all-features`, and full `scripts/validate-project.cmd`.
+- `2026-06-23`: Fixed covered scene menu input by checking scene-stack interactivity for menu buttons, options tabs, pause openers, and Escape-close markers, including scene ownership inherited from parent UI roots.
+- `2026-06-23`: Marked generated credits UI with `FoundationGeneratedCreditsUi`, excluded it from TemplateGame authored UI repair, added fallback visible error rows for failed credits JSON loading, added full-screen `FocusPolicy::Block` on detached gameplay UI roots, resolved credits roll scene ownership from parent UI roots, and lowered the credits start offset from 720px to 220px.
+- `2026-06-23`: Removed the credits scene authored black background and `TemplateFullscreenBackground` per user request; focused `cargo test -p template-game --all-features` passed.
+- `2026-06-23`: Replaced `credits.jsn` contents with a minimal centered authored `Hello World` text line and updated the scene reference test accordingly; focused `cargo test -p template-game --all-features` passed. User verified this minimal scene works and requested committing it as a checkpoint.
+- `2026-06-23`: Validation passed with focused `cargo test -p foundation-runtime-library --all-features`, focused `cargo test -p template-game --all-features`, and full `scripts/validate-project.cmd`. Changes intentionally left uncommitted pending user verification.
