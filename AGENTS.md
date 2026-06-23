@@ -33,13 +33,15 @@ The following skills are part of the repository and are mandatory when their mat
 
 Do not skip these skills when this file says they are required for a task. If a cloned checkout is missing one of these files, stop and report that the repository is incomplete.
 
-### Project Pi packages and extensions
-The project declares Pi package dependencies in `.pi/settings.json`. At the time this file was updated, the required package entry is:
-- `npm:@ifi/oh-pi`
+### Required Pi extensions and packages
+The project declares Pi package dependencies in `.pi/settings.json`. A Pi instance working in this project should honor those project package settings after cloning and trusting the repository.
 
-That package is expected to provide the current oh-pi extension/content bundle, including extensions such as git guard, session naming, footer/tool metadata, scheduler, usage tracking, watchdog/background-process helpers, external editor/worktree helpers, background tasks, diagnostics, ant-colony, subagents, plan/spec workflow, web remote, themes, prompts, and oh-pi skills.
+The current non-project Pi extensions shown by the Pi splash screen are also expected for this project:
+- `@tintinweb/pi-subagents:src`
+- `pi-hermes-memory:src`
+- `pi-web-access`
 
-A Pi instance working in this project should honor `.pi/settings.json` package loading. If the required package or its extension-provided tools/commands are unavailable when needed, stop and tell the user to install or reload the project Pi packages rather than silently substituting another workflow.
+These extensions may come from global Pi configuration or package installation rather than from files committed in this repository. On a freshly cloned machine, install or configure them before doing project work that depends on them. If an extension-provided tool, command, or resource is unavailable when needed, stop and tell the user to install or reload the required Pi extensions/packages rather than silently substituting another workflow.
 
 ### Non-project skills currently expected when available
 The `librarian` skill may be provided by the global `pi-web-access` installation rather than by this repository. Use it when the task asks for evidence-backed open-source library research with GitHub permalinks. Because it is not vendored under `.pi/skills`, a fresh clone may not have it until the user's Pi environment installs `pi-web-access`; if it is missing, report that limitation instead of pretending the skill was used.
