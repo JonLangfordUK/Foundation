@@ -360,7 +360,7 @@ fn initialize_simple_gameplay_levels(
         if should_skip_menu_runtime_entity(&settings, scene_owner.as_ref()) {
             continue;
         }
-        info!(
+        debug!(
             "Initializing FoundationSimpleGameplayLevel on {level_entity:?} with scene_owner={scene_owner:?}"
         );
 
@@ -898,7 +898,7 @@ fn open_configured_scene(
     if !scene_key.is_empty() {
         options = options.with_key(scene_key);
     }
-    info!(
+    debug!(
         "FoundationMenuButton `{}` opening scene `{scene_path}` (clear_stack={should_clear_stack})",
         button.action
     );

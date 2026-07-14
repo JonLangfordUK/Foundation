@@ -4875,7 +4875,6 @@ name = "template-game"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "ctrlc",
  "foundation-editor-library",
  "foundation-runtime-library",
 ]
