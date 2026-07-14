@@ -356,3 +356,17 @@ The Foundation engine should eventually support two build/linking modes:
 - `2026-07-14`: Renamed remaining runtime scene-target terminology from `scene_path` / `next_scene_path` to scene-key language in scene stack, menu buttons, pause opener, splash transition config, and TemplateGame scene setup. `SceneSource::BsnScene` now stores `key` instead of `path`.
 - `2026-07-14`: Added a scene-stack regression test proving closing an input-blocking options overlay restores the underlying scene's visibility/input/update/focus flags.
 - `2026-07-14`: Validation passed for the bundled cleanup: `cargo check -p foundation-runtime-library -p template-game`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
+
+## Review Findings
+- `2026-07-14` - gpt-5.5 sanity review
+  - Overall result: Pass with optional follow-up items. No must-fix correctness or architecture blockers were found for the approved Jackdaw removal / Bevy 0.19 / BSN / Foundation launcher scope.
+  - Must-fix:
+    - None.
+  - Optional improvements:
+    - Tracker phase/task checkboxes and metadata still reflect early planning states even though later progress-log checkpoints record the implemented and validated work. Before merging, the tracker could be normalized for readability, but this is documentation hygiene rather than a runtime blocker.
+    - The Foundation launcher's current loose mode intentionally shells out to `cargo run -p <package>`. This matches the documented current development mode, but packaged/non-Cargo launching and bundled single-executable builds remain follow-up architecture work.
+    - Manifest discovery currently assumes the process current directory is the workspace root. This is fine for the documented `cargo run -p foundation -- --game <game-name>` workflow, but future installed-engine usage should add explicit search paths or configuration.
+  - Validation reviewed:
+    - `cargo tree --workspace | rg "jackdaw|jackdaw_runtime|jackdaw_api|jackdaw_jsn"` returned no matches.
+    - Latest recorded full validation passed: `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
+  - User decision: Pending.
