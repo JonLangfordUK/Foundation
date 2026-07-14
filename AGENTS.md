@@ -69,7 +69,7 @@ When adapting this template for a new Rust project:
 4. Add `src/main.rs` for binary projects, or convert to a Cargo workspace if multiple crates are needed.
 5. Keep Pi skills, prompts, scripts, and planning templates unless the user asks to remove them.
 
-When the user asks about Foundation runtime systems, Foundation engine launch behavior, Foundation editor tooling, game settings, scene-stack behavior, reusable game components, BSN scenes, or PiGame/TemplateGame integration with Foundation crates:
+When the user asks about Foundation runtime systems, Foundation engine launch behavior, Foundation editor tooling, game settings, scene-stack behavior, reusable game components, BSN scenes, or TemplateGame integration with Foundation crates:
 1. Read `.pi/skills/foundation-architecture/SKILL.md` first.
 2. Treat `crates/foundation` as the Foundation engine executable/wrapper around Bevy.
 3. Keep runtime/game systems in `crates/foundation-runtime-library`.

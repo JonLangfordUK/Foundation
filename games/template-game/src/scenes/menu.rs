@@ -1,4 +1,4 @@
-//! BSN-authored menu scenes for PiGame.
+//! BSN-authored menu scenes for TemplateGame.
 
 use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;
@@ -8,10 +8,10 @@ use crate::scenes::{GAMEPLAY_LEVEL_SCENE, MAIN_MENU_SCENE, OPTIONS_MENU_SCENE};
 /// Returns the main menu scene.
 pub fn main_menu_scene(scene_owner: SceneOwner) -> impl Scene {
     bsn! {
-        #PiGameMenu
+        #TemplateGameMenu
         menu_root_style(scene_owner)
         Children [
-            title_text("PiGame", scene_owner),
+            title_text("Template Game", scene_owner),
             menu_button(
                 "New Game",
                 FoundationMenuButton::clear_and_open_scene(GAMEPLAY_LEVEL_SCENE, "gameplay"),

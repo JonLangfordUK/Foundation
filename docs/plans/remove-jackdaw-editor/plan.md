@@ -190,7 +190,7 @@ Programming/API research found that Bevy `0.19` introduces the next-generation s
 The user approved the Bevy `0.19`, BSN, and retained Foundation editor-library direction, then clarified the intended launch architecture:
 
 ```cmd
-cargo run -p foundation -- --game PiGame --editor
+cargo run -p foundation -- --game template-game --editor
 ```
 
 This revision supersedes earlier TemplateGame-direct launch examples in this plan.
@@ -198,35 +198,35 @@ This revision supersedes earlier TemplateGame-direct launch examples in this pla
 Foundation should now be treated as the project engine: effectively a wrapper around Bevy plus the Foundation runtime/editor libraries. Implementation should add a `foundation` executable package, planned as `crates/foundation` with package name `foundation`, and make it the primary launch target.
 
 Responsibilities for the `foundation` engine launcher:
-1. Parse runtime arguments such as `--game PiGame` and `--editor`.
+1. Parse runtime arguments such as `--game template-game` and `--editor`.
 2. Select the requested registered game by name.
 3. Build and run the Bevy app with Foundation runtime systems installed.
 4. Include/enable the cleared Foundation editor-time logic when `--editor` is present.
 5. Keep game-specific BSN scenes and plugins registered through a clear game integration surface rather than launching the game crate directly.
 
-Implementation should treat `--editor` as a runtime engine mode. Because the user expects `cargo run -p foundation -- --game PiGame --editor`, the initial cleared editor-time shell should not require an additional Cargo feature flag unless a later dependency makes that unavoidable and the tracker records the reason.
+Implementation should treat `--editor` as a runtime engine mode. Because the user expects `cargo run -p foundation -- --game template-game --editor`, the initial cleared editor-time shell should not require an additional Cargo feature flag unless a later dependency makes that unavoidable and the tracker records the reason.
 
 Additional affected systems:
 - `crates/foundation`: new engine executable package for launch argument parsing, game selection, and Bevy app construction.
-- `games/template-game` / PiGame integration: expose the game plugin/registration/BSN scene catalog to the Foundation engine instead of relying on direct `cargo run -p template-game` as the primary launch path.
-- README and scene-system docs: document Foundation as the engine wrapper around Bevy and use `cargo run -p foundation -- --game PiGame --editor` for editor-mode launch examples.
+- `games/template-game` / TemplateGame integration: expose the game plugin/registration/BSN scene catalog to the Foundation engine instead of relying on direct `cargo run -p template-game` as the primary launch path.
+- README and scene-system docs: document Foundation as the engine wrapper around Bevy and use `cargo run -p foundation -- --game template-game --editor` for editor-mode launch examples.
 
 Additional success criteria:
-- `cargo run -p foundation -- --game PiGame` launches the normal Bevy-only game.
-- `cargo run -p foundation -- --game PiGame --editor` launches the selected game with Foundation editor-time mode included/enabled.
+- `cargo run -p foundation -- --game template-game` launches the normal Bevy-only game.
+- `cargo run -p foundation -- --game template-game --editor` launches the selected game with Foundation editor-time mode included/enabled.
 - `cargo check -p foundation` and `cargo test -p foundation` pass.
 
 Additional validation:
 - `cargo check -p foundation`
 - `cargo test -p foundation`
-- timed/manual `cargo run -p foundation -- --game PiGame` smoke test
-- timed/manual `cargo run -p foundation -- --game PiGame --editor` smoke test
+- timed/manual `cargo run -p foundation -- --game template-game` smoke test
+- timed/manual `cargo run -p foundation -- --game template-game --editor` smoke test
 
 ## Revision: Game Linking Modes
 The user further clarified that the Foundation engine should support two game-linking/distribution modes:
 
 1. **Loose game module mode** for development / multi-game engine installs.
-   - The engine executable can load or select a game by `--game PiGame`.
+   - The engine executable can load or select a game by `--game template-game`.
    - The game may be built as a loose dynamic library/module or otherwise separately configured package.
    - This helps debugging and allows one Foundation engine build to work with many games.
 
@@ -234,12 +234,12 @@ The user further clarified that the Foundation engine should support two game-li
    - The selected game can be compiled directly into the Foundation executable depending on build configuration.
    - A distributed build should produce a single executable for the game/engine combination.
 
-Implementation should design the first pass so both modes are architecturally possible, even if only the bundled/static mode is implemented initially to keep scope manageable. The game registration surface should not assume there will only ever be one statically linked game, and the `--game PiGame` argument should remain meaningful in both modes.
+Implementation should design the first pass so both modes are architecturally possible, even if only the bundled/static mode is implemented initially to keep scope manageable. The game registration surface should not assume there will only ever be one statically linked game, and the `--game template-game` argument should remain meaningful in both modes.
 
 Planning implication:
 - Add a build/configuration abstraction for game source selection, for example a `FoundationGameRegistry` with statically registered games now and a future dynamic-module registry later.
 - Document which mode is implemented in this feature and which pieces are intentionally deferred.
-- Avoid hard-coding PiGame in the engine launcher except as a registered/default game entry.
+- Avoid hard-coding template-game in the engine launcher except as a registered/default game entry.
 
 Additional open question:
 - Should this feature implement both static bundled and loose dynamic game-module loading now, or implement static bundled registration first and leave loose DLL loading as a planned follow-up? Recommended first pass: static bundled registration with architecture and docs prepared for dynamic modules, because safe Rust dynamic plugin loading has extra ABI/build-system complexity.

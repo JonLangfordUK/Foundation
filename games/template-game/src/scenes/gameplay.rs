@@ -1,4 +1,4 @@
-//! BSN-authored gameplay scenes for PiGame.
+//! BSN-authored gameplay scenes for TemplateGame.
 
 use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;

@@ -15,7 +15,7 @@ fn main() -> AppExit {
         Ok(launch_arguments) => launch_arguments,
         Err(argument_error) => {
             eprintln!("{argument_error}");
-            eprintln!("Usage: cargo run -p foundation -- --game PiGame [--editor]");
+            eprintln!("Usage: cargo run -p foundation -- --game template-game [--editor]");
             return AppExit::error();
         }
     };
@@ -26,7 +26,7 @@ fn main() -> AppExit {
             .eq_ignore_ascii_case(&launch_arguments.game)
     }) else {
         eprintln!("Unknown game `{}`.", launch_arguments.game);
-        eprintln!("Available games: PiGame");
+        eprintln!("Available games: template-game");
         return AppExit::error();
     };
 
@@ -85,7 +85,7 @@ fn registered_games() -> Vec<FoundationGameRegistration> {
         name: template_game::GAME_NAME,
         asset_root: template_game::asset_root,
         install_plugin: |app| {
-            app.add_plugins(template_game::PiGamePlugin);
+            app.add_plugins(template_game::TemplateGamePlugin);
         },
     }]
 }
@@ -138,16 +138,16 @@ mod tests {
 
     #[test]
     fn parse_game_and_editor_arguments() {
-        let arguments = ["--game", "PiGame", "--editor"].map(str::to_string);
+        let arguments = ["--game", "template-game", "--editor"].map(str::to_string);
         let launch_arguments =
             FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
 
-        assert_eq!(launch_arguments.game, "PiGame");
+        assert_eq!(launch_arguments.game, "template-game");
         assert!(launch_arguments.editor_enabled);
     }
 
     #[test]
-    fn default_game_is_pigame() {
+    fn default_game_is_template_game() {
         let arguments = std::iter::empty::<String>();
         let launch_arguments = FoundationLaunchArguments::parse(arguments)
             .expect("empty arguments should use the default game");

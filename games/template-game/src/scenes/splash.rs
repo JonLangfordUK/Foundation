@@ -1,4 +1,4 @@
-//! BSN-authored splash scenes for PiGame.
+//! BSN-authored splash scenes for TemplateGame.
 
 use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;

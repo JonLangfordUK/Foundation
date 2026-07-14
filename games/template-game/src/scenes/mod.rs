@@ -1,6 +1,6 @@
-//! PiGame BSN scene catalog.
+//! TemplateGame BSN scene catalog.
 //!
-//! Foundation owns the generic scene stack. PiGame owns these concrete scene
+//! Foundation owns the generic scene stack. TemplateGame owns these concrete scene
 //! keys and maps them to BSN scene functions.
 
 mod gameplay;
@@ -15,19 +15,19 @@ pub use menu::{main_menu_scene, options_menu_scene, pause_menu_scene};
 pub use splash::splash_screen_scene;
 
 /// Scene key for the first startup splash screen.
-pub const PIXEL_PERFECT_SPLASH_SCENE: &str = "pigame/splash_pixel_perfect";
+pub const PIXEL_PERFECT_SPLASH_SCENE: &str = "template-game/splash_pixel_perfect";
 /// Scene key for the second startup splash screen.
-pub const BEVY_SPLASH_SCENE: &str = "pigame/splash_bevy";
+pub const BEVY_SPLASH_SCENE: &str = "template-game/splash_bevy";
 /// Scene key for the example main menu.
-pub const MAIN_MENU_SCENE: &str = "pigame/main_menu";
+pub const MAIN_MENU_SCENE: &str = "template-game/main_menu";
 /// Scene key for the stack-based options menu.
-pub const OPTIONS_MENU_SCENE: &str = "pigame/options_menu";
+pub const OPTIONS_MENU_SCENE: &str = "template-game/options_menu";
 /// Scene key for the small sample gameplay level.
-pub const GAMEPLAY_LEVEL_SCENE: &str = "pigame/gameplay_level";
+pub const GAMEPLAY_LEVEL_SCENE: &str = "template-game/gameplay_level";
 /// Scene key for the gameplay pause menu.
-pub const PAUSE_MENU_SCENE: &str = "pigame/pause_menu";
+pub const PAUSE_MENU_SCENE: &str = "template-game/pause_menu";
 
-/// Opens the first PiGame scene-stack entry.
+/// Opens the first TemplateGame scene-stack entry.
 pub fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
     let startup_scene_source = SceneSource::bsn_scene(PIXEL_PERFECT_SPLASH_SCENE);
     let startup_scene_options = OpenSceneOptions::default()
@@ -41,8 +41,8 @@ pub fn open_initial_scene(mut scene_commands: MessageWriter<SceneCommand>) {
     ));
 }
 
-/// Spawns requested PiGame scenes from Foundation scene-load messages.
-pub fn spawn_requested_pigame_scenes(
+/// Spawns requested TemplateGame scenes from Foundation scene-load messages.
+pub fn spawn_requested_template_game_scenes(
     mut commands: Commands,
     mut scene_requests: MessageReader<SceneLoadRequested>,
 ) {
@@ -76,10 +76,10 @@ pub fn spawn_requested_pigame_scenes(
                 commands.spawn_scene(pause_menu_scene(scene_owner));
             }
             Some(unknown_scene_key) => {
-                warn!("Unknown PiGame scene requested: {unknown_scene_key}");
+                warn!("Unknown TemplateGame scene requested: {unknown_scene_key}");
             }
             None => {
-                warn!("PiGame received a scene source without a scene key");
+                warn!("TemplateGame received a scene source without a scene key");
             }
         }
     }
@@ -118,11 +118,14 @@ mod tests {
 
     #[test]
     fn required_scene_keys_are_stable() {
-        assert_eq!(PIXEL_PERFECT_SPLASH_SCENE, "pigame/splash_pixel_perfect");
-        assert_eq!(BEVY_SPLASH_SCENE, "pigame/splash_bevy");
-        assert_eq!(MAIN_MENU_SCENE, "pigame/main_menu");
-        assert_eq!(OPTIONS_MENU_SCENE, "pigame/options_menu");
-        assert_eq!(GAMEPLAY_LEVEL_SCENE, "pigame/gameplay_level");
-        assert_eq!(PAUSE_MENU_SCENE, "pigame/pause_menu");
+        assert_eq!(
+            PIXEL_PERFECT_SPLASH_SCENE,
+            "template-game/splash_pixel_perfect"
+        );
+        assert_eq!(BEVY_SPLASH_SCENE, "template-game/splash_bevy");
+        assert_eq!(MAIN_MENU_SCENE, "template-game/main_menu");
+        assert_eq!(OPTIONS_MENU_SCENE, "template-game/options_menu");
+        assert_eq!(GAMEPLAY_LEVEL_SCENE, "template-game/gameplay_level");
+        assert_eq!(PAUSE_MENU_SCENE, "template-game/pause_menu");
     }
 }

@@ -235,7 +235,7 @@
 The user approved the Bevy `0.19`, BSN, and retained Foundation editor-library plan, then clarified the expected launch architecture:
 
 ```cmd
-cargo run -p foundation -- --game PiGame --editor
+cargo run -p foundation -- --game template-game --editor
 ```
 
 Foundation should now be treated as the engine. The engine launcher should parse the requested game and runtime features, then run the selected game with Foundation runtime and optional editor-time systems.
@@ -243,11 +243,11 @@ Foundation should now be treated as the engine. The engine launcher should parse
 ### Additional / Revised Tasks
 - [ ] Add a `foundation` engine executable package.
   - Status: Planned
-  - Notes: Planned package name is `foundation`, likely under `crates/foundation`, so the command is `cargo run -p foundation -- --game PiGame --editor`.
+  - Notes: Planned package name is `foundation`, likely under `crates/foundation`, so the command is `cargo run -p foundation -- --game template-game --editor`.
 - [ ] Implement engine launch argument parsing for `--game <name>` and `--editor`.
   - Status: Planned
   - Notes: `--editor` should be a runtime engine mode, not a Jackdaw editor binary.
-- [ ] Expose PiGame/TemplateGame through a game registration/plugin surface consumed by the Foundation engine.
+- [ ] Expose TemplateGame through a game registration/plugin surface consumed by the Foundation engine.
   - Status: Planned
   - Notes: The game still owns concrete BSN scenes and game-specific plugin glue; Foundation owns launch/app orchestration.
 - [ ] Install the cleared Bevy-only Foundation editor-time plugin when `--editor` is present.
@@ -260,11 +260,11 @@ Foundation should now be treated as the engine. The engine launcher should parse
 ### Additional Validation
 - `cargo check -p foundation`: Pending
 - `cargo test -p foundation`: Pending
-- `cargo run -p foundation -- --game PiGame`: Pending smoke test
-- `cargo run -p foundation -- --game PiGame --editor`: Pending smoke test
+- `cargo run -p foundation -- --game template-game`: Pending smoke test
+- `cargo run -p foundation -- --game template-game --editor`: Pending smoke test
 
 ### Progress Log
-- `2026-07-14`: User clarified Foundation should become the engine wrapper around Bevy, launched with a selected game and runtime feature flags, e.g. `cargo run -p foundation -- --game PiGame --editor`. Plan/tracker updated; waiting for confirmation before implementation.
+- `2026-07-14`: User clarified Foundation should become the engine wrapper around Bevy, launched with a selected game and runtime feature flags, e.g. `cargo run -p foundation -- --game template-game --editor`. Plan/tracker updated; waiting for confirmation before implementation.
 
 ## Revision: Game Linking Modes
 **Status:** Planning revision pending approval  
@@ -272,13 +272,13 @@ Foundation should now be treated as the engine. The engine launcher should parse
 
 ### User Clarification
 The Foundation engine should eventually support two build/linking modes:
-- Loose game module mode: launch/select a game such as `PiGame` through `--game PiGame`, potentially from a separately built DLL/module, useful for debugging and multi-game engine installs.
+- Loose game module mode: launch/select a game such as `template-game` through `--game template-game`, potentially from a separately built DLL/module, useful for debugging and multi-game engine installs.
 - Bundled distributed mode: compile the selected game directly into the Foundation executable so shipping produces one executable.
 
 ### Additional / Revised Tasks
 - [ ] Design the Foundation game registration surface so it supports static bundled games now and future loose/dynamic modules later.
   - Status: Planned
-  - Notes: Avoid hard-coding PiGame except as a registered/default game.
+  - Notes: Avoid hard-coding template-game except as a registered/default game.
 - [ ] Decide implementation depth for loose dynamic game loading in this feature.
   - Status: Pending user confirmation
   - Notes: Recommended first pass is static bundled registration plus documented dynamic-module follow-up, because DLL/plugin loading adds ABI and build-system complexity.
@@ -299,17 +299,22 @@ The Foundation engine should eventually support two build/linking modes:
 
 ## Implementation Checkpoint: Bevy 0.19 / Jackdaw Removal Validated
 - `2026-07-14`: After Rust was upgraded to `rustc 1.97.0`, focused compile passed: `cargo check -p foundation-runtime-library -p foundation-editor-library -p template-game -p foundation`.
-- `2026-07-14`: Removed remaining active source/manifest Jackdaw references, renamed scene-stack source API from `SceneSource::JsnLevel` / `jsn_level` to `SceneSource::BsnScene` / `bsn_scene`, added a BSN-authored splash scene function in PiGame, and rewrote README plus `docs/scene-system.md` for the Bevy/Foundation architecture.
+- `2026-07-14`: Removed remaining active source/manifest Jackdaw references, renamed scene-stack source API from `SceneSource::JsnLevel` / `jsn_level` to `SceneSource::BsnScene` / `bsn_scene`, added a BSN-authored splash scene function in template-game, and rewrote README plus `docs/scene-system.md` for the Bevy/Foundation architecture.
 - `2026-07-14`: Dependency check passed: `cargo tree --workspace | rg "jackdaw|jackdaw_runtime|jackdaw_api|jackdaw_jsn"` returned no matches.
 - `2026-07-14`: Validation passed: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
-- `2026-07-14`: Smoke launch `timeout 6s cargo run -p foundation -- --game PiGame` and `timeout 12s cargo run -p foundation -- --game PiGame --editor` opened a Bevy window and were intentionally terminated by timeout. Bevy/wgpu Vulkan validation messages were logged during smoke runs on this machine; compile/test/build/doc validation remains passing.
+- `2026-07-14`: Smoke launch `timeout 6s cargo run -p foundation -- --game template-game` and `timeout 12s cargo run -p foundation -- --game template-game --editor` opened a Bevy window and were intentionally terminated by timeout. Bevy/wgpu Vulkan validation messages were logged during smoke runs on this machine; compile/test/build/doc validation remains passing.
 - `2026-07-14`: Committed checkpoint `a65453c` (`Remove Jackdaw and upgrade Bevy`) and pushed it to `origin/feature/remove-jackdaw-editor`.
 
 ## Implementation Checkpoint: BSN Scene Organization Starting
-- `2026-07-14`: User approved the next step to make Foundation cleaner/robust and TemplateGame a rock-solid example. Starting a focused pass to move PiGame scene catalog code into dedicated scene modules, convert remaining required scenes to BSN functions, and improve the Foundation engine game registry so game-specific asset/plugin setup is not hard-coded in the runner.
+- `2026-07-14`: User approved the next step to make Foundation cleaner/robust and TemplateGame a rock-solid example. Starting a focused pass to move TemplateGame scene catalog code into dedicated scene modules, convert remaining required scenes to BSN functions, and improve the Foundation engine game registry so game-specific asset/plugin setup is not hard-coded in the runner.
 
-## Implementation Checkpoint: PiGame BSN Scene Modules
-- `2026-07-14`: Moved PiGame scene catalog into dedicated modules under `games/template-game/src/scenes/`: `mod.rs`, `splash.rs`, `menu.rs`, and `gameplay.rs`.
-- `2026-07-14`: Converted the required PiGame scenes to BSN scene functions: splash screens, main menu, options menu marker, gameplay level marker, and pause menu.
+## Implementation Checkpoint: template-game BSN Scene Modules
+- `2026-07-14`: Moved TemplateGame scene catalog into dedicated modules under `games/template-game/src/scenes/`: `mod.rs`, `splash.rs`, `menu.rs`, and `gameplay.rs`.
+- `2026-07-14`: Converted the required TemplateGame scenes to BSN scene functions: splash screens, main menu, options menu marker, gameplay level marker, and pause menu.
 - `2026-07-14`: Simplified `games/template-game/src/lib.rs` into the game plugin/engine integration surface and added `template_game::asset_root()` so the Foundation engine registry no longer hard-codes the game asset path.
 - `2026-07-14`: Validation passed after scene split: `cargo check -p foundation -p template-game`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
+
+## Implementation Checkpoint: TemplateGame Registration Name
+- `2026-07-14`: Renamed the Foundation engine game registration from `PiGame` to `template-game` so the launch command matches the Cargo package/template identity: `cargo run -p foundation -- --game template-game`.
+- `2026-07-14`: Renamed the Foundation engine game registration from `PiGame` to `template-game`, updated scene keys from `pigame/*` to `template-game/*`, renamed the plugin to `TemplateGamePlugin`, and updated current docs/guidance to use `cargo run -p foundation -- --game template-game`.
+- `2026-07-14`: Validation passed after registration rename: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.

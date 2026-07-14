@@ -1,7 +1,7 @@
-//! Standalone development launcher for PiGame.
+//! Standalone development launcher for template-game.
 //!
 //! Distributed and editor-mode launches should use the Foundation engine crate:
-//! `cargo run -p foundation -- --game PiGame`.
+//! `cargo run -p foundation -- --game template-game`.
 
 use bevy::{asset::AssetPlugin, prelude::*};
 use foundation_runtime_library::prelude::*;
@@ -24,7 +24,7 @@ fn main() -> AppExit {
             ..default()
         }))
         .add_plugins(FoundationPlugin)
-        .add_plugins(template_game::PiGamePlugin)
+        .add_plugins(template_game::TemplateGamePlugin)
         .add_systems(Startup, spawn_default_camera)
         .run()
 }

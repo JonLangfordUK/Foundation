@@ -4,12 +4,12 @@
 
 The Foundation scene system is an ECS-first scene stack for Bevy games. Foundation owns stack state, lifecycle messages, scene ownership, and reusable scene behaviors. Games own concrete scene catalogs.
 
-PiGame currently defines scenes in Rust with Bevy 0.19 BSN (`bsn!`). Bevy does not currently ship a first-party `.bsn` asset loader, so BSN scene definitions are code-authored for now. The PiGame scene catalog lives under `games/template-game/src/scenes/`.
+TemplateGame currently defines scenes in Rust with Bevy 0.19 BSN (`bsn!`). Bevy does not currently ship a first-party `.bsn` asset loader, so BSN scene definitions are code-authored for now. The TemplateGame scene catalog lives under `games/template-game/src/scenes/`.
 
 ## Architecture
 
 ```text
-Foundation engine (`cargo run -p foundation -- --game PiGame`)
+Foundation engine (`cargo run -p foundation -- --game template-game`)
         |
         v
 FoundationRuntimeLibrary
@@ -19,7 +19,7 @@ FoundationRuntimeLibrary
   - SceneOwner cleanup
         |
         v
-PiGame scene catalog
+TemplateGame scene catalog
   - BSN scene functions
   - scene-key routing
   - game-specific plugin glue
@@ -28,7 +28,7 @@ PiGame scene catalog
 `foundation-editor-library` remains as a Bevy-only editor-time extension point. Launching with `--editor` enables that shell:
 
 ```cmd
-cargo run -p foundation -- --game PiGame --editor
+cargo run -p foundation -- --game template-game --editor
 ```
 
 ## Scene Stack
@@ -45,7 +45,7 @@ Systems mutate the stack by writing `SceneCommand` messages. Foundation processe
 
 ## Scene Sources
 
-`SceneSource::bsn_scene("pigame/main_menu")` identifies a BSN scene key. The active game catalog resolves that key to Rust-authored BSN content.
+`SceneSource::bsn_scene("template-game/main_menu")` identifies a BSN scene key. The active game catalog resolves that key to Rust-authored BSN content.
 
 `SceneSource::runtime(SceneKey::new("debug-overlay"))` remains available for system-authored runtime scenes.
 
@@ -58,25 +58,25 @@ Systems mutate the stack by writing `SceneCommand` messages. Foundation processe
 | `INPUT_BLOCKING_OVERLAY` | Yes | No | Yes | Options/modal menu |
 | `NON_BLOCKING_OVERLAY` | Yes | Yes | Yes | Debug overlay |
 
-## Current PiGame Flow
+## Current TemplateGame Flow
 
 ```text
 Startup
-  -> open pigame/splash_pixel_perfect
+  -> open template-game/splash_pixel_perfect
 
 Pixel Perfect splash completes
-  -> pigame/splash_bevy
+  -> template-game/splash_bevy
 
 Bevy splash completes
-  -> clear stack and open pigame/main_menu
+  -> clear stack and open template-game/main_menu
 
 Main menu
-  -> New Game: clear stack and open pigame/gameplay_level
-  -> Options: open pigame/options_menu overlay
+  -> New Game: clear stack and open template-game/gameplay_level
+  -> Options: open template-game/options_menu overlay
   -> Exit: request AppExit
 
 Gameplay
-  -> Escape: open pigame/pause_menu as pause overlay
+  -> Escape: open template-game/pause_menu as pause overlay
 
 Pause menu
   -> Resume: close pause overlay and unpause

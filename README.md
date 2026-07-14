@@ -1,27 +1,27 @@
-# PiGame / Foundation
+# Template Game / Foundation
 
-PiGame is a Bevy 0.19 workspace centered on **Foundation**, a small engine wrapper around Bevy plus reusable Foundation runtime/editor libraries.
+Template Game is a Bevy 0.19 workspace centered on **Foundation**, a small engine wrapper around Bevy plus reusable Foundation runtime/editor libraries.
 
 ## Repository layout
-- `crates/foundation` - Foundation engine executable. It parses launch arguments such as `--game PiGame` and `--editor`.
+- `crates/foundation` - Foundation engine executable. It parses launch arguments such as `--game template-game` and `--editor`.
 - `crates/foundation-runtime-library` - reusable runtime systems: scene stack, splash flow, menu primitives, settings, credits, and gameplay helpers.
 - `crates/foundation-editor-library` - Bevy-only editor-time extension point. It is intentionally cleared for now after removing the external editor dependency.
-- `games/template-game` - the current registered game, exposed to the Foundation engine as `PiGame`.
+- `games/template-game` - the current registered game, exposed to the Foundation engine as `template-game`.
 - `docs/scene-system.md` - Foundation scene-stack and BSN scene catalog guide.
 - `docs/plans/` - feature plans, trackers, and templates.
 - `scripts/` - validation wrappers.
 
 ## Running the game
-Run PiGame through the Foundation engine:
+Run Template Game through the Foundation engine:
 
 ```cmd
-cargo run -p foundation -- --game PiGame
+cargo run -p foundation -- --game template-game
 ```
 
-Run PiGame with Foundation editor-time mode enabled:
+Run Template Game with Foundation editor-time mode enabled:
 
 ```cmd
-cargo run -p foundation -- --game PiGame --editor
+cargo run -p foundation -- --game template-game --editor
 ```
 
 The editor-time crate currently provides only a cleared Bevy-only shell. Future editor tools should attach through `foundation-editor-library` and the engine `--editor` mode.
@@ -35,9 +35,9 @@ cargo run -p template-game
 ## Scene authoring
 Scenes are now code-authored with Bevy 0.19 BSN (`bsn!`) in Rust. Bevy does not currently ship a first-party `.bsn` asset loader, so scene definitions live in Rust scene functions for now.
 
-Foundation owns the scene stack and scene lifecycle. PiGame owns concrete BSN scene functions and maps scene keys such as `pigame/main_menu` to spawned content.
+Foundation owns the scene stack and scene lifecycle. TemplateGame owns concrete BSN scene functions and maps scene keys such as `template-game/main_menu` to spawned content.
 
-PiGame scene modules live under:
+TemplateGame scene modules live under:
 
 ```text
 games/template-game/src/scenes/mod.rs

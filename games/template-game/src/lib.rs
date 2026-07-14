@@ -1,4 +1,4 @@
-//! PiGame gameplay plugin and Foundation engine integration.
+//! TemplateGame gameplay plugin and Foundation engine integration.
 //!
 //! The Foundation engine launches this crate as a registered game. Concrete BSN
 //! scenes live in [`scenes`], while reusable scene-stack, splash, menu, and
@@ -12,36 +12,33 @@ use foundation_runtime_library::prelude::*;
 pub mod scenes;
 
 /// Foundation game name used by the engine `--game` argument.
-pub const GAME_NAME: &str = "PiGame";
+pub const GAME_NAME: &str = "template-game";
 
-/// Returns PiGame's asset root.
+/// Returns TemplateGame's asset root.
 ///
-/// Foundation uses this when launching PiGame as a statically registered game.
+/// Foundation uses this when launching TemplateGame as a statically registered game.
 pub fn asset_root() -> PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
 }
 
-/// PiGame's Bevy plugin.
+/// TemplateGame's Bevy plugin.
 #[derive(Default)]
-pub struct PiGamePlugin;
+pub struct TemplateGamePlugin;
 
-impl Plugin for PiGamePlugin {
+impl Plugin for TemplateGamePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<SpinningCube>()
             .add_systems(Startup, scenes::open_initial_scene)
             .add_systems(
                 Update,
                 (
-                    scenes::spawn_requested_pigame_scenes,
+                    scenes::spawn_requested_template_game_scenes,
                     exit_game_on_foundation_exit_request,
                     spin_cube.run_if(foundation_is_not_paused),
                 ),
             );
     }
 }
-
-/// Backwards-compatible alias while the project still uses the `template-game` package name.
-pub type TemplateGamePlugin = PiGamePlugin;
 
 fn exit_game_on_foundation_exit_request(
     mut exit_requests: MessageReader<FoundationExitRequested>,
@@ -52,7 +49,7 @@ fn exit_game_on_foundation_exit_request(
     }
 }
 
-/// Example gameplay component used by PiGame-specific systems.
+/// Example gameplay component used by TemplateGame-specific systems.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct SpinningCube;
@@ -71,6 +68,6 @@ mod tests {
 
     #[test]
     fn game_name_matches_foundation_launch_argument() {
-        assert_eq!(GAME_NAME, "PiGame");
+        assert_eq!(GAME_NAME, "template-game");
     }
 }
