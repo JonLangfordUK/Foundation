@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     render::{
         RenderPlugin,
-        settings::{Backends, RenderCreation, WgpuSettings},
+        settings::{Backends, InstanceFlags, RenderCreation, WgpuSettings},
     },
 };
 use foundation_editor_library::prelude::*;
@@ -36,7 +36,8 @@ fn main() -> AppExit {
                 })
                 .set(RenderPlugin {
                     render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
-                        backends: Some(platform_render_backends()),
+                        backends: platform_render_backends(),
+                        instance_flags: InstanceFlags::empty().with_env(),
                         ..default()
                     })),
                     ..default()
@@ -55,16 +56,17 @@ fn main() -> AppExit {
     app.run()
 }
 
-fn platform_render_backends() -> Backends {
-    // Respect explicit developer overrides first, then prefer the platform-native backend.
+fn platform_render_backends() -> Option<Backends> {
+    // Keep the fast Windows path that made gameplay appear immediately, while disabling
+    // validation layers separately so local Vulkan SDK warnings do not flood normal logs.
     #[cfg(target_os = "windows")]
     {
-        Backends::from_env().unwrap_or(Backends::DX12)
+        Some(Backends::from_env().unwrap_or(Backends::VULKAN))
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        Backends::from_env().unwrap_or(Backends::PRIMARY)
+        Some(Backends::from_env().unwrap_or(Backends::PRIMARY))
     }
 }
 
