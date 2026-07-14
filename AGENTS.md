@@ -71,10 +71,10 @@ When adapting this template for a new Rust project:
 
 When the user asks about Foundation runtime systems, Foundation engine launch behavior, Foundation editor tooling, game settings, scene-stack behavior, reusable game components, BSN scenes, or TemplateGame integration with Foundation crates:
 1. Read `.pi/skills/foundation-architecture/SKILL.md` first.
-2. Treat `crates/foundation` as the Foundation engine executable/wrapper around Bevy.
+2. Treat `crates/foundation` as the Foundation engine executable/wrapper around Bevy; it must discover game extensions rather than depend on concrete game crates.
 3. Keep runtime/game systems in `crates/foundation-runtime-library`.
 4. Keep Bevy-only editor-time extension points in `crates/foundation-editor-library`; this crate is intentionally cleared for now.
-5. Keep concrete game BSN scene functions and game-specific plugin glue in `games/template-game`.
+5. Keep concrete game BSN scene functions, game manifests, and game-specific plugin glue in `games/template-game`.
 6. Do not add Jackdaw dependencies; the project is now Bevy-only after the Jackdaw removal feature.
 
 When the user asks about Git workflow, branch strategy, merges, or commit message formatting:

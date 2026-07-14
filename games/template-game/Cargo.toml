@@ -9,5 +9,6 @@ crate-type = ["rlib"]
 
 [dependencies]
 bevy.workspace = true
+foundation-editor-library.workspace = true
 foundation-runtime-library.workspace = true
 ctrlc.workspace = true

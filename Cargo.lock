@@ -2565,11 +2565,9 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 name = "foundation"
 version = "0.1.0"
 dependencies = [
- "bevy",
  "ctrlc",
- "foundation-editor-library",
- "foundation-runtime-library",
- "template-game",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -4878,6 +4876,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "ctrlc",
+ "foundation-editor-library",
  "foundation-runtime-library",
 ]
 

@@ -7,8 +7,6 @@ publish.workspace = true
 description = "Foundation engine launcher for Bevy games"
 
 [dependencies]
-bevy.workspace = true
 ctrlc.workspace = true
-foundation-editor-library.workspace = true
-foundation-runtime-library.workspace = true
-template-game = { path = "../../games/template-game" }
+serde.workspace = true
+toml.workspace = true

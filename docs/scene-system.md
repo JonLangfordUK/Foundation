@@ -12,6 +12,9 @@ TemplateGame currently defines scenes in Rust with Bevy 0.19 BSN (`bsn!`). Bevy 
 Foundation engine (`cargo run -p foundation -- --game template-game`)
         |
         v
+Game extension manifest (`games/template-game/foundation.game.toml`)
+        |
+        v
 FoundationRuntimeLibrary
   - SceneStack
   - SceneCommand messages
@@ -108,4 +111,4 @@ Foundation is intended to support:
 1. **Static bundled games** for distributed single-executable builds.
 2. **Loose game modules** for future development/multi-game engine installs.
 
-The current registry uses static game registration and keeps the `--game` selection model so loose modules can be added later.
+The current launcher discovers game manifests and forwards to the selected game package, so the engine does not depend on concrete game crates. Static bundled builds remain a future distribution mode.

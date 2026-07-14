@@ -4,6 +4,7 @@
 //! `cargo run -p foundation -- --game template-game`.
 
 use bevy::{asset::AssetPlugin, prelude::*};
+use foundation_editor_library::prelude::*;
 use foundation_runtime_library::prelude::*;
 
 fn main() -> AppExit {
@@ -16,8 +17,10 @@ fn main() -> AppExit {
         .to_string_lossy()
         .to_string();
 
-    App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+    let editor_enabled = std::env::args().any(|argument| argument == "--editor");
+
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::BLACK))
         .set_error_handler(bevy::ecs::error::error)
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             file_path: asset_root,
@@ -25,8 +28,15 @@ fn main() -> AppExit {
         }))
         .add_plugins(FoundationPlugin)
         .add_plugins(template_game::TemplateGamePlugin)
-        .add_systems(Startup, spawn_default_camera)
-        .run()
+        .add_systems(Startup, spawn_default_camera);
+
+    if editor_enabled {
+        app.add_plugins(FoundationEditorPlugin);
+        app.insert_resource(FoundationEditorMode { enabled: true });
+        info!("Foundation editor mode enabled for TemplateGame.");
+    }
+
+    app.run()
 }
 
 fn spawn_default_camera(mut commands: Commands) {

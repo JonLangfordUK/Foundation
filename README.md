@@ -3,10 +3,10 @@
 Template Game is a Bevy 0.19 workspace centered on **Foundation**, a small engine wrapper around Bevy plus reusable Foundation runtime/editor libraries.
 
 ## Repository layout
-- `crates/foundation` - Foundation engine executable. It parses launch arguments such as `--game template-game` and `--editor`.
+- `crates/foundation` - Foundation engine executable. It discovers game extension manifests and forwards launch arguments such as `--game template-game` and `--editor`.
 - `crates/foundation-runtime-library` - reusable runtime systems: scene stack, splash flow, menu primitives, settings, credits, and gameplay helpers.
 - `crates/foundation-editor-library` - Bevy-only editor-time extension point. It is intentionally cleared for now after removing the external editor dependency.
-- `games/template-game` - the current registered game, exposed to the Foundation engine as `template-game`.
+- `games/template-game` - the current game extension, exposed through `games/template-game/foundation.game.toml` as `template-game`.
 - `docs/scene-system.md` - Foundation scene-stack and BSN scene catalog guide.
 - `docs/plans/` - feature plans, trackers, and templates.
 - `scripts/` - validation wrappers.
@@ -61,7 +61,7 @@ Foundation is intended to support two game-linking modes:
 1. **Bundled/static mode** - selected games are compiled into the Foundation executable for a single-exe distributed build.
 2. **Loose module mode** - future development mode where the engine can load/select separately built game modules for debugging or multi-game installs.
 
-The current implementation uses static registration and keeps the registry shape ready for future dynamic module loading.
+The current implementation uses a loose manifest plus Cargo package launch so the engine does not depend on concrete game crates. Static bundled builds remain a future distribution mode.
 
 ## Validation
 From the repository root:

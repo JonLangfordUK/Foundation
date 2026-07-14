@@ -1,13 +1,18 @@
 //! Foundation engine launcher.
 //!
-//! Foundation wraps Bevy app construction, installs reusable Foundation systems,
-//! and selects the game to run from command-line arguments.
+//! Foundation discovers game extensions from game manifests and launches the
+//! selected game by name. The engine launcher intentionally does not depend on
+//! concrete game crates.
 
-use bevy::{asset::AssetPlugin, prelude::*};
-use foundation_editor_library::prelude::*;
-use foundation_runtime_library::prelude::*;
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+    process::{Command, ExitCode},
+};
 
-fn main() -> AppExit {
+use serde::Deserialize;
+
+fn main() -> ExitCode {
     let interrupt_exit_code = 130;
     let _ = ctrlc::set_handler(move || std::process::exit(interrupt_exit_code));
 
@@ -16,21 +21,17 @@ fn main() -> AppExit {
         Err(argument_error) => {
             eprintln!("{argument_error}");
             eprintln!("Usage: cargo run -p foundation -- --game template-game [--editor]");
-            return AppExit::error();
+            return ExitCode::FAILURE;
         }
     };
 
-    let Some(game_registration) = registered_games().into_iter().find(|registered_game| {
-        registered_game
-            .name
-            .eq_ignore_ascii_case(&launch_arguments.game)
-    }) else {
-        eprintln!("Unknown game `{}`.", launch_arguments.game);
-        eprintln!("Available games: template-game");
-        return AppExit::error();
-    };
-
-    run_registered_game(game_registration, launch_arguments)
+    match launch_selected_game(&launch_arguments) {
+        Ok(game_exit_code) => game_exit_code,
+        Err(launch_error) => {
+            eprintln!("{launch_error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,7 +66,7 @@ impl FoundationLaunchArguments {
             }
         }
 
-        let game = game.unwrap_or_else(|| template_game::GAME_NAME.to_string());
+        let game = game.unwrap_or_else(|| "template-game".to_string());
         Ok(Self {
             game,
             editor_enabled,
@@ -73,63 +74,156 @@ impl FoundationLaunchArguments {
     }
 }
 
-#[derive(Clone, Copy)]
-struct FoundationGameRegistration {
-    name: &'static str,
-    asset_root: fn() -> std::path::PathBuf,
-    install_plugin: fn(&mut App),
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct FoundationGameManifest {
+    game: FoundationGameManifestGame,
+    launch: FoundationGameManifestLaunch,
 }
 
-fn registered_games() -> Vec<FoundationGameRegistration> {
-    vec![FoundationGameRegistration {
-        name: template_game::GAME_NAME,
-        asset_root: template_game::asset_root,
-        install_plugin: |app| {
-            app.add_plugins(template_game::TemplateGamePlugin);
-        },
-    }]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct FoundationGameManifestGame {
+    name: String,
 }
 
-fn run_registered_game(
-    game_registration: FoundationGameRegistration,
-    launch_arguments: FoundationLaunchArguments,
-) -> AppExit {
-    let game_asset_root = (game_registration.asset_root)();
-    let asset_root = game_asset_root
-        .canonicalize()
-        .unwrap_or(game_asset_root)
-        .to_string_lossy()
-        .to_string();
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct FoundationGameManifestLaunch {
+    package: String,
+}
 
-    let mut app = App::new();
-    app.insert_resource(ClearColor(Color::BLACK))
-        .set_error_handler(bevy::ecs::error::error)
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            file_path: asset_root,
-            ..default()
-        }))
-        .add_plugins(FoundationPlugin)
-        .add_systems(Startup, spawn_default_camera);
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DiscoveredGame {
+    manifest_path: PathBuf,
+    manifest: FoundationGameManifest,
+}
 
-    if launch_arguments.editor_enabled {
-        app.add_plugins(FoundationEditorPlugin);
-        app.insert_resource(FoundationEditorMode { enabled: true });
-        info!("Foundation editor mode enabled.");
+#[derive(Debug)]
+enum FoundationLaunchError {
+    Io(std::io::Error),
+    ManifestParse {
+        manifest_path: PathBuf,
+        error: toml::de::Error,
+    },
+    GameNotFound {
+        requested_game: String,
+        available_games: Vec<String>,
+    },
+    GameProcessFailed(std::io::Error),
+}
+
+impl fmt::Display for FoundationLaunchError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(error) => write!(formatter, "Failed to discover Foundation games: {error}"),
+            Self::ManifestParse {
+                manifest_path,
+                error,
+            } => write!(
+                formatter,
+                "Failed to parse game manifest {}: {error}",
+                manifest_path.display()
+            ),
+            Self::GameNotFound {
+                requested_game,
+                available_games,
+            } => write!(
+                formatter,
+                "Unknown game `{requested_game}`. Available games: {}",
+                available_games.join(", ")
+            ),
+            Self::GameProcessFailed(error) => {
+                write!(formatter, "Failed to launch selected game: {error}")
+            }
+        }
+    }
+}
+
+fn launch_selected_game(
+    launch_arguments: &FoundationLaunchArguments,
+) -> Result<ExitCode, FoundationLaunchError> {
+    let workspace_root = workspace_root();
+    let discovered_games = discover_games(&workspace_root)?;
+    let available_games = discovered_games
+        .iter()
+        .map(|discovered_game| discovered_game.manifest.game.name.clone())
+        .collect::<Vec<_>>();
+
+    let Some(discovered_game) = discovered_games.into_iter().find(|discovered_game| {
+        discovered_game
+            .manifest
+            .game
+            .name
+            .eq_ignore_ascii_case(&launch_arguments.game)
+    }) else {
+        return Err(FoundationLaunchError::GameNotFound {
+            requested_game: launch_arguments.game.clone(),
+            available_games,
+        });
+    };
+
+    launch_game_process(&discovered_game.manifest, launch_arguments)
+}
+
+fn workspace_root() -> PathBuf {
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")))
+}
+
+fn discover_games(workspace_root: &Path) -> Result<Vec<DiscoveredGame>, FoundationLaunchError> {
+    let games_directory = workspace_root.join("games");
+    let mut discovered_games = Vec::new();
+
+    if !games_directory.is_dir() {
+        return Ok(discovered_games);
     }
 
-    (game_registration.install_plugin)(&mut app);
-    app.run()
+    for game_directory_entry in
+        std::fs::read_dir(games_directory).map_err(FoundationLaunchError::Io)?
+    {
+        let game_directory_entry = game_directory_entry.map_err(FoundationLaunchError::Io)?;
+        let manifest_path = game_directory_entry.path().join("foundation.game.toml");
+        if !manifest_path.is_file() {
+            continue;
+        }
+
+        let manifest_text =
+            std::fs::read_to_string(&manifest_path).map_err(FoundationLaunchError::Io)?;
+        let manifest =
+            toml::from_str::<FoundationGameManifest>(&manifest_text).map_err(|error| {
+                FoundationLaunchError::ManifestParse {
+                    manifest_path: manifest_path.clone(),
+                    error,
+                }
+            })?;
+
+        discovered_games.push(DiscoveredGame {
+            manifest_path,
+            manifest,
+        });
+    }
+
+    discovered_games.sort_by(|left_game, right_game| {
+        left_game
+            .manifest
+            .game
+            .name
+            .cmp(&right_game.manifest.game.name)
+    });
+    Ok(discovered_games)
 }
 
-fn spawn_default_camera(mut commands: Commands) {
-    let camera_order = 100;
-    commands.spawn((
-        Camera2d,
-        Camera {
-            order: camera_order,
-            ..default()
-        },
-    ));
+fn launch_game_process(
+    manifest: &FoundationGameManifest,
+    launch_arguments: &FoundationLaunchArguments,
+) -> Result<ExitCode, FoundationLaunchError> {
+    let mut command = Command::new("cargo");
+    command.args(["run", "-p", manifest.launch.package.as_str(), "--"]);
+    if launch_arguments.editor_enabled {
+        command.arg("--editor");
+    }
+
+    let status = command
+        .status()
+        .map_err(FoundationLaunchError::GameProcessFailed)?;
+    Ok(ExitCode::from(status.code().unwrap_or(1) as u8))
 }
 
 #[cfg(test)]
@@ -152,7 +246,23 @@ mod tests {
         let launch_arguments = FoundationLaunchArguments::parse(arguments)
             .expect("empty arguments should use the default game");
 
-        assert_eq!(launch_arguments.game, template_game::GAME_NAME);
+        assert_eq!(launch_arguments.game, "template-game");
         assert!(!launch_arguments.editor_enabled);
+    }
+
+    #[test]
+    fn game_manifest_parses_name_and_package() {
+        let manifest_text = r#"
+            [game]
+            name = "template-game"
+
+            [launch]
+            package = "template-game"
+        "#;
+        let manifest =
+            toml::from_str::<FoundationGameManifest>(manifest_text).expect("manifest should parse");
+
+        assert_eq!(manifest.game.name, "template-game");
+        assert_eq!(manifest.launch.package, "template-game");
     }
 }
