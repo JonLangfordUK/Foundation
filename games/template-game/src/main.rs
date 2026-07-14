@@ -22,11 +22,13 @@ fn main() -> AppExit {
 
     let clear_color = Color::srgb(0.0, 0.0, 0.0);
     let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let foundation_game_settings = FoundationGameSettings::load_from_project_root(project_root)
-        .unwrap_or_else(|error| {
-            warn!("Failed to load Foundation game settings: {error}");
-            FoundationGameSettings::default()
-        });
+    let foundation_game_settings = FoundationGameSettings::load_or_create_from_project_root(
+        project_root,
+    )
+    .unwrap_or_else(|error| {
+        warn!("Failed to load or create Foundation game settings: {error}");
+        FoundationGameSettings::default()
+    });
 
     App::new()
         .insert_resource(ClearColor(clear_color))

@@ -51,6 +51,16 @@ impl FoundationGameSettings {
         Self::load_from_file(settings_file_path)
     }
 
+    /// Loads settings from the default file, creating it with defaults when missing.
+    pub fn load_or_create_from_project_root(
+        project_root: impl AsRef<Path>,
+    ) -> Result<Self, FoundationGameSettingsIoError> {
+        let settings_file_path = project_root
+            .as_ref()
+            .join(FOUNDATION_GAME_SETTINGS_FILE_NAME);
+        Self::load_or_create_from_file(settings_file_path)
+    }
+
     /// Loads settings from a TOML file.
     ///
     /// A missing file is not an error and returns default settings.
@@ -73,6 +83,20 @@ impl FoundationGameSettings {
             path: settings_file_path.to_path_buf(),
             source,
         })
+    }
+
+    /// Loads settings from a TOML file, creating it with defaults when missing.
+    pub fn load_or_create_from_file(
+        settings_file_path: impl AsRef<Path>,
+    ) -> Result<Self, FoundationGameSettingsIoError> {
+        let settings_file_path = settings_file_path.as_ref();
+        if settings_file_path.is_file() {
+            return Self::load_from_file(settings_file_path);
+        }
+
+        let default_settings = Self::default();
+        default_settings.save_to_file(settings_file_path)?;
+        Ok(default_settings)
     }
 
     /// Saves settings to the default file under `project_root`.
@@ -215,6 +239,21 @@ mod tests {
             .expect("missing settings should load defaults");
 
         assert_eq!(settings, FoundationGameSettings::default());
+    }
+
+    #[test]
+    fn missing_settings_file_can_be_created_with_defaults() {
+        let settings_directory_path = unique_test_directory_path("create-defaults");
+        let settings_file_path = settings_directory_path.join(FOUNDATION_GAME_SETTINGS_FILE_NAME);
+
+        let settings =
+            FoundationGameSettings::load_or_create_from_project_root(&settings_directory_path)
+                .expect("missing settings should be created");
+
+        assert_eq!(settings, FoundationGameSettings::default());
+        assert!(settings_file_path.is_file());
+
+        let _ = fs::remove_dir_all(settings_directory_path);
     }
 
     #[test]
