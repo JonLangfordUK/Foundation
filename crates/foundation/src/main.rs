@@ -20,7 +20,7 @@ fn main() -> ExitCode {
         Ok(launch_arguments) => launch_arguments,
         Err(argument_error) => {
             eprintln!("{argument_error}");
-            eprintln!("Usage: cargo run -p foundation -- --game template-game [--editor]");
+            eprintln!("Usage: cargo run -p foundation -- --game <game-name> [--editor]");
             return ExitCode::FAILURE;
         }
     };
@@ -66,7 +66,9 @@ impl FoundationLaunchArguments {
             }
         }
 
-        let game = game.unwrap_or_else(|| "template-game".to_string());
+        let Some(game) = game else {
+            return Err("Expected `--game <game-name>`.".to_string());
+        };
         Ok(Self {
             game,
             editor_enabled,
@@ -232,37 +234,36 @@ mod tests {
 
     #[test]
     fn parse_game_and_editor_arguments() {
-        let arguments = ["--game", "template-game", "--editor"].map(str::to_string);
+        let arguments = ["--game", "example-game", "--editor"].map(str::to_string);
         let launch_arguments =
             FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
 
-        assert_eq!(launch_arguments.game, "template-game");
+        assert_eq!(launch_arguments.game, "example-game");
         assert!(launch_arguments.editor_enabled);
     }
 
     #[test]
-    fn default_game_is_template_game() {
+    fn game_argument_is_required() {
         let arguments = std::iter::empty::<String>();
-        let launch_arguments = FoundationLaunchArguments::parse(arguments)
-            .expect("empty arguments should use the default game");
+        let launch_error = FoundationLaunchArguments::parse(arguments)
+            .expect_err("empty arguments should require a game name");
 
-        assert_eq!(launch_arguments.game, "template-game");
-        assert!(!launch_arguments.editor_enabled);
+        assert_eq!(launch_error, "Expected `--game <game-name>`.");
     }
 
     #[test]
     fn game_manifest_parses_name_and_package() {
         let manifest_text = r#"
             [game]
-            name = "template-game"
+            name = "example-game"
 
             [launch]
-            package = "template-game"
+            package = "example-game"
         "#;
         let manifest =
             toml::from_str::<FoundationGameManifest>(manifest_text).expect("manifest should parse");
 
-        assert_eq!(manifest.game.name, "template-game");
-        assert_eq!(manifest.launch.package, "template-game");
+        assert_eq!(manifest.game.name, "example-game");
+        assert_eq!(manifest.launch.package, "example-game");
     }
 }
