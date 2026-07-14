@@ -11,7 +11,7 @@ pub fn spawn_bevy_splash_scene(commands: &mut Commands, scene_owner: SceneOwner)
     let splash_screen = FoundationSplashScreen {
         timings: splash_timings,
         font_size: 72.0,
-        next_scene_path: MAIN_MENU_SCENE.to_string(),
+        next_scene_key: MAIN_MENU_SCENE.to_string(),
         reset_stack_for_next_scene: true,
         replace_current_scene: false,
     };

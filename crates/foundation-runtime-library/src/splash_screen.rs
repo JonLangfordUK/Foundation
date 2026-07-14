@@ -106,11 +106,11 @@ pub struct FoundationSplashScreen {
     /// Font size used only for the empty generated fallback text when no
     /// authored [`FoundationSplashText`] exists.
     pub font_size: f32,
-    /// Optional Bevy BSN scene path to open after fade-out completes.
+    /// Optional Bevy BSN scene key to open after fade-out completes.
     ///
     /// Leave empty for a terminal splash that does not transition.
-    pub next_scene_path: String,
-    /// If true, reset the stack before opening [`next_scene_path`](Self::next_scene_path).
+    pub next_scene_key: String,
+    /// If true, reset the stack before opening [`next_scene_key`](Self::next_scene_key).
     pub reset_stack_for_next_scene: bool,
     /// If true and `reset_stack_for_next_scene` is false, close the current
     /// splash scene while opening the next one.
@@ -123,7 +123,7 @@ impl FoundationSplashScreen {
         Self {
             timings: FoundationSplashTimings::default(),
             font_size: 72.0,
-            next_scene_path: String::new(),
+            next_scene_key: String::new(),
             reset_stack_for_next_scene: false,
             replace_current_scene: true,
         }
@@ -131,7 +131,7 @@ impl FoundationSplashScreen {
 
     /// Returns true when this splash has a configured next scene.
     pub fn has_next_scene(&self) -> bool {
-        !self.next_scene_path.trim().is_empty()
+        !self.next_scene_key.trim().is_empty()
     }
 
     fn completion_command(&self) -> Option<SceneCommand> {
@@ -140,7 +140,7 @@ impl FoundationSplashScreen {
             return None;
         }
 
-        let next_scene_source = SceneSource::bsn_scene(self.next_scene_path.trim());
+        let next_scene_source = SceneSource::bsn_scene(self.next_scene_key.trim());
         if self.reset_stack_for_next_scene {
             // Startup sequences use reset when the next scene should own the whole stack.
             Some(SceneCommand::ClearAndOpen {
@@ -497,7 +497,7 @@ mod tests {
     #[test]
     fn splash_completion_command_can_replace_current_scene() {
         let mut splash = FoundationSplashScreen::new();
-        splash.next_scene_path = "splash_bevy".to_string();
+        splash.next_scene_key = "splash_bevy".to_string();
 
         assert_eq!(
             splash.completion_command(),
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn splash_completion_command_can_reset_stack_for_next_scene() {
         let mut splash = FoundationSplashScreen::new();
-        splash.next_scene_path = "main_menu".to_string();
+        splash.next_scene_key = "main_menu".to_string();
         splash.reset_stack_for_next_scene = true;
 
         assert_eq!(

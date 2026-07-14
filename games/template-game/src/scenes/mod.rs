@@ -89,7 +89,7 @@ pub fn spawn_requested_template_game_scenes(
 
 fn scene_source_key(scene_source: &SceneSource) -> Option<String> {
     match scene_source {
-        SceneSource::BsnScene { path } => Some(path.clone()),
+        SceneSource::BsnScene { key } => Some(key.clone()),
         SceneSource::Runtime { key } => Some(key.0.clone()),
     }
 }

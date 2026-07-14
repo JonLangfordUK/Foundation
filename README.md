@@ -7,11 +7,14 @@ Template Game is a Bevy 0.19 workspace centered on **Foundation**, a small engin
 - `crates/foundation-runtime-library` - reusable runtime systems: scene stack, splash flow, menu primitives, settings, credits, and gameplay helpers.
 - `crates/foundation-editor-library` - Bevy-only editor-time extension point. It is intentionally cleared for now after removing the external editor dependency.
 - `games/template-game` - the current game extension, exposed through `games/template-game/foundation.game.toml` as `template-game`.
+- `docs/foundation-engine.md` - Foundation engine launcher and game manifest guide.
 - `docs/scene-system.md` - Foundation scene-stack and BSN scene catalog guide.
 - `docs/plans/` - feature plans, trackers, and templates.
 - `scripts/` - validation wrappers.
 
 ## Running the game
+See `docs/foundation-engine.md` for the full engine launcher and game manifest model.
+
 Run Template Game through the Foundation engine:
 
 ```cmd

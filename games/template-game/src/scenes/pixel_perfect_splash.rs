@@ -11,7 +11,7 @@ pub fn spawn_pixel_perfect_splash_scene(commands: &mut Commands, scene_owner: Sc
     let splash_screen = FoundationSplashScreen {
         timings: splash_timings,
         font_size: 72.0,
-        next_scene_path: BEVY_SPLASH_SCENE.to_string(),
+        next_scene_key: BEVY_SPLASH_SCENE.to_string(),
         reset_stack_for_next_scene: false,
         replace_current_scene: true,
     };

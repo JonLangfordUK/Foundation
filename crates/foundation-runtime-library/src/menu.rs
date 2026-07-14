@@ -106,10 +106,10 @@ pub struct FoundationExitRequested;
 pub struct FoundationMenuButton {
     /// Action identifier. Use `open_scene`, `close_current`, `exit`, or `none`.
     pub action: String,
-    /// Bevy BSN scene path used by the `open_scene` action.
-    pub scene_path: String,
-    /// Optional scene-stack key used by the `open_scene` action.
+    /// Bevy BSN scene key used by the `open_scene` action.
     pub scene_key: String,
+    /// Optional scene-stack key used by the `open_scene` action.
+    pub stack_key: String,
 }
 
 impl FoundationMenuButton {
@@ -118,41 +118,41 @@ impl FoundationMenuButton {
         // Empty scene fields keep inert buttons safe to author in placeholder menus.
         Self {
             action: "none".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 
     /// Creates a button that opens a full-screen Foundation scene on the stack.
-    pub fn open_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
+    pub fn open_scene(scene_key: impl Into<String>, stack_key: impl Into<String>) -> Self {
         // Full-screen opens cover earlier entries and become the focused scene.
         Self {
             action: "open_scene".to_string(),
-            scene_path: scene_path.into(),
             scene_key: scene_key.into(),
+            stack_key: stack_key.into(),
         }
     }
 
     /// Creates a button that opens an input-blocking overlay scene on the stack.
-    pub fn open_overlay_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
+    pub fn open_overlay_scene(scene_key: impl Into<String>, stack_key: impl Into<String>) -> Self {
         // Overlay opens preserve lower scene visibility while blocking lower input.
         Self {
             action: "open_overlay_scene".to_string(),
-            scene_path: scene_path.into(),
             scene_key: scene_key.into(),
+            stack_key: stack_key.into(),
         }
     }
 
     /// Creates a button that clears the stack and opens a Foundation scene.
     pub fn clear_and_open_scene(
-        scene_path: impl Into<String>,
         scene_key: impl Into<String>,
+        stack_key: impl Into<String>,
     ) -> Self {
         // Clear-and-open is used by main menu flows that should discard old gameplay state.
         Self {
             action: "clear_and_open_scene".to_string(),
-            scene_path: scene_path.into(),
             scene_key: scene_key.into(),
+            stack_key: stack_key.into(),
         }
     }
 
@@ -160,8 +160,8 @@ impl FoundationMenuButton {
     pub fn close_current() -> Self {
         Self {
             action: "close_current".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 
@@ -170,8 +170,8 @@ impl FoundationMenuButton {
     pub fn resume() -> Self {
         Self {
             action: "resume".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 
@@ -179,8 +179,8 @@ impl FoundationMenuButton {
     pub fn exit() -> Self {
         Self {
             action: "exit".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 }
@@ -243,17 +243,17 @@ pub struct FoundationResumeOnEscape;
 #[derive(Clone, Debug, Component, Reflect)]
 #[reflect(Component)]
 pub struct FoundationPauseOpener {
-    /// Bevy BSN scene path for the pause menu.
-    pub pause_scene_path: String,
-    /// Optional scene-stack key for the pause menu.
+    /// Bevy BSN scene key for the pause menu.
     pub pause_scene_key: String,
+    /// Optional scene-stack key for the pause menu entry.
+    pub pause_stack_key: String,
 }
 
 impl Default for FoundationPauseOpener {
     fn default() -> Self {
         Self {
-            pause_scene_path: String::new(),
-            pause_scene_key: "pause-menu".to_string(),
+            pause_scene_key: String::new(),
+            pause_stack_key: "pause-menu".to_string(),
         }
     }
 }
@@ -785,9 +785,9 @@ fn open_pause_menus(
     }) else {
         return;
     };
-    let pause_scene_path = opener.pause_scene_path.trim();
-    if pause_scene_path.is_empty() {
-        warn!("FoundationPauseOpener has an empty pause_scene_path");
+    let pause_scene_key = opener.pause_scene_key.trim();
+    if pause_scene_key.is_empty() {
+        warn!("FoundationPauseOpener has an empty pause_scene_key");
         return;
     }
 
@@ -795,12 +795,12 @@ fn open_pause_menus(
     pause_state.paused = true;
     let mut options =
         OpenSceneOptions::default().with_presentation(ScenePresentation::PAUSE_OVERLAY);
-    let pause_scene_key = opener.pause_scene_key.trim();
-    if !pause_scene_key.is_empty() {
-        options = options.with_key(pause_scene_key);
+    let pause_stack_key = opener.pause_stack_key.trim();
+    if !pause_stack_key.is_empty() {
+        options = options.with_key(pause_stack_key);
     }
     scene_commands.write(SceneCommand::open_with_options(
-        SceneSource::bsn_scene(pause_scene_path),
+        SceneSource::bsn_scene(pause_scene_key),
         options,
     ));
 }
@@ -885,32 +885,32 @@ fn open_configured_scene(
     should_clear_stack: bool,
     presentation: ScenePresentation,
 ) {
-    let scene_path = button.scene_path.trim();
-    if scene_path.is_empty() {
+    let scene_key = button.scene_key.trim();
+    if scene_key.is_empty() {
         warn!(
-            "FoundationMenuButton `{}` action has an empty scene_path",
+            "FoundationMenuButton `{}` action has an empty scene_key",
             button.action
         );
         return;
     }
     let mut options = OpenSceneOptions::default().with_presentation(presentation);
-    let scene_key = button.scene_key.trim();
-    if !scene_key.is_empty() {
-        options = options.with_key(scene_key);
+    let stack_key = button.stack_key.trim();
+    if !stack_key.is_empty() {
+        options = options.with_key(stack_key);
     }
     debug!(
-        "FoundationMenuButton `{}` opening scene `{scene_path}` (clear_stack={should_clear_stack})",
+        "FoundationMenuButton `{}` opening scene `{scene_key}` (clear_stack={should_clear_stack})",
         button.action
     );
     if should_clear_stack {
         // Clear-and-open prevents previous gameplay/menu scenes from leaking into the new flow.
         scene_commands.write(SceneCommand::ClearAndOpen {
-            source: SceneSource::bsn_scene(scene_path),
+            source: SceneSource::bsn_scene(scene_key),
             options,
         });
     } else {
         scene_commands.write(SceneCommand::open_with_options(
-            SceneSource::bsn_scene(scene_path),
+            SceneSource::bsn_scene(scene_key),
             options,
         ));
     }
@@ -1125,16 +1125,16 @@ mod tests {
         assert_eq!(FoundationMenuButton::none().action, "none");
         let open = FoundationMenuButton::open_scene("options_menu", "options-menu");
         assert_eq!(open.action, "open_scene");
-        assert_eq!(open.scene_path, "options_menu");
-        assert_eq!(open.scene_key, "options-menu");
+        assert_eq!(open.scene_key, "options_menu");
+        assert_eq!(open.stack_key, "options-menu");
         let overlay = FoundationMenuButton::open_overlay_scene("options_menu", "options-menu");
         assert_eq!(overlay.action, "open_overlay_scene");
-        assert_eq!(overlay.scene_path, "options_menu");
-        assert_eq!(overlay.scene_key, "options-menu");
+        assert_eq!(overlay.scene_key, "options_menu");
+        assert_eq!(overlay.stack_key, "options-menu");
         let clear = FoundationMenuButton::clear_and_open_scene("gameplay_level", "gameplay-level");
         assert_eq!(clear.action, "clear_and_open_scene");
-        assert_eq!(clear.scene_path, "gameplay_level");
-        assert_eq!(clear.scene_key, "gameplay-level");
+        assert_eq!(clear.scene_key, "gameplay_level");
+        assert_eq!(clear.stack_key, "gameplay-level");
         assert_eq!(
             FoundationMenuButton::close_current().action,
             "close_current"

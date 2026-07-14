@@ -68,15 +68,15 @@ impl From<String> for SceneKey {
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum SceneSource {
     /// A Bevy BSN scene key resolved by the active game catalog.
-    BsnScene { path: String },
+    BsnScene { key: String },
     /// A runtime scene identified by key, such as a menu or overlay assembled by systems.
     Runtime { key: SceneKey },
 }
 
 impl SceneSource {
     /// Creates a source for a Bevy BSN scene key.
-    pub fn bsn_scene(path: impl Into<String>) -> Self {
-        Self::BsnScene { path: path.into() }
+    pub fn bsn_scene(key: impl Into<String>) -> Self {
+        Self::BsnScene { key: key.into() }
     }
 
     /// Creates a source for a runtime/system-authored scene.
@@ -686,7 +686,7 @@ mod tests {
         assert_eq!(
             SceneSource::bsn_scene("assets/scene"),
             SceneSource::BsnScene {
-                path: "assets/scene".to_string()
+                key: "assets/scene".to_string()
             }
         );
         assert_eq!(
@@ -789,6 +789,35 @@ mod tests {
         assert_eq!(stack.len(), 1);
         assert_eq!(stack.current().map(|entry| entry.id), Some(SceneId(1)));
         assert_eq!(stack.focused().map(|entry| entry.id), Some(SceneId(1)));
+    }
+
+    #[test]
+    fn closing_input_overlay_restores_underlying_scene_input() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("options"),
+                OpenSceneOptions::default()
+                    .with_key("options")
+                    .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
+            ));
+        app.update();
+
+        app.world_mut().write_message(SceneCommand::CloseCurrent);
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        let main_menu = stack
+            .current()
+            .expect("main menu should remain after closing options");
+        assert_eq!(stack.len(), 1);
+        assert_eq!(main_menu.source, SceneSource::runtime("main-menu"));
+        assert!(main_menu.flags.visible);
+        assert!(main_menu.flags.interactive);
+        assert!(main_menu.flags.updating);
+        assert!(main_menu.flags.focused);
     }
 
     #[test]
