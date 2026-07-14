@@ -1,18 +1,24 @@
 //! TemplateGame BSN scene catalog.
 //!
 //! Foundation owns the generic scene stack. TemplateGame owns these concrete scene
-//! keys and maps them to BSN scene functions.
+//! keys and maps each key to one scene-specific Rust module.
 
+mod bevy_splash;
 mod gameplay;
-mod menu;
-mod splash;
+mod main_menu;
+mod options_menu;
+mod pause_menu;
+mod pixel_perfect_splash;
 
 use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;
 
+pub use bevy_splash::spawn_bevy_splash_scene;
 pub use gameplay::gameplay_level_scene;
-pub use menu::{main_menu_scene, options_menu_scene, pause_menu_scene};
-pub use splash::splash_screen_scene;
+pub use main_menu::main_menu_scene;
+pub use options_menu::options_menu_scene;
+pub use pause_menu::pause_menu_scene;
+pub use pixel_perfect_splash::spawn_pixel_perfect_splash_scene;
 
 /// Scene key for the first startup splash screen.
 pub const PIXEL_PERFECT_SPLASH_SCENE: &str = "template-game/splash_pixel_perfect";
@@ -53,15 +59,11 @@ pub fn spawn_requested_template_game_scenes(
         let scene_key = scene_source_key(&scene_request.source);
 
         match scene_key.as_deref() {
-            Some(PIXEL_PERFECT_SPLASH_SCENE) => spawn_splash_scene(
-                &mut commands,
-                scene_owner,
-                "Pixel Perfect",
-                BEVY_SPLASH_SCENE,
-                false,
-            ),
+            Some(PIXEL_PERFECT_SPLASH_SCENE) => {
+                spawn_pixel_perfect_splash_scene(&mut commands, scene_owner);
+            }
             Some(BEVY_SPLASH_SCENE) => {
-                spawn_splash_scene(&mut commands, scene_owner, "Bevy", MAIN_MENU_SCENE, true)
+                spawn_bevy_splash_scene(&mut commands, scene_owner);
             }
             Some(MAIN_MENU_SCENE) => {
                 commands.spawn_scene(main_menu_scene(scene_owner));
@@ -90,26 +92,6 @@ fn scene_source_key(scene_source: &SceneSource) -> Option<String> {
         SceneSource::BsnScene { path } => Some(path.clone()),
         SceneSource::Runtime { key } => Some(key.0.clone()),
     }
-}
-
-fn spawn_splash_scene(
-    commands: &mut Commands,
-    scene_owner: SceneOwner,
-    splash_text: &'static str,
-    next_scene_key: &'static str,
-    reset_stack_for_next_scene: bool,
-) {
-    let splash_timings = FoundationSplashTimings::new(0.75, 1.0, 0.75);
-    let splash_screen = FoundationSplashScreen {
-        timings: splash_timings,
-        font_size: 72.0,
-        next_scene_path: next_scene_key.to_string(),
-        reset_stack_for_next_scene,
-        replace_current_scene: !reset_stack_for_next_scene,
-    };
-
-    commands.spawn_scene(splash_screen_scene(scene_owner, splash_text));
-    commands.spawn((Name::new(splash_text), splash_screen, scene_owner));
 }
 
 #[cfg(test)]

@@ -41,8 +41,11 @@ TemplateGame scene modules live under:
 
 ```text
 games/template-game/src/scenes/mod.rs
-games/template-game/src/scenes/splash.rs
-games/template-game/src/scenes/menu.rs
+games/template-game/src/scenes/pixel_perfect_splash.rs
+games/template-game/src/scenes/bevy_splash.rs
+games/template-game/src/scenes/main_menu.rs
+games/template-game/src/scenes/options_menu.rs
+games/template-game/src/scenes/pause_menu.rs
 games/template-game/src/scenes/gameplay.rs
 ```
 
