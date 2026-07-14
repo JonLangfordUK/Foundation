@@ -31,9 +31,9 @@ pub fn main_menu_scene(scene_owner: SceneOwner) -> impl Scene {
 pub fn options_menu_scene(scene_owner: SceneOwner) -> impl Scene {
     bsn! {
         #OptionsMenu
+        menu_root_style(scene_owner)
         FoundationOptionsMenu { title: { "Options".to_string() } }
         FoundationCloseOnEscape
-        template_value(scene_owner)
     }
 }
 
@@ -58,6 +58,7 @@ pub fn pause_menu_scene(scene_owner: SceneOwner) -> impl Scene {
             (
                 #PauseEscapeHandler
                 FoundationCloseOnEscape
+                FoundationResumeOnEscape
                 template_value(scene_owner)
             ),
         ]

@@ -86,7 +86,7 @@ pub mod prelude {
         FoundationExitRequested, FoundationGeneratedMenuUi, FoundationMenuButton,
         FoundationMenuPlugin, FoundationMenuRuntimeSettings, FoundationOptionsMenu,
         FoundationPauseOpener, FoundationPauseState, FoundationPlaceholderMenu,
-        FoundationSimpleGameplayLevel, FoundationSpin, FoundationUiOrder,
+        FoundationResumeOnEscape, FoundationSimpleGameplayLevel, FoundationSpin, FoundationUiOrder,
     };
     pub use crate::scene_stack::{
         FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,

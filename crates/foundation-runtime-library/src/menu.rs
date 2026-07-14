@@ -25,6 +25,7 @@ impl Plugin for FoundationMenuPlugin {
             .register_type::<FoundationOptionsMenu>()
             .register_type::<FoundationPlaceholderMenu>()
             .register_type::<FoundationCloseOnEscape>()
+            .register_type::<FoundationResumeOnEscape>()
             .register_type::<FoundationPauseOpener>()
             .register_type::<FoundationSimpleGameplayLevel>()
             .register_type::<FoundationSpin>()
@@ -229,6 +230,14 @@ impl Default for FoundationPlaceholderMenu {
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct FoundationCloseOnEscape;
+
+/// Clears Foundation pause state when the same entity closes on Escape.
+///
+/// Add this next to [`FoundationCloseOnEscape`] on pause menus that should behave like
+/// the Resume button when Escape closes them.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationResumeOnEscape;
 
 /// Opens a pause menu scene when Escape is pressed while gameplay is unpaused.
 #[derive(Clone, Debug, Component, Reflect)]
@@ -942,6 +951,17 @@ type OptionsSettingTextQuery<'w, 's> = Query<
     )>,
 >;
 
+type CloseOnEscapeQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
+        Option<&'static FoundationResumeOnEscape>,
+    ),
+    With<FoundationCloseOnEscape>,
+>;
+
 fn update_options_tab_button_interactions(
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
@@ -1031,24 +1051,37 @@ fn close_on_escape(
     keyboard: Res<ButtonInput<KeyCode>>,
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
-    close_markers: Query<(Option<&SceneOwner>, Option<&ChildOf>), With<FoundationCloseOnEscape>>,
+    close_markers: CloseOnEscapeQuery,
     scene_owners: Query<&SceneOwner>,
+    mut pause_state: ResMut<FoundationPauseState>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     if !keyboard.just_pressed(KeyCode::Escape) {
         return;
     }
 
-    let has_close_marker = close_markers.iter().any(|(scene_owner, parent_link)| {
-        let close_marker_scene_owner =
-            effective_scene_owner(scene_owner, parent_link, &scene_owners);
-        !should_skip_scene_stack_menu_input(
-            &settings,
-            scene_stack.as_deref(),
-            close_marker_scene_owner.as_ref(),
-        )
-    });
+    let mut should_resume_gameplay = false;
+    let has_close_marker =
+        close_markers
+            .iter()
+            .any(|(scene_owner, parent_link, resume_on_escape)| {
+                let close_marker_scene_owner =
+                    effective_scene_owner(scene_owner, parent_link, &scene_owners);
+                let should_skip = should_skip_scene_stack_menu_input(
+                    &settings,
+                    scene_stack.as_deref(),
+                    close_marker_scene_owner.as_ref(),
+                );
+                if !should_skip && resume_on_escape.is_some() {
+                    // Escape should match the Resume button for pause menus, not leave gameplay frozen.
+                    should_resume_gameplay = true;
+                }
+                !should_skip
+            });
     if has_close_marker {
+        if should_resume_gameplay {
+            pause_state.paused = false;
+        }
         scene_commands.write(SceneCommand::CloseCurrent);
     }
 }
@@ -1155,6 +1188,51 @@ mod tests {
             Some(scene_stack),
             Some(&focused_credits_owner),
         ));
+    }
+
+    #[test]
+    fn escape_resume_marker_closes_pause_and_unpauses_gameplay() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("pause"),
+                OpenSceneOptions::default()
+                    .with_key("pause-menu")
+                    .with_presentation(ScenePresentation::PAUSE_OVERLAY),
+            ));
+        app.update();
+
+        app.world_mut().spawn((
+            FoundationCloseOnEscape,
+            FoundationResumeOnEscape,
+            SceneOwner {
+                scene_id: crate::scene_stack::SceneId(2),
+            },
+        ));
+        app.world_mut()
+            .resource_mut::<FoundationPauseState>()
+            .paused = true;
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+
+        let scene_stack = app.world().resource::<SceneStack>();
+        let pause_state = app.world().resource::<FoundationPauseState>();
+        assert_eq!(scene_stack.len(), 1);
+        assert_eq!(
+            scene_stack.current().map(|entry| entry.id),
+            Some(crate::scene_stack::SceneId(1))
+        );
+        assert!(!pause_state.paused);
     }
 
     #[test]
