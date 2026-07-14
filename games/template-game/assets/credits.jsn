@@ -9,27 +9,17 @@
     "bevy_version": "0.18"
   },
   "metadata": {
-    "name": "Splash Background",
-    "description": "Persistent black TemplateGame splash background.",
+    "name": "Credits",
+    "description": "Credits scene rendering JSON-authored text scrolling from bottom to top over a black background.",
     "author": "",
-    "created": "2026-06-20T00:00:00Z",
-    "modified": "2026-06-20T00:00:00Z"
+    "created": "2026-06-22T00:00:00Z",
+    "modified": "2026-06-23T00:00:00Z"
   },
   "assets": {},
   "editor": null,
   "scene": [
     {
       "components": {
-        "template_game::TemplateGameplayUiRoot": {},
-        "bevy_ui::ui_node::BackgroundColor": {
-          "LinearRgba": {
-            "alpha": 1.0,
-            "blue": 0.0,
-            "green": 0.0,
-            "red": 0.0
-          }
-        },
-        "bevy_ecs::name::Name": "Splash Background UI Root",
         "bevy_ui::ui_node::Node": {
           "align_content": "Default",
           "align_items": "Center",
@@ -145,7 +135,7 @@
             "Px": 0.0
           },
           "row_gap": {
-            "Px": 0.0
+            "Px": 18.0
           },
           "scrollbar_width": 0.0,
           "top": {
@@ -155,14 +145,33 @@
             "Percent": 100.0
           }
         },
-        "template_game::TemplateFullscreenBackground": {
-          "blue": 0.0,
-          "green": 0.0,
-          "red": 0.0
-        },
-        "bevy_ui::ui_node::GlobalZIndex": -1000,
-        "foundation_library::menu::FoundationUiOrder": {
+        "bevy_ecs::name::Name": "Credits UI Root",
+        "template_game::TemplateGameplayUiRoot": {},
+        "foundation_runtime_library::menu::FoundationCloseOnEscape": {},
+        "foundation_runtime_library::menu::FoundationUiOrder": {
           "order": 0
+        },
+        "foundation_runtime_library::credits::FoundationCreditsRoll": {
+          "credits_path": "credits.json",
+          "scroll_speed_pixels_per_second": 45.0,
+          "start_offset_pixels": 720.0,
+          "top_level_header_font_size": 48.0,
+          "header_font_size_step": 6.0,
+          "minimum_header_font_size": 24.0,
+          "person_font_size": 18.0,
+          "indentation_pixels_per_level": 32.0,
+          "row_gap_pixels": 12.0,
+          "group_bottom_margin_pixels": 20.0,
+          "group_top_margin_pixels": 0.0,
+          "font_path": "fonts/NotoSans-Regular.ttf"
+        },
+        "bevy_ui::ui_node::BackgroundColor": {
+          "Srgba": {
+            "alpha": 1.0,
+            "blue": 0.0,
+            "green": 0.0,
+            "red": 0.0
+          }
         }
       }
     }

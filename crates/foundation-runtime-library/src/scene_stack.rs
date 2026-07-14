@@ -8,12 +8,13 @@
 
 use bevy::prelude::*;
 
-/// Installs FoundationLibrary scene stack resources and message types.
+/// Installs FoundationRuntimeLibrary scene stack resources and message types.
 #[derive(Default)]
 pub struct FoundationSceneStackPlugin;
 
 impl Plugin for FoundationSceneStackPlugin {
     fn build(&self, app: &mut App) {
+        // The stack resource owns scene lifecycle; messages are the public mutation API.
         app.init_resource::<SceneStack>()
             .add_message::<SceneCommand>()
             .add_message::<SceneAdded>()
@@ -22,6 +23,7 @@ impl Plugin for FoundationSceneStackPlugin {
             .add_message::<SceneUnfocused>()
             .add_message::<SceneLoadRequested>()
             .register_type::<SceneOwner>()
+            // Cleanup runs after command processing so removed scene IDs are available first.
             .add_systems(
                 PostUpdate,
                 (process_scene_commands, cleanup_removed_scene_entities).chain(),
@@ -61,7 +63,7 @@ impl From<String> for SceneKey {
 
 /// Describes where scene content comes from.
 ///
-/// `.jsn` level files are first-class sources so FoundationLibrary can cooperate
+/// `.jsn` level files are first-class sources so FoundationRuntimeLibrary can cooperate
 /// with Jackdaw-authored levels without defining a second level format.
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum SceneSource {
@@ -219,6 +221,7 @@ impl SceneStack {
     }
 
     fn allocate_id(&mut self) -> SceneId {
+        // Scene IDs are monotonic so stale IDs are never reused within one app run.
         let id = SceneId(self.next_id);
         self.next_id += 1;
         id
@@ -446,6 +449,7 @@ trait QueueSceneCommand {
 
 impl<'w, 's> QueueSceneCommand for Commands<'w, 's> {
     fn queue_scene_command(&mut self, command: SceneCommand) -> &mut Self {
+        // Queue commands through the world to keep call sites decoupled from message writers.
         self.queue(move |world: &mut World| {
             world.write_message(command);
         });
@@ -462,6 +466,7 @@ fn process_scene_commands(
     mut unfocused: MessageWriter<SceneUnfocused>,
     mut load_requested: MessageWriter<SceneLoadRequested>,
 ) {
+    // Drain commands before applying them so stack mutations cannot affect this read pass.
     let scene_commands = commands.read().cloned().collect::<Vec<_>>();
 
     for command in scene_commands {
@@ -488,6 +493,7 @@ fn apply_scene_command(
 ) {
     match command {
         SceneCommand::Open { source, options } => {
+            // Replacement options are applied before loading the new scene entry.
             if options.clear_stack {
                 clear_stack(stack, removed);
             } else if options.close_current {
@@ -504,6 +510,7 @@ fn apply_scene_command(
         }
     }
 
+    // Recompute focus and visibility after every stack mutation batch.
     update_runtime_flags(stack, focused, unfocused);
 }
 
@@ -515,6 +522,7 @@ fn open_scene(
     load_requested: &mut MessageWriter<SceneLoadRequested>,
 ) {
     let id = stack.allocate_id();
+    // Push before requesting load so bridge systems can attach content to the new owner.
     stack.entries.push(SceneStackEntry {
         id,
         key: options.key,
@@ -530,6 +538,7 @@ fn open_scene(
 }
 
 fn close_current(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>) {
+    // Closing an empty stack is a no-op so callers can safely request cleanup.
     if let Some(entry) = stack.entries.pop() {
         removed.write(SceneRemoved { scene_id: entry.id });
     }
@@ -540,21 +549,22 @@ fn close_target(
     stack: &mut SceneStack,
     removed: &mut MessageWriter<SceneRemoved>,
 ) {
-    let position = match target {
-        SceneTarget::Id(id) => stack.entries.iter().position(|entry| entry.id == id),
-        SceneTarget::Key(key) => stack
+    let target_scene_position = match target {
+        SceneTarget::Id(scene_id) => stack.entries.iter().position(|entry| entry.id == scene_id),
+        SceneTarget::Key(scene_key) => stack
             .entries
             .iter()
-            .position(|entry| entry.key.as_ref() == Some(&key)),
+            .position(|entry| entry.key.as_ref() == Some(&scene_key)),
     };
 
-    if let Some(position) = position {
-        let entry = stack.entries.remove(position);
+    if let Some(target_scene_position) = target_scene_position {
+        let entry = stack.entries.remove(target_scene_position);
         removed.write(SceneRemoved { scene_id: entry.id });
     }
 }
 
 fn clear_stack(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>) {
+    // Pop from the top so removal messages follow visible stack order.
     while let Some(entry) = stack.entries.pop() {
         removed.write(SceneRemoved { scene_id: entry.id });
     }
@@ -575,17 +585,18 @@ fn cleanup_removed_scene_entities(
         return;
     }
 
-    for (entity, owner, parent) in &owned_entities {
-        if !removed_scene_ids.contains(&owner.scene_id) {
+    for (owned_entity, scene_owner, parent_link) in &owned_entities {
+        if !removed_scene_ids.contains(&scene_owner.scene_id) {
             continue;
         }
 
-        let parent_is_removed_scene_owned = parent
-            .and_then(|parent| owners.get(parent.0).ok())
+        // Despawn only top-level owned entities; child cleanup follows the hierarchy.
+        let parent_is_removed_scene_owned = parent_link
+            .and_then(|parent_link| owners.get(parent_link.0).ok())
             .is_some_and(|parent_owner| removed_scene_ids.contains(&parent_owner.scene_id));
 
         if !parent_is_removed_scene_owned {
-            commands.entity(entity).despawn();
+            commands.entity(owned_entity).despawn();
         }
     }
 }
@@ -606,6 +617,7 @@ fn update_runtime_flags(
     let mut update_blocked = false;
 
     for entry in stack.entries.iter_mut().rev() {
+        // Walk from top to bottom so upper presentations control lower scene flags.
         entry.flags.visible = !covered;
         entry.flags.interactive = !input_blocked;
         entry.flags.updating = !update_blocked;
@@ -627,6 +639,7 @@ fn update_runtime_flags(
         });
 
     if previous_focus != new_focus {
+        // Focus lifecycle messages let callers respond without inspecting stack internals.
         if let Some(previous_focus) = previous_focus {
             if stack.entries.iter().any(|entry| entry.id == previous_focus) {
                 unfocused.write(SceneUnfocused {

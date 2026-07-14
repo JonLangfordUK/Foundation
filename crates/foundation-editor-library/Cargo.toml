@@ -1,0 +1,15 @@
+[package]
+name = "foundation-editor-library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Reusable Jackdaw editor extensions for Foundation games"
+
+[dependencies]
+bevy.workspace = true
+bevy_enhanced_input.workspace = true
+foundation-runtime-library = { path = "../foundation-runtime-library" }
+jackdaw.workspace = true
+jackdaw_api.workspace = true
+rfd.workspace = true

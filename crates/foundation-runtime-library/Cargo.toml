@@ -1,5 +1,5 @@
 [package]
-name = "foundation-library"
+name = "foundation-runtime-library"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,3 +9,6 @@ description = "Reusable shared Bevy and Jackdaw-compatible game library"
 [dependencies]
 bevy.workspace = true
 jackdaw_runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true

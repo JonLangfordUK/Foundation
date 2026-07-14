@@ -75,6 +75,7 @@ impl Default for FoundationSplashRuntimeSettings {
 
 impl Plugin for FoundationSplashScreenPlugin {
     fn build(&self, app: &mut App) {
+        // Runtime settings gate splash behavior for standalone and editor integrations.
         app.init_resource::<FoundationSplashRuntimeSettings>()
             .register_type::<FoundationSplashScreen>()
             .register_type::<FoundationSplashTimings>()
@@ -136,14 +137,16 @@ impl FoundationSplashScreen {
     }
 
     fn completion_command(&self) -> Option<SceneCommand> {
+        // Splash screens without a next scene only fade out and clean up their generated UI.
         if !self.has_next_scene() {
             return None;
         }
 
-        let source = SceneSource::jsn_level(self.next_scene_path.trim());
+        let next_scene_source = SceneSource::jsn_level(self.next_scene_path.trim());
         if self.reset_stack_for_next_scene {
+            // Startup sequences use reset when the next scene should own the whole stack.
             Some(SceneCommand::ClearAndOpen {
-                source,
+                source: next_scene_source,
                 options: OpenSceneOptions::default()
                     .with_presentation(ScenePresentation::FULLSCREEN),
             })
@@ -151,9 +154,10 @@ impl FoundationSplashScreen {
             let mut options = OpenSceneOptions::default()
                 .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY);
             if self.replace_current_scene {
+                // Replacing the current splash keeps only one transient splash entry alive.
                 options = options.close_current();
             }
-            Some(SceneCommand::open_with_options(source, options))
+            Some(SceneCommand::open_with_options(next_scene_source, options))
         }
     }
 }
@@ -226,6 +230,7 @@ fn cleanup_disabled_splash_screens(
     }
 
     for (splash_entity, runtime) in &runtimes {
+        // Only generated fallback UI is removed here; authored scene UI belongs to scene cleanup.
         if runtime.generated_ui {
             commands.entity(runtime.ui_root).despawn();
         }
@@ -252,9 +257,11 @@ fn initialize_splash_screens(
             continue;
         }
 
+        // Copy the owner so generated UI can be cleaned up with its scene-stack entry.
         let scene_owner = scene_owner.copied();
         let authored_root = matching_authored_entity(scene_owner, &authored_roots);
         let authored_text = matching_authored_entity(scene_owner, &authored_texts);
+        // Prefer authored UI when both required markers exist; otherwise create fallback UI.
         let (ui_root, text_entity, generated_ui) =
             if let (Some(ui_root), Some(text_entity)) = (authored_root, authored_text) {
                 (ui_root, text_entity, false)
@@ -269,6 +276,7 @@ fn initialize_splash_screens(
             };
 
         if let Some(ui_target_camera) = ui_target_camera.as_ref() {
+            // Camera targeting keeps splash UI attached to the active play viewport.
             commands
                 .entity(ui_root)
                 .insert(UiTargetCamera(ui_target_camera.0));
@@ -278,6 +286,7 @@ fn initialize_splash_screens(
             }
         }
 
+        // Runtime state records which UI was selected so advancement can update it later.
         commands
             .entity(splash_entity)
             .insert(FoundationSplashRuntime {
@@ -294,15 +303,20 @@ fn matching_authored_entity<F: bevy::ecs::query::QueryFilter>(
     scene_owner: Option<SceneOwner>,
     query: &Query<(Entity, Option<&SceneOwner>), F>,
 ) -> Option<Entity> {
+    // Authored splash entities match by scene ownership so overlays do not share UI.
     query
         .iter()
-        .find(|(_, owner)| match (scene_owner, owner.copied()) {
-            (Some(expected), Some(actual)) => expected == actual,
-            (None, None) => true,
-            (None, Some(_)) => true,
-            (Some(_), None) => false,
-        })
-        .map(|(entity, _)| entity)
+        .find(
+            |(_, authored_scene_owner)| match (scene_owner, authored_scene_owner.copied()) {
+                (Some(expected_scene_owner), Some(actual_scene_owner)) => {
+                    expected_scene_owner == actual_scene_owner
+                }
+                (None, None) => true,
+                (None, Some(_)) => true,
+                (Some(_), None) => false,
+            },
+        )
+        .map(|(authored_entity, _)| authored_entity)
 }
 
 fn spawn_generated_splash_ui(
@@ -312,26 +326,32 @@ fn spawn_generated_splash_ui(
     ui_target_camera: Option<&FoundationSplashUiTargetCamera>,
     ui_parent: Option<&FoundationSplashUiParent>,
 ) -> (Entity, Entity, bool) {
+    // Generated fallback text starts transparent and fades in during the first phase.
+    let empty_text = String::new();
+    let transparent_white_text = Color::srgba(1.0, 1.0, 1.0, 0.0);
     let text_entity = commands
         .spawn((
-            Text::new(String::new()),
+            Text::new(empty_text),
             TextFont::from_font_size(splash.font_size),
-            TextColor(Color::srgba(1.0, 1.0, 1.0, 0.0)),
+            TextColor(transparent_white_text),
             FoundationSplashText,
             FoundationSplashGeneratedUi,
         ))
         .id();
 
+    // Fullscreen root UI covers the render surface while remaining clip-safe.
+    let root_edge_offset = Val::Px(0.0);
+    let root_size = Val::Percent(100.0);
     let ui_root = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                left: root_edge_offset,
+                right: root_edge_offset,
+                top: root_edge_offset,
+                bottom: root_edge_offset,
+                width: root_size,
+                height: root_size,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 overflow: Overflow::clip(),
@@ -344,11 +364,13 @@ fn spawn_generated_splash_ui(
     safe_add_child(commands, ui_root, text_entity);
 
     if let Some(scene_owner) = scene_owner {
+        // Owner tags allow generated splash UI to be removed with its scene.
         commands.entity(text_entity).insert(scene_owner);
         commands.entity(ui_root).insert(scene_owner);
     }
 
     if let Some(ui_target_camera) = ui_target_camera {
+        // Prefer direct camera targeting unless an editor viewport parent is available.
         commands
             .entity(ui_root)
             .insert(UiTargetCamera(ui_target_camera.0));
@@ -359,14 +381,14 @@ fn spawn_generated_splash_ui(
     (ui_root, text_entity, true)
 }
 
-fn safe_add_child(commands: &mut Commands, parent: Entity, child: Entity) {
+fn safe_add_child(commands: &mut Commands, parent_entity: Entity, child_entity: Entity) {
     commands.queue(move |world: &mut World| {
-        if world.get_entity(parent).is_err() || world.get_entity(child).is_err() {
+        if world.get_entity(parent_entity).is_err() || world.get_entity(child_entity).is_err() {
             return;
         }
 
-        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
-            parent_entity.add_child(child);
+        if let Ok(mut parent_entity_mut) = world.get_entity_mut(parent_entity) {
+            parent_entity_mut.add_child(child_entity);
         }
     });
 }
@@ -374,6 +396,7 @@ fn safe_add_child(commands: &mut Commands, parent: Entity, child: Entity) {
 fn advance_splash_screens(
     mut commands: Commands,
     time: Res<Time>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut splashes: Query<(&FoundationSplashScreen, &mut FoundationSplashRuntime)>,
     mut text_colors: Query<&mut TextColor>,
     mut scene_commands: MessageWriter<SceneCommand>,
@@ -383,25 +406,40 @@ fn advance_splash_screens(
             continue;
         }
 
+        // Advance a local phase copy before writing back to avoid partial runtime updates.
         let mut phase = runtime.phase;
         let mut phase_elapsed = runtime.phase_elapsed + time.delta_secs();
-        let alpha = advance_phase(&mut phase, &mut phase_elapsed, splash.timings);
+        let alpha = if splash_skip_requested(&keyboard) {
+            // Escape is a direct cutscene skip, so jump to the same completion path
+            // the timed fade-out would eventually reach.
+            phase = SplashPhase::Complete;
+            phase_elapsed = 0.0;
+            0.0
+        } else {
+            advance_phase(&mut phase, &mut phase_elapsed, splash.timings)
+        };
         runtime.phase = phase;
         runtime.phase_elapsed = phase_elapsed;
 
         if let Ok(mut text_color) = text_colors.get_mut(runtime.text_entity) {
-            text_color.0 = Color::srgba(1.0, 1.0, 1.0, alpha);
+            let faded_text_color = Color::srgba(1.0, 1.0, 1.0, alpha);
+            text_color.0 = faded_text_color;
         }
 
         if runtime.phase == SplashPhase::Complete {
             if runtime.generated_ui {
+                // Generated fallback UI is owned by the splash runtime and removed on completion.
                 commands.entity(runtime.ui_root).despawn();
             }
-            if let Some(command) = splash.completion_command() {
-                scene_commands.write(command);
+            if let Some(completion_scene_command) = splash.completion_command() {
+                scene_commands.write(completion_scene_command);
             }
         }
     }
+}
+
+fn splash_skip_requested(keyboard: &ButtonInput<KeyCode>) -> bool {
+    keyboard.just_pressed(KeyCode::Escape)
 }
 
 fn advance_phase(
@@ -412,6 +450,7 @@ fn advance_phase(
     loop {
         match *phase {
             SplashPhase::FadeIn => {
+                // Zero-duration phases skip forward without dividing by zero.
                 let duration = timings.fade_in_seconds.max(0.0);
                 if duration == 0.0 || *elapsed >= duration {
                     *elapsed -= duration;
@@ -421,6 +460,7 @@ fn advance_phase(
                 return (*elapsed / duration).clamp(0.0, 1.0);
             }
             SplashPhase::Hold => {
+                // Holding at full opacity keeps the splash readable between fades.
                 let duration = timings.hold_seconds.max(0.0);
                 if duration == 0.0 || *elapsed >= duration {
                     *elapsed -= duration;
@@ -430,6 +470,7 @@ fn advance_phase(
                 return 1.0;
             }
             SplashPhase::FadeOut => {
+                // Fade-out completion marks the runtime ready for cleanup and next-scene commands.
                 let duration = timings.fade_out_seconds.max(0.0);
                 if duration == 0.0 || *elapsed >= duration {
                     *elapsed = 0.0;
@@ -510,5 +551,14 @@ mod tests {
         elapsed = 1.5;
         assert_eq!(advance_phase(&mut phase, &mut elapsed, timings), 0.0);
         assert_eq!(phase, SplashPhase::Complete);
+    }
+
+    #[test]
+    fn escape_key_requests_splash_skip() {
+        let mut keyboard = ButtonInput::<KeyCode>::default();
+        assert!(!splash_skip_requested(&keyboard));
+
+        keyboard.press(KeyCode::Escape);
+        assert!(splash_skip_requested(&keyboard));
     }
 }
