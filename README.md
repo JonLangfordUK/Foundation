@@ -37,6 +37,15 @@ Scenes are now code-authored with Bevy 0.19 BSN (`bsn!`) in Rust. Bevy does not 
 
 Foundation owns the scene stack and scene lifecycle. PiGame owns concrete BSN scene functions and maps scene keys such as `pigame/main_menu` to spawned content.
 
+PiGame scene modules live under:
+
+```text
+games/template-game/src/scenes/mod.rs
+games/template-game/src/scenes/splash.rs
+games/template-game/src/scenes/menu.rs
+games/template-game/src/scenes/gameplay.rs
+```
+
 Current required flow:
 
 ```text

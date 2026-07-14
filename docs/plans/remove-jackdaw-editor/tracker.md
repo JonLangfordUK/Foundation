@@ -304,3 +304,12 @@ The Foundation engine should eventually support two build/linking modes:
 - `2026-07-14`: Validation passed: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
 - `2026-07-14`: Smoke launch `timeout 6s cargo run -p foundation -- --game PiGame` and `timeout 12s cargo run -p foundation -- --game PiGame --editor` opened a Bevy window and were intentionally terminated by timeout. Bevy/wgpu Vulkan validation messages were logged during smoke runs on this machine; compile/test/build/doc validation remains passing.
 - `2026-07-14`: Committed checkpoint `a65453c` (`Remove Jackdaw and upgrade Bevy`) and pushed it to `origin/feature/remove-jackdaw-editor`.
+
+## Implementation Checkpoint: BSN Scene Organization Starting
+- `2026-07-14`: User approved the next step to make Foundation cleaner/robust and TemplateGame a rock-solid example. Starting a focused pass to move PiGame scene catalog code into dedicated scene modules, convert remaining required scenes to BSN functions, and improve the Foundation engine game registry so game-specific asset/plugin setup is not hard-coded in the runner.
+
+## Implementation Checkpoint: PiGame BSN Scene Modules
+- `2026-07-14`: Moved PiGame scene catalog into dedicated modules under `games/template-game/src/scenes/`: `mod.rs`, `splash.rs`, `menu.rs`, and `gameplay.rs`.
+- `2026-07-14`: Converted the required PiGame scenes to BSN scene functions: splash screens, main menu, options menu marker, gameplay level marker, and pause menu.
+- `2026-07-14`: Simplified `games/template-game/src/lib.rs` into the game plugin/engine integration surface and added `template_game::asset_root()` so the Foundation engine registry no longer hard-codes the game asset path.
+- `2026-07-14`: Validation passed after scene split: `cargo check -p foundation -p template-game`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.

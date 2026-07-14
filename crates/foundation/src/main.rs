@@ -76,12 +76,14 @@ impl FoundationLaunchArguments {
 #[derive(Clone, Copy)]
 struct FoundationGameRegistration {
     name: &'static str,
+    asset_root: fn() -> std::path::PathBuf,
     install_plugin: fn(&mut App),
 }
 
 fn registered_games() -> Vec<FoundationGameRegistration> {
     vec![FoundationGameRegistration {
         name: template_game::GAME_NAME,
+        asset_root: template_game::asset_root,
         install_plugin: |app| {
             app.add_plugins(template_game::PiGamePlugin);
         },
@@ -92,13 +94,10 @@ fn run_registered_game(
     game_registration: FoundationGameRegistration,
     launch_arguments: FoundationLaunchArguments,
 ) -> AppExit {
-    let asset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../games/template-game/assets")
+    let game_asset_root = (game_registration.asset_root)();
+    let asset_root = game_asset_root
         .canonicalize()
-        .unwrap_or_else(|_| {
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../games/template-game/assets")
-        })
+        .unwrap_or(game_asset_root)
         .to_string_lossy()
         .to_string();
 
