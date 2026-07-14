@@ -2,7 +2,7 @@
 //!
 //! The scene stack is data-driven: games and systems request stack mutations by
 //! writing [`SceneCommand`] messages, while Foundation systems own the stack
-//! resource and lifecycle messages. Jackdaw `.jsn` levels are represented as a
+//! resource and lifecycle messages. Bevy BSN levels are represented as a
 //! scene source instead of being converted into a separate Foundation-specific
 //! scene format.
 
@@ -63,20 +63,20 @@ impl From<String> for SceneKey {
 
 /// Describes where scene content comes from.
 ///
-/// `.jsn` level files are first-class sources so FoundationRuntimeLibrary can cooperate
-/// with Jackdaw-authored levels without defining a second level format.
+/// BSN scene keys are first-class sources so FoundationRuntimeLibrary can cooperate
+/// with code-authored BSN scenes without defining a second scene-stack API.
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum SceneSource {
-    /// A Jackdaw `.jsn` level or scene file.
-    JsnLevel { path: String },
+    /// A Bevy BSN scene key resolved by the active game catalog.
+    BsnScene { path: String },
     /// A runtime scene identified by key, such as a menu or overlay assembled by systems.
     Runtime { key: SceneKey },
 }
 
 impl SceneSource {
-    /// Creates a source for a Jackdaw `.jsn` level file.
-    pub fn jsn_level(path: impl Into<String>) -> Self {
-        Self::JsnLevel { path: path.into() }
+    /// Creates a source for a Bevy BSN scene key.
+    pub fn bsn_scene(path: impl Into<String>) -> Self {
+        Self::BsnScene { path: path.into() }
     }
 
     /// Creates a source for a runtime/system-authored scene.
@@ -366,7 +366,7 @@ pub struct SceneUnfocused {
 
 /// Message emitted when scene content should be loaded or assembled.
 ///
-/// Systems that bridge to Jackdaw `.jsn` loading should listen for this message,
+/// Systems that bridge to Bevy BSN loading should listen for this message,
 /// load the requested [`SceneSource`], and tag spawned entities with
 /// [`SceneOwner`] using the supplied scene id.
 #[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
@@ -381,7 +381,7 @@ pub struct SceneLoadRequested {
 ///
 /// Scene-owned entities should remain alive while their owning scene is in the
 /// stack and be cleaned up when that scene is removed.
-#[derive(Clone, Copy, Debug, Component, PartialEq, Eq, Reflect)]
+#[derive(Clone, Copy, Debug, Default, Component, PartialEq, Eq, Reflect)]
 #[reflect(Component)]
 pub struct SceneOwner {
     /// Scene that owns this entity.
@@ -682,11 +682,11 @@ mod tests {
     }
 
     #[test]
-    fn scene_sources_support_jsn_levels_and_runtime_keys() {
+    fn scene_sources_support_bsn_scenes_and_runtime_keys() {
         assert_eq!(
-            SceneSource::jsn_level("assets/scene.jsn"),
-            SceneSource::JsnLevel {
-                path: "assets/scene.jsn".to_string()
+            SceneSource::bsn_scene("assets/scene"),
+            SceneSource::BsnScene {
+                path: "assets/scene".to_string()
             }
         );
         assert_eq!(
@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn command_helpers_construct_expected_commands() {
-        let source = SceneSource::jsn_level("levels/one.jsn");
+        let source = SceneSource::bsn_scene("levels/one");
         assert_eq!(
             SceneCommand::open(source.clone()),
             SceneCommand::Open {
@@ -729,7 +729,7 @@ mod tests {
     fn processing_open_command_pushes_scene_and_focuses_it() {
         let mut app = test_app();
         app.world_mut()
-            .write_message(SceneCommand::open(SceneSource::jsn_level("levels/one.jsn")));
+            .write_message(SceneCommand::open(SceneSource::bsn_scene("levels/one")));
 
         app.update();
 
@@ -737,7 +737,7 @@ mod tests {
         assert_eq!(stack.len(), 1);
         let entry = stack.current().expect("opened scene should be stacked");
         assert_eq!(entry.id, SceneId(1));
-        assert_eq!(entry.source, SceneSource::jsn_level("levels/one.jsn"));
+        assert_eq!(entry.source, SceneSource::bsn_scene("levels/one"));
         assert!(entry.flags.visible);
         assert!(entry.flags.interactive);
         assert!(entry.flags.updating);
@@ -797,8 +797,8 @@ mod tests {
         app.world_mut()
             .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
         app.world_mut()
-            .write_message(SceneCommand::clear_and_open(SceneSource::jsn_level(
-                "levels/two.jsn",
+            .write_message(SceneCommand::clear_and_open(SceneSource::bsn_scene(
+                "levels/two",
             )));
 
         app.update();
@@ -809,7 +809,7 @@ mod tests {
             .current()
             .expect("replacement scene should be stacked");
         assert_eq!(entry.id, SceneId(2));
-        assert_eq!(entry.source, SceneSource::jsn_level("levels/two.jsn"));
+        assert_eq!(entry.source, SceneSource::bsn_scene("levels/two"));
     }
 
     #[test]
@@ -894,19 +894,19 @@ mod tests {
     }
 
     #[test]
-    fn open_scene_emits_load_request_for_jsn_bridge() {
+    fn open_scene_emits_load_request_for_bsn_bridge() {
         let mut app = test_app();
         app.init_resource::<LoadRequestLog>();
         app.add_systems(Last, collect_load_requests);
 
         app.world_mut()
-            .write_message(SceneCommand::open(SceneSource::jsn_level("levels/one.jsn")));
+            .write_message(SceneCommand::open(SceneSource::bsn_scene("levels/one")));
         app.update();
 
         let log = app.world().resource::<LoadRequestLog>();
         assert_eq!(
             log.0,
-            vec![(SceneId(1), SceneSource::jsn_level("levels/one.jsn"))]
+            vec![(SceneId(1), SceneSource::bsn_scene("levels/one"))]
         );
     }
 

@@ -1,141 +1,60 @@
-# PiGame
+# PiGame / Foundation
 
-PiGame is a multi-project Rust repository for Jackdaw Editor, reusable Foundation runtime/editor libraries, and Jackdaw-style games.
+PiGame is a Bevy 0.19 workspace centered on **Foundation**, a small engine wrapper around Bevy plus reusable Foundation runtime/editor libraries.
 
 ## Repository layout
-- `Cargo.toml` - root workspace manifest for tooling/editor crates
-- `crates/jackdaw-editor` - Jackdaw Editor, a Jackdaw launcher/editor subproject
-- `crates/foundation-runtime-library` - FoundationRuntimeLibrary, reusable shared Bevy/Jackdaw-compatible game code
-- `crates/foundation-editor-library` - FoundationEditorLibrary, reusable Jackdaw editor extensions and windows
-- `games/template-game` - a Jackdaw static-game subproject shaped like Jackdaw's generated game template
-- `AGENTS.md` - project instructions for Pi
-- `.pi/skills/` - reusable skills for Rust work, feature planning, tracker updates, review handoff, and Git workflow
-- `.pi/prompts/` - prompt templates for planning, implementation, review, and validation
-- `docs/plans/` - feature plans, trackers, and templates
-- `scripts/` - Windows wrappers for root Cargo validation commands and optional feature-plan scaffolding
+- `crates/foundation` - Foundation engine executable. It parses launch arguments such as `--game PiGame` and `--editor`.
+- `crates/foundation-runtime-library` - reusable runtime systems: scene stack, splash flow, menu primitives, settings, credits, and gameplay helpers.
+- `crates/foundation-editor-library` - Bevy-only editor-time extension point. It is intentionally cleared for now after removing the external editor dependency.
+- `games/template-game` - the current registered game, exposed to the Foundation engine as `PiGame`.
+- `docs/scene-system.md` - Foundation scene-stack and BSN scene catalog guide.
+- `docs/plans/` - feature plans, trackers, and templates.
+- `scripts/` - validation wrappers.
 
-The current architecture is **Editor / Game / Runtime Library / Editor Library**:
-
-- **Editor**: `crates/jackdaw-editor` launches Jackdaw.
-- **Game**: `games/template-game` is a concrete Jackdaw-style game project.
-- **Runtime Library**: `crates/foundation-runtime-library` contains reusable runtime/game code shared by games and their game-specific editor binaries. It depends on `jackdaw_runtime` so shared components can expose Jackdaw-compatible editor metadata without depending on the full Jackdaw editor app.
-- **Editor Library**: `crates/foundation-editor-library` contains reusable Jackdaw editor extensions, dockable windows, editor operators, and editor-only UI. It may depend on the full `jackdaw` editor crate.
-
-`games/template-game` is a root workspace member so it can be launched from the repository root with `cargo run -p template-game`, while retaining Jackdaw's generated static-game source layout.
-
-## Running Jackdaw Editor
-From the repository root:
+## Running the game
+Run PiGame through the Foundation engine:
 
 ```cmd
-cargo run -p jackdaw-editor
+cargo run -p foundation -- --game PiGame
 ```
 
-Jackdaw Editor can create/open Jackdaw projects. For static game projects, Jackdaw builds the project's own editor binary and hands off to it.
+Run PiGame with Foundation editor-time mode enabled:
 
-## Running TemplateGame
-From the repository root:
+```cmd
+cargo run -p foundation -- --game PiGame --editor
+```
+
+The editor-time crate currently provides only a cleared Bevy-only shell. Future editor tools should attach through `foundation-editor-library` and the engine `--editor` mode.
+
+A direct game launcher remains useful during development:
 
 ```cmd
 cargo run -p template-game
 ```
 
-Open TemplateGame's Jackdaw editor binary from the repository root:
+## Scene authoring
+Scenes are now code-authored with Bevy 0.19 BSN (`bsn!`) in Rust. Bevy does not currently ship a first-party `.bsn` asset loader, so scene definitions live in Rust scene functions for now.
 
-```cmd
-cargo run -p template-game --bin editor --features editor
+Foundation owns the scene stack and scene lifecycle. PiGame owns concrete BSN scene functions and maps scene keys such as `pigame/main_menu` to spawned content.
+
+Current required flow:
+
+```text
+splash_pixel_perfect -> splash_bevy -> main_menu -> gameplay_level
+                                      \-> options_menu
+
+gameplay_level -- Escape --> pause_menu
 ```
 
-From `games/template-game`:
+## Game linking direction
+Foundation is intended to support two game-linking modes:
 
-```cmd
-cargo run
-```
+1. **Bundled/static mode** - selected games are compiled into the Foundation executable for a single-exe distributed build.
+2. **Loose module mode** - future development mode where the engine can load/select separately built game modules for debugging or multi-game installs.
 
-or:
+The current implementation uses static registration and keeps the registry shape ready for future dynamic module loading.
 
-```cmd
-cargo play
-```
-
-Open TemplateGame's Jackdaw editor binary from `games/template-game`:
-
-```cmd
-cargo editor
-```
-
-Equivalent explicit command:
-
-```cmd
-cargo run --bin editor --features editor
-```
-
-## Jackdaw static-game shape
-TemplateGame follows Jackdaw's generated static template:
-
-- `src/lib.rs` contains game-specific behavior in `TemplateGamePlugin`
-- `src/main.rs` is the standalone game runner
-- `src/bin/editor.rs` is the feature-gated editor + game runner
-- `assets/scene.jsn` is the authored scene
-- `.jsn/project.jsn` is Jackdaw project metadata/layout
-- `jackdaw.toml` configures Jackdaw Editor/Jackdaw Play-button run modes
-- `.cargo/config.toml` defines `cargo editor` and `cargo play`
-- root workspace membership allows `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` from the repository root
-- `foundation-runtime-library` is added to both the standalone game and game-specific editor binary before `TemplateGamePlugin`
-- `foundation-editor-library` is added only to the game-specific editor binary and contributes reusable Jackdaw editor extensions such as the Game Settings window
-
-## FoundationRuntimeLibrary shared components
-Reusable components can live in `crates/foundation-runtime-library` when they should be available to multiple games and their Jackdaw editor binaries. Components intended for editor authoring should derive Bevy reflection traits, include Jackdaw editor metadata, and be registered by `FoundationPlugin`.
-
-Example pattern:
-
-```rust
-use bevy::prelude::*;
-use jackdaw_runtime::prelude::*;
-
-#[derive(Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation"))]
-pub struct MySharedComponent {
-    pub value: f32,
-}
-```
-
-Register shared types from `FoundationPlugin` so both `cargo run -p template-game` and `cargo run -p template-game --bin editor --features editor` see the same reusable API.
-
-## FoundationEditorLibrary editor tools
-`crates/foundation-editor-library` owns editor-only integrations that require Jackdaw's full editor API. TemplateGame registers `FoundationGameSettingsExtension` in its editor binary so Jackdaw exposes a dockable **Game Settings** window.
-
-The Game Settings window edits `foundation.settings.toml` in the game project root. Current settings are:
-
-```toml
-startup_map = ""
-editor_startup_map = ""
-```
-
-An empty value means the game uses its built-in default flow. `startup_map` controls the first scene loaded during normal standalone game startup. `editor_startup_map` controls the scene Jackdaw loads when the game-specific editor opens.
-
-The settings window uses the reusable `FoundationAssetPicker` widget. The picker has a UE-style compact asset field with a preview tile, drop-down/browse area, reset action, and current-scene action. Reuse it from `foundation_editor_library::prelude` for other editor tools, and pass a `FoundationAssetPickerFilter` to restrict choices by file extension or by required text/class content in text assets. Image assets preview directly. Jackdaw `.jsn` scene assets can use generated sidecar thumbnails such as `main_menu.jsn.png`, `main_menu.thumbnail.png`, `main_menu.png`, `.thumbnails/main_menu.png`, or `thumbnails/main_menu.png`; otherwise the picker falls back to a compact type badge.
-
-## Setup
-Ensure Rust is installed and `cargo`/`rustc` are on `PATH`, then validate:
-
-```cmd
-scripts\validate-env.cmd
-```
-
-or:
-
-```cmd
-npm run validate-env
-```
-
-Jackdaw project scaffolding also needs `cargo-generate` available on `PATH`. With the current Rust 1.92 toolchain, install the compatible version with:
-
-```cmd
-cargo install cargo-generate --version 0.22.0 --locked
-```
-
-## Commands
-### Root workspace validation
+## Validation
 From the repository root:
 
 ```cmd
@@ -146,34 +65,21 @@ scripts\compile-project.cmd
 scripts\doc-project.cmd
 ```
 
-### Foundation library validation
-From the repository root:
+Focused checks:
 
 ```cmd
+cargo check -p foundation
+cargo test -p foundation
+cargo check -p foundation-runtime-library
 cargo test -p foundation-runtime-library
-cargo doc -p foundation-runtime-library --no-deps
+cargo check -p foundation-editor-library
 cargo test -p foundation-editor-library
-cargo doc -p foundation-editor-library --no-deps
+cargo check -p template-game
+cargo test -p template-game
 ```
 
-### TemplateGame validation
-From `games/template-game`:
+Confirm the external editor dependency is gone:
 
 ```cmd
-cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features
-cargo build --all-features
-cargo doc --all-features --no-deps
+cargo tree --workspace | rg "jackdaw|jackdaw_runtime|jackdaw_api|jackdaw_jsn"
 ```
-
-## Pi workflow
-Feature workflow enforcement:
-- planning a feature must use the `feature-plan-docs` skill and `gpt-5.5`
-- implementing a feature must use `feature-plan-docs`, `feature-tracker-update`, and `gpt-5.4`
-- optional final review must use `feature-review-handoff`, `feature-tracker-update`, and `gpt-5.5`
-- implementation must not begin until `docs/plans/<new-feature>/plan.md` and `docs/plans/<new-feature>/tracker.md` exist and the user has approved moving forward
-- work should be on a dedicated `feature/*` branch from `dev`
-- every completed task and phase should be committed
-- when remote `origin` exists, every commit and merge checkpoint should be pushed to `origin`
-- if no `origin` is configured, push status should be recorded as `N/A (local-only repository)`

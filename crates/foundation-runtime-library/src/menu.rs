@@ -3,15 +3,13 @@
 //! These components intentionally describe game-agnostic menu behavior: opening
 //! scenes, closing the current scene, requesting application exit, rendering a
 //! dummy options menu, and rendering placeholder stack scenes. Game crates can
-//! author these components in Jackdaw `.jsn` assets without duplicating menu
+//! author these components in Bevy BSN assets without duplicating menu
 //! systems in game-specific Rust code.
-
-use bevy::prelude::*;
-use jackdaw_runtime::prelude::*;
 
 use crate::scene_stack::{
     OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource, SceneStack,
 };
+use bevy::prelude::*;
 
 /// Installs reusable Foundation menu components and systems.
 #[derive(Default)]
@@ -103,11 +101,11 @@ pub struct FoundationExitRequested;
 /// - `resume`
 /// - `exit`
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationMenuButton {
     /// Action identifier. Use `open_scene`, `close_current`, `exit`, or `none`.
     pub action: String,
-    /// Jackdaw `.jsn` scene path used by the `open_scene` action.
+    /// Bevy BSN scene path used by the `open_scene` action.
     pub scene_path: String,
     /// Optional scene-stack key used by the `open_scene` action.
     pub scene_key: String,
@@ -124,7 +122,7 @@ impl FoundationMenuButton {
         }
     }
 
-    /// Creates a button that opens a full-screen Jackdaw scene on the stack.
+    /// Creates a button that opens a full-screen Foundation scene on the stack.
     pub fn open_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
         // Full-screen opens cover earlier entries and become the focused scene.
         Self {
@@ -144,7 +142,7 @@ impl FoundationMenuButton {
         }
     }
 
-    /// Creates a button that clears the stack and opens a Jackdaw scene.
+    /// Creates a button that clears the stack and opens a Foundation scene.
     pub fn clear_and_open_scene(
         scene_path: impl Into<String>,
         scene_key: impl Into<String>,
@@ -194,7 +192,7 @@ impl Default for FoundationMenuButton {
 
 /// Marks an options menu root that should be populated with reusable dummy UI.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationOptionsMenu {
     /// Title shown above the tabs.
     pub title: String,
@@ -210,7 +208,7 @@ impl Default for FoundationOptionsMenu {
 
 /// Marks a placeholder menu root that should show title/body text and a Back button.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationPlaceholderMenu {
     /// Title shown at the top of the placeholder menu.
     pub title: String,
@@ -229,14 +227,14 @@ impl Default for FoundationPlaceholderMenu {
 
 /// Closes the current scene-stack entry when Escape is pressed.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationCloseOnEscape;
 
 /// Opens a pause menu scene when Escape is pressed while gameplay is unpaused.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationPauseOpener {
-    /// Jackdaw `.jsn` scene path for the pause menu.
+    /// Bevy BSN scene path for the pause menu.
     pub pause_scene_path: String,
     /// Optional scene-stack key for the pause menu.
     pub pause_scene_key: String,
@@ -253,10 +251,10 @@ impl Default for FoundationPauseOpener {
 
 /// Runtime-authored starter gameplay level with a centered cube and light.
 ///
-/// Add this component to a Jackdaw scene entity when a project needs a small
-/// placeholder level without hand-authoring mesh/material handles in `.jsn`.
+/// Add this component to a Foundation scene entity when a project needs a small
+/// placeholder level without hand-authoring mesh/material handles in BSN.
 #[derive(Clone, Copy, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Gameplay"))]
+#[reflect(Component)]
 pub struct FoundationSimpleGameplayLevel {
     /// Edge length of the generated cube in world units.
     pub cube_size: f32,
@@ -270,7 +268,7 @@ impl Default for FoundationSimpleGameplayLevel {
 
 /// Rotates an entity around its local Y axis while Foundation gameplay is not paused.
 #[derive(Clone, Copy, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Gameplay"))]
+#[reflect(Component)]
 pub struct FoundationSpin {
     /// Rotation speed around the Y axis, in radians per second.
     pub radians_per_second: f32,
@@ -287,12 +285,12 @@ impl Default for FoundationSpin {
 #[derive(Component, Debug)]
 struct FoundationGeneratedGameplayLevel;
 
-/// Stable authored sibling order for UI entities loaded from `.jsn` assets.
+/// Stable authored sibling order for UI entities loaded from BSN assets.
 ///
-/// Jackdaw-authored UI can include this component so runtime repair systems can
+/// BSN-authored UI can include this component so runtime repair systems can
 /// rebuild Bevy `Children` lists without relying on ECS query or entity order.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/UI"))]
+#[reflect(Component)]
 pub struct FoundationUiOrder {
     /// Zero-based order of this entity within the authored scene file.
     pub order: u32,
@@ -306,7 +304,7 @@ struct FoundationOptionsRuntime {
 /// Marks UI entities generated by [`FoundationMenuPlugin`] systems.
 ///
 /// Game-specific authored-UI repair systems can use this marker to avoid
-/// treating Foundation-generated runtime UI as Jackdaw-authored scene data.
+/// treating Foundation-generated runtime UI as BSN-authored scene data.
 #[derive(Component, Debug)]
 pub struct FoundationGeneratedMenuUi;
 
@@ -387,7 +385,7 @@ fn initialize_simple_gameplay_levels(
             .spawn((
                 DirectionalLight {
                     illuminance: light_illuminance,
-                    shadows_enabled: true,
+                    shadow_maps_enabled: true,
                     ..default()
                 },
                 Transform::from_translation(light_position).looking_at(light_target, Vec3::Y),
@@ -793,7 +791,7 @@ fn open_pause_menus(
         options = options.with_key(pause_scene_key);
     }
     scene_commands.write(SceneCommand::open_with_options(
-        SceneSource::jsn_level(pause_scene_path),
+        SceneSource::bsn_scene(pause_scene_path),
         options,
     ));
 }
@@ -898,12 +896,12 @@ fn open_configured_scene(
     if should_clear_stack {
         // Clear-and-open prevents previous gameplay/menu scenes from leaking into the new flow.
         scene_commands.write(SceneCommand::ClearAndOpen {
-            source: SceneSource::jsn_level(scene_path),
+            source: SceneSource::bsn_scene(scene_path),
             options,
         });
     } else {
         scene_commands.write(SceneCommand::open_with_options(
-            SceneSource::jsn_level(scene_path),
+            SceneSource::bsn_scene(scene_path),
             options,
         ));
     }
@@ -1092,18 +1090,17 @@ mod tests {
     #[test]
     fn menu_button_constructors_set_expected_actions() {
         assert_eq!(FoundationMenuButton::none().action, "none");
-        let open = FoundationMenuButton::open_scene("options_menu.jsn", "options-menu");
+        let open = FoundationMenuButton::open_scene("options_menu", "options-menu");
         assert_eq!(open.action, "open_scene");
-        assert_eq!(open.scene_path, "options_menu.jsn");
+        assert_eq!(open.scene_path, "options_menu");
         assert_eq!(open.scene_key, "options-menu");
-        let overlay = FoundationMenuButton::open_overlay_scene("options_menu.jsn", "options-menu");
+        let overlay = FoundationMenuButton::open_overlay_scene("options_menu", "options-menu");
         assert_eq!(overlay.action, "open_overlay_scene");
-        assert_eq!(overlay.scene_path, "options_menu.jsn");
+        assert_eq!(overlay.scene_path, "options_menu");
         assert_eq!(overlay.scene_key, "options-menu");
-        let clear =
-            FoundationMenuButton::clear_and_open_scene("gameplay_level.jsn", "gameplay-level");
+        let clear = FoundationMenuButton::clear_and_open_scene("gameplay_level", "gameplay-level");
         assert_eq!(clear.action, "clear_and_open_scene");
-        assert_eq!(clear.scene_path, "gameplay_level.jsn");
+        assert_eq!(clear.scene_path, "gameplay_level");
         assert_eq!(clear.scene_key, "gameplay-level");
         assert_eq!(
             FoundationMenuButton::close_current().action,

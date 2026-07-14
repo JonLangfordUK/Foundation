@@ -2,369 +2,110 @@
 
 ## Purpose
 
-The Foundation scene system is a small ECS-first scene stack for Jackdaw-authored games. It lets gameplay and UI move between `.jsn` scenes without inventing a second scene format.
+The Foundation scene system is an ECS-first scene stack for Bevy games. Foundation owns stack state, lifecycle messages, scene ownership, and reusable scene behaviors. Games own concrete scene catalogs.
 
-Use it to:
+PiGame currently defines scenes in Rust with Bevy 0.19 BSN (`bsn!`). Bevy does not currently ship a first-party `.bsn` asset loader, so BSN scene definitions are code-authored for now.
 
-- Open gameplay levels, menus, splash screens, and overlays.
-- Close the current scene or a named scene.
-- Keep lower scenes visible, interactive, or paused depending on the top scene.
-- Load Jackdaw `.jsn` files in standalone runtime and editor Play mode.
-- Clean up entities that belong to a scene when that scene leaves the stack.
-
-The system has two halves:
-
-1. **FoundationRuntimeLibrary** owns the generic scene stack model.
-2. **TemplateGame** bridges stack requests to Jackdaw scene loading and editor/runtime UI behavior.
+## Architecture
 
 ```text
-Game code / menu buttons / splash screens
-                |
-                v
-        SceneCommand messages
-                |
-                v
-       Foundation SceneStack
-                |
-                v
-     SceneLoadRequested messages
-                |
-                v
- TemplateGame + Jackdaw load .jsn scene content
+Foundation engine (`cargo run -p foundation -- --game PiGame`)
+        |
+        v
+FoundationRuntimeLibrary
+  - SceneStack
+  - SceneCommand messages
+  - SceneLoadRequested messages
+  - SceneOwner cleanup
+        |
+        v
+PiGame scene catalog
+  - BSN scene functions
+  - scene-key routing
+  - game-specific plugin glue
 ```
 
-## Key Concepts
+`foundation-editor-library` remains as a Bevy-only editor-time extension point. Launching with `--editor` enables that shell:
 
-### Scene Stack
+```cmd
+cargo run -p foundation -- --game PiGame --editor
+```
 
-The scene stack is the ordered list of currently active scenes. The bottom scene is older; the top scene is newest.
+## Scene Stack
+
+The scene stack is an ordered list of active scenes. The bottom scene is older; the top scene is newest.
 
 ```text
-Top    [ Pause Menu Overlay ]  interactive, visible
-       [ Gameplay Level     ]  visible, not interactive, not updating
-Bottom [ Background         ]  hidden or visible depending on presentation
+Top    [ Pause Menu Overlay ]  visible, focused, blocks gameplay input/update
+       [ Gameplay Level     ]  visible, paused by overlay
+Bottom [ Main Menu          ]  removed before gameplay in the current flow
 ```
 
-The stack is stored in `SceneStack` from `foundation_runtime_library::scene_stack`.
+Systems mutate the stack by writing `SceneCommand` messages. Foundation processes commands, emits lifecycle/load messages, and removes entities tagged with `SceneOwner` when their scene leaves the stack.
 
-### SceneCommand
+## Scene Sources
 
-`SceneCommand` is the public mutation API. Systems do not edit `SceneStack` directly. They write commands such as:
+`SceneSource::bsn_scene("pigame/main_menu")` identifies a BSN scene key. The active game catalog resolves that key to Rust-authored BSN content.
 
-- `Open`
-- `CloseCurrent`
-- `Close(SceneTarget)`
-- `Clear`
-- `ClearAndOpen`
+`SceneSource::runtime(SceneKey::new("debug-overlay"))` remains available for system-authored runtime scenes.
 
-Foundation processes these commands in `PostUpdate`, then emits lifecycle/load messages.
+## Scene Presentation
 
-### SceneSource
-
-`SceneSource` describes where scene content comes from.
-
-Current TemplateGame usage is mostly:
-
-```rust
-SceneSource::jsn_level("main_menu.jsn")
-```
-
-That means: “Ask the active game/runtime bridge to load this Jackdaw `.jsn` asset.”
-
-### SceneOwner
-
-Every entity spawned for a scene-stack entry should receive:
-
-```rust
-SceneOwner { scene_id }
-```
-
-When a scene is removed from the stack, Foundation despawns top-level entities with that owner. This is what prevents old menu/gameplay entities from leaking into later scenes.
-
-### ScenePresentation
-
-`ScenePresentation` controls how a scene affects scenes below it.
-
-| Presentation | Lower scene visible? | Lower scene gets input? | Lower scene updates? | Typical use |
+| Presentation | Lower visible? | Lower input? | Lower updates? | Typical use |
 | --- | --- | --- | --- | --- |
-| `FULLSCREEN` | No | No | No | Main menu, gameplay level |
+| `FULLSCREEN` | No | No | No | Splash, main menu, gameplay |
 | `PAUSE_OVERLAY` | Yes | No | No | Pause menu |
-| `INPUT_BLOCKING_OVERLAY` | Yes | No | Yes | Splash or modal UI overlay |
+| `INPUT_BLOCKING_OVERLAY` | Yes | No | Yes | Options/modal menu |
 | `NON_BLOCKING_OVERLAY` | Yes | Yes | Yes | Debug overlay |
 
-Foundation recomputes `visible`, `interactive`, `updating`, and `focused` flags whenever the stack changes.
-
-## How Jackdaw Fits In
-
-Jackdaw remains the scene-authoring format and editor. Foundation does not replace it.
-
-The intended split is:
-
-- **Jackdaw** authors and serializes scene files under `games/template-game/assets/*.jsn`.
-- **FoundationRuntimeLibrary** decides which scene is on the stack and when it should load/unload.
-- **TemplateGame** receives `SceneLoadRequested` and performs the actual Jackdaw `.jsn` load.
-
-This keeps scene data editable in Jackdaw while allowing game code to use a predictable stack API.
-
-## Standalone Game Runtime
-
-Standalone runtime starts from `games/template-game/src/main.rs`.
-
-### Startup flow
-
-```text
-main.rs
-  -> DefaultPlugins with asset root = games/template-game/assets
-  -> JackdawPlugin
-  -> FoundationPlugin
-  -> TemplateGamePlugin
-  -> Startup: open_initial_scene
-```
-
-`open_initial_scene` writes:
-
-1. `SceneCommand::Clear`
-2. Open `splash_pixel_perfect.jsn` as `FULLSCREEN`
-
-Each `.jsn` scene owns its own background choice. Splash scenes include their
-own black background so they are easy to preview directly in the editor.
-
-### Loading `.jsn` scenes
-
-In standalone builds, `spawn_requested_jackdaw_scenes` reads each `SceneLoadRequested` message and spawns:
-
-```rust
-JackdawSceneRoot(scene_handle)
-SceneOwner { scene_id }
-```
-
-Jackdaw Runtime loads the `.jsn` content through Bevy's asset system. Foundation ownership keeps cleanup tied to the scene stack.
-
-### Runtime scene example
+## Current PiGame Flow
 
 ```text
 Startup
-  Stack: splash_pixel_perfect
+  -> open pigame/splash_pixel_perfect
 
 Pixel Perfect splash completes
-  Stack: splash_bevy
+  -> pigame/splash_bevy
 
-Bevy splash completes, or player presses Escape to skip
-  Stack cleared, then landing_page opens
+Bevy splash completes
+  -> clear stack and open pigame/main_menu
 
-Player presses any button
-  Stack cleared, then main_menu opens
+Main menu
+  -> New Game: clear stack and open pigame/gameplay_level
+  -> Options: open pigame/options_menu overlay
+  -> Exit: request AppExit
 
-Player clicks New Game
-  Stack cleared, then gameplay_level opens
+Gameplay
+  -> Escape: open pigame/pause_menu as pause overlay
 
-Player presses Escape in gameplay
-  pause_menu opens as PAUSE_OVERLAY
+Pause menu
+  -> Resume: close pause overlay and unpause
+  -> Options: open options overlay
+  -> Main Menu: clear stack and open main menu
 ```
 
-## Editor Edit Mode
+## Ownership Rules
 
-Editor edit mode is Jackdaw's normal authoring mode. The game is not “playing.”
-
-### What is active
-
-- Jackdaw editor plugins are active.
-- The open `.jsn` scene is the authoring scene.
-- TemplateGame's runtime scene-stack systems are mostly gated off by `play_gate::is_playing`.
-- Foundation splash runtime is disabled.
-- Foundation menu systems require `SceneOwner`, so authored editor entities are not accidentally treated as runtime scene-stack copies.
-
-### UI behavior in edit mode
-
-TemplateGame targets authored UI roots to the editor viewport camera while editing. This makes UI scenes visible in the viewport without starting gameplay.
-
-Important markers include:
-
-- `TemplateGameplayUiRoot`
-- `FoundationSplashUiRoot`
-
-These tell TemplateGame which UI roots need viewport targeting.
-
-### Mental model
-
-```text
-Jackdaw edit mode
-  Open .jsn file -> editable ECS entities
-  No scene stack runtime loading
-  No splash/menu gameplay actions
-  UI roots are previewed in the editor viewport
-```
-
-Use edit mode to arrange scene entities, author UI roots, add Foundation components, and save `.jsn` files.
-
-## Editor Game / Play Mode
-
-Editor Play mode runs gameplay inside the Jackdaw editor without closing the editor process.
-
-### Entering Play
-
-When Jackdaw enters `PlayState::Playing`, TemplateGame runs:
-
-1. `hide_editor_authored_scene_for_play`
-2. `open_initial_scene`
-
-TemplateGame hides the edit-mode authored UI roots so the player only sees runtime scene-stack copies. It also enables Foundation splash runtime and configures UI targeting for the active editor viewport. Pressing Escape while a splash is active skips that splash to its configured completion scene.
-
-### Choosing the first scene
-
-`editor_play_scene_commands` inspects the currently open Jackdaw scene:
-
-| Open editor scene | Play-mode behavior |
-| --- | --- |
-| No scene | Start normal TemplateGame startup flow |
-| Any open scene | Clear stack and play that scene directly |
-
-This lets developers press Play while editing a specific menu or level and test it directly.
-
-### Loading `.jsn` scenes in Play mode
-
-Editor Play mode cannot simply rely on the normal asset-spawn path, because runtime entities need immediate `SceneOwner` and `EditorHidden` tags.
-
-Instead, the editor build manually:
-
-1. Reads the requested `.jsn` file from `assets/`.
-2. Parses it with `jackdaw_jsn`.
-3. Loads inline assets through Jackdaw scene IO.
-4. Spawns entities through Jackdaw scene loading.
-5. Tags every spawned entity with `SceneOwner` and `EditorHidden`.
-6. Restores authored parent/child hierarchy.
-
-This gives Foundation cleanup precise ownership while keeping the editor hierarchy clean.
-
-### Runtime cameras and UI
-
-In Play mode, TemplateGame routes scene UI and cameras into the editor viewport:
-
-- Runtime UI roots are parented into the viewport UI node when available.
-- Otherwise, roots target the active viewport camera with `UiTargetCamera`.
-- Runtime cameras borrow the viewport render target.
-- Editor viewport cameras are reactivated when runtime cameras disappear.
-
-### Exiting Play
-
-When leaving Play mode, TemplateGame:
-
-1. Writes `SceneCommand::Clear`.
-2. Despawns remaining `SceneOwner` runtime entities.
-3. Disables Foundation splash runtime.
-4. Removes temporary splash UI target resources.
-5. Resets `FoundationPauseState`.
-6. Restores hidden authored edit-mode UI roots.
-7. Reactivates editor viewport cameras.
-
-This returns the editor to a clean authoring state.
-
-## How To Use The System
-
-### Opening a scene from Rust
-
-Use `SceneCommand` messages or `SceneCommandsExt` helpers.
+Every root entity spawned for a stack scene should receive:
 
 ```rust
-scene_commands.write(SceneCommand::open_with_options(
-    SceneSource::jsn_level("options_menu.jsn"),
-    OpenSceneOptions::default()
-        .with_key("options-menu")
-        .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
-));
+SceneOwner { scene_id }
 ```
 
-### Opening a scene from authored UI
+Foundation cleanup removes owned entities when a scene leaves the stack. Generated UI or gameplay entities should inherit the same owner so they do not leak across scene transitions.
 
-Add `FoundationMenuButton` to a Jackdaw-authored button entity.
+## BSN Authoring Rules
 
-Common actions:
+- Define concrete game scenes in the game crate as Rust scene functions.
+- Use BSN (`bsn!`) for scene structure where practical.
+- Use small imperative helpers only where scene ownership, runtime resources, or interaction wiring is clearer outside the macro.
+- Keep reusable behavior in `foundation-runtime-library` and concrete scene keys/content in the game crate.
 
-- `open_scene`
-- `open_overlay_scene`
-- `clear_and_open_scene`
-- `close_current`
-- `resume`
-- `exit`
-- `none`
+## Build Modes Direction
 
-Example authoring intent:
+Foundation is intended to support:
 
-```text
-Button: Options
-  FoundationMenuButton
-    action: "open_overlay_scene"
-    scene_path: "options_menu.jsn"
-    scene_key: "options-menu"
-```
+1. **Static bundled games** for distributed single-executable builds.
+2. **Loose game modules** for future development/multi-game engine installs.
 
-### Creating a scene asset
-
-For a TemplateGame scene-stack scene:
-
-1. Create or edit a `.jsn` scene in `games/template-game/assets/`.
-2. Add a root marker appropriate for the scene, such as:
-   - `TemplateGameplayUiRoot` for UI scenes.
-   - `FoundationSplashScreen` plus `FoundationSplashUiRoot` and `FoundationSplashText` for splash scenes.
-   - `FoundationSimpleGameplayLevel` for the sample generated gameplay level.
-3. Add `FoundationUiOrder` to authored UI children when order matters.
-4. Reference the file from code constants or authored `FoundationMenuButton` fields.
-5. Add or update tests if the scene becomes part of the core flow.
-
-### Choosing presentation
-
-Use `FULLSCREEN` when the new scene should own the screen and stop earlier scenes.
-
-Use `PAUSE_OVERLAY` when gameplay should remain visible but stop updating and receiving input.
-
-Use `INPUT_BLOCKING_OVERLAY` when lower scenes should continue updating but not receive input.
-
-Use `NON_BLOCKING_OVERLAY` only for tools/debug UI that should not block the game.
-
-## Best Practices
-
-- Keep reusable behavior in `foundation-runtime-library`.
-- Keep TemplateGame-specific asset paths and editor glue in `games/template-game`.
-- Prefer Jackdaw `.jsn` scenes for authored content instead of hard-coding complete scenes in Rust.
-- Always tag runtime-spawned scene content with `SceneOwner`.
-- Use `SceneCommand` instead of mutating `SceneStack` directly.
-- Give important scenes a stable `SceneKey` for debugging and targeted closure.
-- Keep UI roots explicit with `TemplateGameplayUiRoot` or `FoundationSplashUiRoot`.
-- Add `FoundationUiOrder` to authored UI children when deterministic child order matters.
-- Test scene constants and important asset references when adding core flow scenes.
-- In editor-only code, keep runtime copies hidden from the editor hierarchy with `EditorHidden`.
-
-## Common Pitfalls
-
-### Missing `SceneOwner`
-
-If spawned entities do not have `SceneOwner`, they will not be cleaned up when the scene closes.
-
-### Wrong presentation
-
-A menu opened as `FULLSCREEN` may hide the gameplay scene. A gameplay scene opened as an overlay may leave earlier scenes visible unexpectedly.
-
-### Running gameplay systems in edit mode
-
-Editor edit mode should preview authored content, not run stack gameplay. Use `play_gate::is_playing` for TemplateGame runtime systems that should only run during standalone or editor Play mode.
-
-### UI not appearing in the editor viewport
-
-Check for the correct UI root marker and ensure Play mode has an active viewport camera or viewport UI node.
-
-### Broken scene path strings
-
-Scene paths are asset-relative, for example `main_menu.jsn`, not absolute paths. Keep constants and authored `.jsn` references in sync.
-
-## Quick Reference
-
-| Task | Use |
-| --- | --- |
-| Open a `.jsn` scene | `SceneCommand::open(SceneSource::jsn_level(...))` |
-| Open a menu over gameplay | `ScenePresentation::PAUSE_OVERLAY` or `INPUT_BLOCKING_OVERLAY` |
-| Replace the whole flow | `SceneCommand::ClearAndOpen` or `OpenSceneOptions::clear_stack()` |
-| Close current menu | `SceneCommand::CloseCurrent` or `FoundationMenuButton::close_current()` |
-| Resume from pause | `FoundationMenuButton::resume()` |
-| Clean up runtime entities | Add `SceneOwner { scene_id }` |
-| Author UI for viewport/game | Add `TemplateGameplayUiRoot` |
-| Author splash UI | Add `FoundationSplashScreen`, `FoundationSplashUiRoot`, and `FoundationSplashText` |
+The current registry uses static game registration and keeps the `--game` selection model so loose modules can be added later.

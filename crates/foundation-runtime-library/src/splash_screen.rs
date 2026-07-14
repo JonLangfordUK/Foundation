@@ -1,16 +1,14 @@
 //! Reusable splash-screen primitives for Foundation scene-stack flows.
 //!
-//! Splash scene data can live in Jackdaw `.jsn` files as reflected
+//! Splash scene data can live in Bevy BSN files as reflected
 //! [`FoundationSplashScreen`] components. At runtime this module creates the
 //! authored UI text, drives a fade-in/hold/fade-out sequence, and emits scene
 //! stack commands when the sequence completes.
 
-use bevy::prelude::*;
-use jackdaw_runtime::prelude::*;
-
 use crate::scene_stack::{
     OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource,
 };
+use bevy::prelude::*;
 
 /// Installs reusable Foundation splash-screen types and systems.
 #[derive(Default)]
@@ -35,16 +33,16 @@ pub struct FoundationSplashUiParent(pub Entity);
 
 /// Marks the authored UI root controlled by a [`FoundationSplashScreen`].
 ///
-/// Add this to a root UI entity in a Jackdaw `.jsn` splash scene when the scene
+/// Add this to a root UI entity in a Bevy BSN splash scene when the scene
 /// should be visually editable. Runtime systems target this root to the editor
 /// viewport or standalone game window and fade the marked text child.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Splash"))]
+#[reflect(Component)]
 pub struct FoundationSplashUiRoot;
 
 /// Marks the authored text entity faded by a [`FoundationSplashScreen`].
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Splash"))]
+#[reflect(Component)]
 pub struct FoundationSplashText;
 
 /// Runtime policy for reusable Foundation splash systems.
@@ -95,20 +93,20 @@ impl Plugin for FoundationSplashScreenPlugin {
 
 /// Scene-authored splash-screen configuration.
 ///
-/// Attach this component to an entity in a Jackdaw `.jsn` scene to fade an
+/// Attach this component to an entity in a Bevy BSN scene to fade an
 /// authored [`FoundationSplashText`] child, hold it, fade it out, and optionally
 /// transition to another scene-stack entry. Visible copy is owned by the Bevy
 /// [`Text`] component on the marked text entity, not by this configuration
 /// component.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Splash"))]
+#[reflect(Component)]
 pub struct FoundationSplashScreen {
     /// Timing values for the splash sequence, in seconds.
     pub timings: FoundationSplashTimings,
     /// Font size used only for the empty generated fallback text when no
     /// authored [`FoundationSplashText`] exists.
     pub font_size: f32,
-    /// Optional Jackdaw `.jsn` scene path to open after fade-out completes.
+    /// Optional Bevy BSN scene path to open after fade-out completes.
     ///
     /// Leave empty for a terminal splash that does not transition.
     pub next_scene_path: String,
@@ -142,7 +140,7 @@ impl FoundationSplashScreen {
             return None;
         }
 
-        let next_scene_source = SceneSource::jsn_level(self.next_scene_path.trim());
+        let next_scene_source = SceneSource::bsn_scene(self.next_scene_path.trim());
         if self.reset_stack_for_next_scene {
             // Startup sequences use reset when the next scene should own the whole stack.
             Some(SceneCommand::ClearAndOpen {
@@ -499,12 +497,12 @@ mod tests {
     #[test]
     fn splash_completion_command_can_replace_current_scene() {
         let mut splash = FoundationSplashScreen::new();
-        splash.next_scene_path = "splash_bevy.jsn".to_string();
+        splash.next_scene_path = "splash_bevy".to_string();
 
         assert_eq!(
             splash.completion_command(),
             Some(SceneCommand::Open {
-                source: SceneSource::jsn_level("splash_bevy.jsn"),
+                source: SceneSource::bsn_scene("splash_bevy"),
                 options: OpenSceneOptions::default()
                     .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY)
                     .close_current(),
@@ -515,13 +513,13 @@ mod tests {
     #[test]
     fn splash_completion_command_can_reset_stack_for_next_scene() {
         let mut splash = FoundationSplashScreen::new();
-        splash.next_scene_path = "main_menu.jsn".to_string();
+        splash.next_scene_path = "main_menu".to_string();
         splash.reset_stack_for_next_scene = true;
 
         assert_eq!(
             splash.completion_command(),
             Some(SceneCommand::ClearAndOpen {
-                source: SceneSource::jsn_level("main_menu.jsn"),
+                source: SceneSource::bsn_scene("main_menu"),
                 options: OpenSceneOptions::default()
                     .with_presentation(ScenePresentation::FULLSCREEN),
             })
