@@ -132,14 +132,16 @@ pub(crate) fn launch_selected_game(
         });
     };
 
-    launch_game_process(&discovered_game.manifest, launch_arguments)
+    launch_game_process(&discovered_game.manifest, launch_arguments, &workspace_root)
 }
 
 fn launch_game_process(
     manifest: &FoundationGameManifest,
     launch_arguments: &FoundationLaunchArguments,
+    workspace_root: &std::path::Path,
 ) -> Result<ExitCode, FoundationLaunchError> {
     let mut command = Command::new("cargo");
+    command.current_dir(workspace_root);
     command.args(["run", "-p", manifest.launch.package.as_str(), "--"]);
     if launch_arguments.editor_enabled {
         command.arg("--editor");

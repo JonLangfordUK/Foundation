@@ -44,9 +44,33 @@ pub(crate) struct DiscoveredGame {
     pub(crate) manifest: FoundationGameManifest,
 }
 
-/// Returns the current workspace root used for loose game discovery.
+/// Returns the workspace root used for loose game discovery.
+///
+/// Prefer the process current directory when it is inside this workspace, but
+/// fall back to the compile-time crate location so `foundation` can still be
+/// launched from a nested directory during development.
 pub(crate) fn workspace_root() -> PathBuf {
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")))
+    let manifest_directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fallback_workspace_root = manifest_directory
+        .ancestors()
+        .nth(2)
+        .map(Path::to_path_buf)
+        .unwrap_or(manifest_directory);
+
+    std::env::current_dir()
+        .ok()
+        .and_then(|current_directory| find_workspace_root(&current_directory))
+        .unwrap_or(fallback_workspace_root)
+}
+
+fn find_workspace_root(start_directory: &Path) -> Option<PathBuf> {
+    start_directory
+        .ancestors()
+        .find(|candidate_directory| {
+            candidate_directory.join("Cargo.toml").is_file()
+                && candidate_directory.join(GAMES_DIRECTORY_NAME).is_dir()
+        })
+        .map(Path::to_path_buf)
 }
 
 /// Discovers every game manifest in the workspace `games/` directory.
@@ -117,5 +141,21 @@ mod tests {
 
         assert_eq!(manifest.game.name, "example-game");
         assert_eq!(manifest.launch.package, "example-game");
+    }
+
+    #[test]
+    fn find_workspace_root_walks_up_from_nested_directory() {
+        let test_directory_name = format!("foundation-workspace-root-test-{}", std::process::id());
+        let test_workspace_root = std::env::temp_dir().join(test_directory_name);
+        let nested_directory = test_workspace_root.join("games/example-game/src");
+        std::fs::create_dir_all(&nested_directory).expect("nested directory should be created");
+        std::fs::write(test_workspace_root.join("Cargo.toml"), "[workspace]\n")
+            .expect("workspace manifest should be written");
+
+        let discovered_workspace_root =
+            find_workspace_root(&nested_directory).expect("workspace root should be found");
+
+        assert_eq!(discovered_workspace_root, test_workspace_root);
+        let _ = std::fs::remove_dir_all(discovered_workspace_root);
     }
 }

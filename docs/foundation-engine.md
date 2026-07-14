@@ -74,6 +74,9 @@ Foundation is expected to support additional build modes later:
 
 The current manifest model is the bridge toward both modes. It gives games a
 stable identity now without making the engine depend on a specific game crate.
+Packaged non-Cargo launching is intentionally deferred until a dedicated
+build/distribution feature defines executable layout, module search paths, and
+bundled-game selection.
 
 ## Editor Mode
 

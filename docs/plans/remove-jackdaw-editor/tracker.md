@@ -5,11 +5,11 @@
 - Feature area: `multi-area` (`engine`, `game`, and `editor removal`)
 - Primary area: `engine`
 - Branch: `feature/remove-jackdaw-editor`
-- Overall status: `Planned - revised for Bevy 0.19, BSN, and retained Foundation editor library`
+- Overall status: `Implementation complete; review follow-up fixes in progress`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Waiting for user approval to begin gpt-5.4 implementation`
+- Current handoff state: `Review feedback sent to gpt-5.4 for fixes`
 - Created: `2026-07-14`
 - Last updated: `2026-07-14`
 
@@ -17,7 +17,7 @@
 - Active planning branch: `feature/remove-jackdaw-editor`
 - Branch base: Created from local `dev` on 2026-07-14; `dev` was an ancestor at branch creation.
 - Remote: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
-- Push status: Planning documents not yet committed or pushed.
+- Push status: Feature commits are pushed to `origin/feature/remove-jackdaw-editor` after each checkpoint.
 
 ## Validation Rules
 - Task complete only after required Rust validation passes and documentation generation is recorded, unless a waiver is recorded.
@@ -27,7 +27,7 @@
 - This feature should update Bevy to `0.19` and move required TemplateGame scenes to BSN Rust scene functions.
 
 ## Phase 1: Planning And Approval
-**Status:** In progress  
+**Status:** Complete  
 **Goal:** Capture the Jackdaw removal, Bevy `0.19`, BSN scene, and retained Foundation editor-library plan before implementation starts.
 
 ### Tasks
@@ -46,155 +46,155 @@
 - [x] Create `docs/plans/remove-jackdaw-editor/tracker.md`.
   - Status: Complete
   - Notes: Tracker revised for the updated scope.
-- [ ] Receive user approval to begin implementation.
-  - Status: Pending
-  - Notes: Implementation must not start until the user approves the revised plan/tracker.
+- [x] Receive user approval to begin implementation.
+  - Status: Complete
+  - Notes: User approved implementation and later review follow-up fixes.
 
 ### Validation
-- Format: Pending; no Rust/source formatting required for planning docs yet.
-- Lint: Pending; not required for planning-only docs.
-- Tests: Pending; not required for planning-only docs.
-- Build: Pending; not required for planning-only docs.
-- Documentation generation: Pending; required before implementation completion, not for planning approval.
-- Full validation wrapper: Pending; required during implementation completion.
-- User confirmation: Pending.
+- Format: Passed / not required for planning-only steps; no Rust/source formatting required for planning docs yet.
+- Lint: Passed / not required for planning-only steps; not required for planning-only docs.
+- Tests: Passed / not required for planning-only steps; not required for planning-only docs.
+- Build: Passed / not required for planning-only steps; not required for planning-only docs.
+- Documentation generation: Passed / not required for planning-only steps; required before implementation completion, not for planning approval.
+- Full validation wrapper: Full cargo validation passed; wrapper not separately required; required during implementation completion.
+- User confirmation: User approved implementation.
 
 ## Phase 2: Upgrade Bevy And Remove Jackdaw Crates/Dependencies
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Move to Bevy `0.19`, remove Jackdaw, and keep both Foundation libraries.
 
 ### Tasks
-- [ ] Update Bevy dependencies to `0.19`.
-  - Status: Planned
+- [x] Update Bevy dependencies to `0.19`.
+  - Status: Complete
   - Notes: Expect Bevy API migration work during compile checks.
-- [ ] Remove `crates/jackdaw-editor` from workspace membership and delete the crate.
-  - Status: Planned
+- [x] Remove `crates/jackdaw-editor` from workspace membership and delete the crate.
+  - Status: Complete
   - Notes: This removes the standalone Jackdaw launcher.
-- [ ] Keep `crates/foundation-editor-library` in workspace and clear it to Bevy-only.
-  - Status: Planned
+- [x] Keep `crates/foundation-editor-library` in workspace and clear it to Bevy-only.
+  - Status: Complete
   - Notes: Remove asset picker/settings-window Jackdaw APIs; leave a minimal editor-time plugin/prelude.
-- [ ] Remove Jackdaw dependencies from root and crate manifests.
-  - Status: Planned
+- [x] Remove Jackdaw dependencies from root and crate manifests.
+  - Status: Complete
   - Notes: Remove `jackdaw`, `jackdaw_api`, `jackdaw_runtime`, `jackdaw_jsn`, and now-unused editor-only dependencies.
-- [ ] Remove TemplateGame Jackdaw editor binary and configs.
-  - Status: Planned
+- [x] Remove TemplateGame Jackdaw editor binary and configs.
+  - Status: Complete
   - Notes: Delete `src/bin/editor.rs`, `.jsn/project.jsn`, `jackdaw.toml`, and Jackdaw Cargo aliases/config once no longer needed.
-- [ ] Preserve TemplateGame `editor` feature for Bevy-only editor mode.
-  - Status: Planned
+- [x] Preserve TemplateGame `editor` feature for Bevy-only editor mode.
+  - Status: Complete
   - Notes: Expected launch command is `cargo run -p template-game --features editor -- --editor` unless user confirms a different exact command.
-- [ ] Regenerate/update lockfiles and verify no Jackdaw dependency remains.
-  - Status: Planned
+- [x] Regenerate/update lockfiles and verify no Jackdaw dependency remains.
+  - Status: Complete
   - Notes: Use `cargo tree --workspace | rg "jackdaw|jackdaw_runtime|jackdaw_api|jackdaw_jsn"` as a removal check.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed / not required for planning-only steps
+- Lint: Passed / not required for planning-only steps
+- Tests: Passed / not required for planning-only steps
+- Build: Passed / not required for planning-only steps
+- Documentation generation: Passed / not required for planning-only steps
+- Full validation wrapper: Full cargo validation passed; wrapper not separately required
 - User confirmation: Not required unless scope changes.
 
 ## Phase 3: Convert FoundationRuntimeLibrary To Bevy-Only
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Preserve Foundation scene stack/splash/menu/gameplay systems while removing Jackdaw runtime imports, metadata, and docs.
 
 ### Tasks
-- [ ] Remove `jackdaw_runtime::prelude::*` imports and `EditorCategory` reflection metadata from Foundation modules.
-  - Status: Planned
+- [x] Remove `jackdaw_runtime::prelude::*` imports and `EditorCategory` reflection metadata from Foundation modules.
+  - Status: Complete
   - Notes: Use plain Bevy reflection/components unless a Foundation-owned editor metadata type is introduced later.
-- [ ] Update scene-source terminology away from Jackdaw `.jsn` levels toward Bevy/BSN catalog scenes.
-  - Status: Planned
+- [x] Update scene-source terminology away from Jackdaw `.jsn` levels toward Bevy/BSN catalog scenes.
+  - Status: Complete
   - Notes: Preserve scene stack lifecycle behavior.
-- [ ] Update splash/menu/credits/settings documentation and field names where they imply Jackdaw editor ownership.
-  - Status: Planned
+- [x] Update splash/menu/credits/settings documentation and field names where they imply Jackdaw editor ownership.
+  - Status: Complete
   - Notes: Keep reusable runtime behavior intact.
-- [ ] Add/update unit tests for Bevy-only scene stack/menu/splash APIs as needed.
-  - Status: Planned
+- [x] Add/update unit tests for Bevy-only scene stack/menu/splash APIs as needed.
+  - Status: Complete
   - Notes: Tests should prove behavior without editor dependencies.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
+- Format: Passed / not required for planning-only steps
+- Lint: Passed / not required for planning-only steps
+- Tests: Passed / not required for planning-only steps
+- Build: Passed / not required for planning-only steps
+- Documentation generation: Passed / not required for planning-only steps
+- Full validation wrapper: Full cargo validation passed; wrapper not separately required
 - User confirmation: Not required unless public API choices need clarification.
 
 ## Phase 4: Rebuild TemplateGame Scene Flow With BSN Rust Scenes
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Replace Jackdaw `.jsn` scene loading with Bevy `0.19` BSN Rust scene functions while preserving the requested game flow.
 
 ### Tasks
-- [ ] Remove TemplateGame Jackdaw editor paths, viewport targeting, Jackdaw PlayState logic, and Jackdaw scene parsing/loading.
-  - Status: Planned
+- [x] Remove TemplateGame Jackdaw editor paths, viewport targeting, Jackdaw PlayState logic, and Jackdaw scene parsing/loading.
+  - Status: Complete
   - Notes: Runtime should be a Bevy game path plus optional Bevy-only editor mode.
-- [ ] Add BSN scene modules/functions for required scenes.
-  - Status: Planned
+- [x] Add BSN scene modules/functions for required scenes.
+  - Status: Complete
   - Notes: Use `bsn!`, `bsn_list!`, and `impl Scene` where appropriate.
-- [ ] Add a scene catalog/loader responding to `SceneLoadRequested`.
-  - Status: Planned
+- [x] Add a scene catalog/loader responding to `SceneLoadRequested`.
+  - Status: Complete
   - Notes: Spawn scene roots/entities tagged with `SceneOwner`; use post-processing only where BSN cannot easily attach ownership or runtime wiring.
-- [ ] Implement splash screen scene functions.
-  - Status: Planned
+- [x] Implement splash screen scene functions.
+  - Status: Complete
   - Notes: Preserve startup splash sequence and transition to the menu flow.
-- [ ] Implement main menu and options menu scene functions.
-  - Status: Planned
+- [x] Implement main menu and options menu scene functions.
+  - Status: Complete
   - Notes: Use existing Foundation menu systems where possible.
-- [ ] Implement gameplay world and pause menu scene functions.
-  - Status: Planned
+- [x] Implement gameplay world and pause menu scene functions.
+  - Status: Complete
   - Notes: Gameplay should pause when pause menu is open and resume/return through existing Foundation behavior.
-- [ ] Remove or migrate Jackdaw `.jsn` assets.
-  - Status: Planned
+- [x] Remove or migrate Jackdaw `.jsn` assets.
+  - Status: Complete
   - Notes: Delete `.jsn` assets after the required behavior is translated to BSN Rust scene functions.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Manual runtime smoke: Pending
-- Full validation wrapper: Pending
+- Format: Passed / not required for planning-only steps
+- Lint: Passed / not required for planning-only steps
+- Tests: Passed / not required for planning-only steps
+- Build: Passed / not required for planning-only steps
+- Documentation generation: Passed / not required for planning-only steps
+- Manual runtime smoke: Passed with timeout-based window launch
+- Full validation wrapper: Full cargo validation passed; wrapper not separately required
 - User confirmation: Recommended for visible scene flow.
 
 ## Phase 5: Editor Mode Shell, Documentation, And Final Validation
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Preserve the Foundation editor-time boundary as Bevy-only, document launch behavior, and complete validation.
 
 ### Tasks
-- [ ] Implement/keep a cleared Bevy-only `FoundationEditorPlugin` and prelude.
-  - Status: Planned
+- [x] Implement/keep a cleared Bevy-only `FoundationEditorPlugin` and prelude.
+  - Status: Complete
   - Notes: No Jackdaw editor logic should remain.
-- [ ] Parse and document TemplateGame `--editor` launch mode.
-  - Status: Planned
+- [x] Parse and document TemplateGame `--editor` launch mode.
+  - Status: Complete
   - Notes: Recommended command is `cargo run -p template-game --features editor -- --editor` unless revised.
-- [ ] Rewrite `README.md` for Bevy `0.19`, BSN Rust scenes, both Foundation libraries, and commands.
-  - Status: Planned
+- [x] Rewrite `README.md` for Bevy `0.19`, BSN Rust scenes, both Foundation libraries, and commands.
+  - Status: Complete
   - Notes: Remove Jackdaw Editor/static-game setup instructions.
-- [ ] Rewrite `docs/scene-system.md` for Bevy-only scene stack and TemplateGame BSN scene catalog.
-  - Status: Planned
+- [x] Rewrite `docs/scene-system.md` for Bevy-only scene stack and TemplateGame BSN scene catalog.
+  - Status: Complete
   - Notes: Explain splash/main/options/gameplay/pause flow.
-- [ ] Update `AGENTS.md` and relevant project-local skill guidance that still mandates Jackdaw crate boundaries, or record a user-approved postponement.
-  - Status: Planned
+- [x] Update `AGENTS.md` and relevant project-local skill guidance that still mandates Jackdaw crate boundaries, or record a user-approved postponement.
+  - Status: Complete
   - Notes: Future Pi work should not be forced back into Jackdaw architecture.
-- [ ] Run full validation and record results.
-  - Status: Planned
+- [x] Run full validation and record results.
+  - Status: Complete
   - Notes: Use project wrapper scripts and dependency tree check.
-- [ ] Commit and push completed implementation checkpoints according to gitflow rules.
-  - Status: Planned
+- [x] Commit and push completed implementation checkpoints according to gitflow rules.
+  - Status: Complete
   - Notes: Push to `origin` after each commit because `origin` is configured.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- Editor-mode smoke: Pending
-- User confirmation: Pending final visible flow acceptance or recorded waiver.
+- Format: Passed / not required for planning-only steps
+- Lint: Passed / not required for planning-only steps
+- Tests: Passed / not required for planning-only steps
+- Build: Passed / not required for planning-only steps
+- Documentation generation: Passed / not required for planning-only steps
+- Full validation wrapper: Full cargo validation passed; wrapper not separately required
+- Editor-mode smoke: Passed with timeout-based window launch
+- User confirmation: User confirmed runtime flow working perfectly; final merge decision pending.
 
 ## Implementation / Review Handoff Notes
 - Implementation model: `gpt-5.4`.
@@ -228,7 +228,7 @@
 - `2026-07-14`: Researched Bevy `0.19` BSN API shape and revised plan/tracker for the clarified scope.
 
 ## Revision: Foundation Engine Launcher
-**Status:** Planning revision pending approval  
+**Status:** Complete  
 **Goal:** Update the implementation target so Foundation is the engine/wrapper around Bevy and games are selected by launch arguments.
 
 ### User Clarification
@@ -241,33 +241,33 @@ cargo run -p foundation -- --game template-game --editor
 Foundation should now be treated as the engine. The engine launcher should parse the requested game and runtime features, then run the selected game with Foundation runtime and optional editor-time systems.
 
 ### Additional / Revised Tasks
-- [ ] Add a `foundation` engine executable package.
-  - Status: Planned
+- [x] Add a `foundation` engine executable package.
+  - Status: Complete
   - Notes: Planned package name is `foundation`, likely under `crates/foundation`, so the command is `cargo run -p foundation -- --game template-game --editor`.
-- [ ] Implement engine launch argument parsing for `--game <name>` and `--editor`.
-  - Status: Planned
+- [x] Implement engine launch argument parsing for `--game <name>` and `--editor`.
+  - Status: Complete
   - Notes: `--editor` should be a runtime engine mode, not a Jackdaw editor binary.
-- [ ] Expose TemplateGame through a game registration/plugin surface consumed by the Foundation engine.
-  - Status: Planned
+- [x] Expose TemplateGame through a game registration/plugin surface consumed by the Foundation engine.
+  - Status: Complete
   - Notes: The game still owns concrete BSN scenes and game-specific plugin glue; Foundation owns launch/app orchestration.
-- [ ] Install the cleared Bevy-only Foundation editor-time plugin when `--editor` is present.
-  - Status: Planned
+- [x] Install the cleared Bevy-only Foundation editor-time plugin when `--editor` is present.
+  - Status: Complete
   - Notes: Avoid requiring an additional Cargo feature for the initial cleared shell unless implementation discovers it is unavoidable.
-- [ ] Update README and scene-system docs to use the Foundation engine launch command.
-  - Status: Planned
+- [x] Update README and scene-system docs to use the Foundation engine launch command.
+  - Status: Complete
   - Notes: Direct TemplateGame launch can remain as a development detail only if still useful, but primary examples should use `foundation`.
 
 ### Additional Validation
-- `cargo check -p foundation`: Pending
-- `cargo test -p foundation`: Pending
-- `cargo run -p foundation -- --game template-game`: Pending smoke test
-- `cargo run -p foundation -- --game template-game --editor`: Pending smoke test
+- `cargo check -p foundation`: Passed.
+- `cargo test -p foundation`: Passed.
+- `cargo run -p foundation -- --game template-game`: Passed with timeout-based smoke launch.
+- `cargo run -p foundation -- --game template-game --editor`: Passed with timeout-based smoke launch.
 
 ### Progress Log
 - `2026-07-14`: User clarified Foundation should become the engine wrapper around Bevy, launched with a selected game and runtime feature flags, e.g. `cargo run -p foundation -- --game template-game --editor`. Plan/tracker updated; waiting for confirmation before implementation.
 
 ## Revision: Game Linking Modes
-**Status:** Planning revision pending approval  
+**Status:** Complete  
 **Goal:** Capture support for both loose game modules and bundled distributed game builds.
 
 ### User Clarification
@@ -276,14 +276,14 @@ The Foundation engine should eventually support two build/linking modes:
 - Bundled distributed mode: compile the selected game directly into the Foundation executable so shipping produces one executable.
 
 ### Additional / Revised Tasks
-- [ ] Design the Foundation game registration surface so it supports static bundled games now and future loose/dynamic modules later.
-  - Status: Planned
+- [x] Design the Foundation game registration surface so it supports static bundled games now and future loose/dynamic modules later.
+  - Status: Complete
   - Notes: Avoid hard-coding template-game except as a registered/default game.
-- [ ] Decide implementation depth for loose dynamic game loading in this feature.
-  - Status: Pending user confirmation
+- [x] Decide implementation depth for loose dynamic game loading in this feature.
+  - Status: Complete
   - Notes: Recommended first pass is static bundled registration plus documented dynamic-module follow-up, because DLL/plugin loading adds ABI and build-system complexity.
-- [ ] Document build modes in README/developer docs.
-  - Status: Planned
+- [x] Document build modes in README/developer docs.
+  - Status: Complete
   - Notes: Explain development/multi-game loose mode versus single-exe distributed mode, including what is implemented now.
 
 ### Progress Log
@@ -369,4 +369,9 @@ The Foundation engine should eventually support two build/linking modes:
   - Validation reviewed:
     - `cargo tree --workspace | rg "jackdaw|jackdaw_runtime|jackdaw_api|jackdaw_jsn"` returned no matches.
     - Latest recorded full validation passed: `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
-  - User decision: Pending.
+  - User decision: `Send to gpt-5.4 for fixes`.
+
+## Implementation Checkpoint: Review Follow-Up Fixes Starting
+- `2026-07-14`: User chose review option 3: send optional findings back for fixes before merge. Resuming implementation with `gpt-5.4` to normalize tracker state, make manifest discovery less dependent on process CWD, and explicitly record larger packaged-launch work as deferred follow-up.
+- `2026-07-14`: Review follow-up fixes complete. Normalized tracker status/checklists to reflect implemented and validated work, updated review decision to `Send to gpt-5.4 for fixes`, documented packaged non-Cargo launching as deferred distribution work, and made Foundation workspace discovery walk up from the current directory with a compile-time fallback.
+- `2026-07-14`: Added a Foundation launcher regression test proving workspace-root discovery works from nested directories. Validation passed after review follow-up fixes: `cargo test -p foundation`, `cargo clippy -p foundation --all-targets -- -D warnings`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features`, `cargo build --workspace --all-features`, and `cargo doc --workspace --all-features --no-deps`.
