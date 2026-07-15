@@ -8,7 +8,7 @@
 use std::{collections::BTreeMap, fmt, path::PathBuf};
 
 use crate::scene_stack::{
-    OpenSceneOptions, SceneAdded, SceneCommand, SceneKey, SceneLoadRequested, SceneOwner,
+    OpenSceneOptions, SceneAdded, SceneCommand, SceneId, SceneKey, SceneLoadRequested, SceneOwner,
     ScenePresentation, SceneRemoved, SceneSource, SceneTarget,
 };
 use bevy::{
@@ -75,6 +75,25 @@ impl Plugin for FoundationConsolePlugin {
 pub struct FoundationConsoleState {
     /// Whether the debug console scene is currently open.
     pub is_open: bool,
+    /// Current scene-stack entry that owns the console UI, when open.
+    pub scene_id: Option<SceneId>,
+}
+
+impl FoundationConsoleState {
+    fn mark_open(&mut self, scene_id: SceneId) {
+        self.is_open = true;
+        self.scene_id = Some(scene_id);
+    }
+
+    fn mark_closed_if_scene_matches(&mut self, removed_scene_id: SceneId) -> bool {
+        if self.scene_id != Some(removed_scene_id) {
+            return false;
+        }
+
+        self.is_open = false;
+        self.scene_id = None;
+        true
+    }
 }
 
 /// Runtime UI state for the Foundation debug console.
@@ -181,7 +200,7 @@ fn track_console_scene_added(
             continue;
         };
         if is_console_scene_source(&scene_entry.source) {
-            console_state.is_open = true;
+            console_state.mark_open(scene_added_message.scene_id);
         }
     }
 }
@@ -189,15 +208,10 @@ fn track_console_scene_added(
 fn track_console_scene_removed(
     mut scene_removed_messages: MessageReader<SceneRemoved>,
     mut console_state: ResMut<FoundationConsoleState>,
-    console_roots: Query<&SceneOwner, With<FoundationConsoleRoot>>,
     mut input_focus: ResMut<InputFocus>,
 ) {
     for scene_removed_message in scene_removed_messages.read() {
-        if console_roots
-            .iter()
-            .any(|scene_owner| scene_owner.scene_id == scene_removed_message.scene_id)
-        {
-            console_state.is_open = false;
+        if console_state.mark_closed_if_scene_matches(scene_removed_message.scene_id) {
             input_focus.clear();
         }
     }
@@ -751,6 +765,38 @@ mod tests {
             FoundationConsoleHistory::history_file_path(),
             PathBuf::from("saved/console").join("history.json")
         );
+    }
+
+    #[test]
+    fn console_state_tracks_scene_id_across_reopen_cycles() {
+        let mut console_state = FoundationConsoleState::default();
+        let first_console_scene_id = SceneId(7);
+        let second_console_scene_id = SceneId(8);
+
+        console_state.mark_open(first_console_scene_id);
+        assert!(console_state.is_open);
+        assert_eq!(console_state.scene_id, Some(first_console_scene_id));
+
+        assert!(console_state.mark_closed_if_scene_matches(first_console_scene_id));
+        assert!(!console_state.is_open);
+        assert_eq!(console_state.scene_id, None);
+
+        console_state.mark_open(second_console_scene_id);
+        assert!(console_state.is_open);
+        assert_eq!(console_state.scene_id, Some(second_console_scene_id));
+    }
+
+    #[test]
+    fn console_state_ignores_unrelated_scene_removals() {
+        let mut console_state = FoundationConsoleState::default();
+        let console_scene_id = SceneId(11);
+        let unrelated_scene_id = SceneId(12);
+
+        console_state.mark_open(console_scene_id);
+
+        assert!(!console_state.mark_closed_if_scene_matches(unrelated_scene_id));
+        assert!(console_state.is_open);
+        assert_eq!(console_state.scene_id, Some(console_scene_id));
     }
 
     #[test]

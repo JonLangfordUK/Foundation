@@ -78,7 +78,7 @@
 ### Validation
 - Format: Passed focused check via `cargo fmt --all` and `scripts/format-project.cmd` on 2026-07-15
 - Lint: Passed focused check via `cargo clippy -p foundation-runtime-library --all-targets --all-features -- -D warnings` on 2026-07-15
-- Tests: Passed focused check via `cargo test -p foundation-runtime-library console --all-features` on 2026-07-15
+- Tests: Passed focused check via `cargo test -p foundation-runtime-library console --all-features` on 2026-07-15; rerun after reopen fix with 8 console tests passing
 - Build: Pending phase-level build
 - Documentation generation: Pending phase-level documentation generation
 - Full validation wrapper: Pending / Not required yet
@@ -194,3 +194,4 @@
 - `2026-07-15`: Phase 1 committed and pushed as `68e1218`.
 - `2026-07-15`: Started Phase 2 Feathers console UI and scene-stack integration.
 - `2026-07-15`: Implemented initial Phase 2 UI skeleton: Feathers dependencies/plugins, backquote scene-stack open/close, input-blocking non-pausing presentation, scene-load UI spawning, high-Z bottom overlay, `EditableText` input, and focus assignment.
+- `2026-07-15`: User found the console could open once, close once, then fail to reopen. Fixed stale console-open state by storing the active console `SceneId` in `FoundationConsoleState` and clearing it directly from `SceneRemoved`, instead of relying on querying UI roots that may already have been despawned.
