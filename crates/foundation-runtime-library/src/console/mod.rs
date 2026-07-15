@@ -12,13 +12,11 @@ use crate::scene_stack::{
     ScenePresentation, SceneRemoved, SceneSource, SceneTarget,
 };
 use bevy::{
+    input::keyboard::Key,
     prelude::*,
-    text::{EditableText, TextCursorStyle, TextLayout},
+    text::{EditableText, TextCursorStyle, TextEdit, TextLayout},
 };
-use bevy_feathers::{
-    controls::{FeathersTextInput, FeathersTextInputContainer},
-    FeathersPlugins,
-};
+use bevy_feathers::FeathersPlugins;
 use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus, FocusCause, InputFocus};
 use linkme::distributed_slice;
 use serde::{Deserialize, Serialize};
@@ -58,6 +56,7 @@ impl Plugin for FoundationConsolePlugin {
             .register_type::<FoundationConsoleRoot>()
             .register_type::<FoundationConsoleInput>()
             .register_type::<FoundationConsoleOutput>()
+            .register_type::<FoundationConsoleSuggestion>()
             .add_systems(
                 Update,
                 (
@@ -65,6 +64,9 @@ impl Plugin for FoundationConsolePlugin {
                     spawn_console_scene_from_stack_request,
                     track_console_scene_added,
                     track_console_scene_removed,
+                    update_console_input_state,
+                    handle_console_keyboard_actions,
+                    refresh_console_text_nodes,
                 ),
             );
     }
@@ -121,6 +123,11 @@ pub struct FoundationConsoleInput;
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct FoundationConsoleOutput;
+
+/// Marker component for the console autocomplete and placeholder text entity.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleSuggestion;
 
 /// Persisted command history for the Foundation debug console.
 #[derive(Clone, Debug, Default, Resource, Serialize, Deserialize)]
@@ -224,6 +231,228 @@ fn is_console_scene_source(scene_source: &SceneSource) -> bool {
     )
 }
 
+fn update_console_input_state(
+    mut console_ui_state: ResMut<FoundationConsoleUiState>,
+    console_inputs: Query<&EditableText, (With<FoundationConsoleInput>, Changed<EditableText>)>,
+) {
+    for editable_text in &console_inputs {
+        console_ui_state.input = editable_text_value(editable_text);
+        console_ui_state.history_cursor = None;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_console_keyboard_actions(
+    keyboard_input: Res<ButtonInput<Key>>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+    mut console_ui_state: ResMut<FoundationConsoleUiState>,
+    console_history: Res<FoundationConsoleHistory>,
+    console_registry: Res<FoundationConsoleRegistry>,
+    mut console_inputs: Query<(Entity, &mut EditableText), With<FoundationConsoleInput>>,
+    mut scene_commands: MessageWriter<SceneCommand>,
+) {
+    let Some((input_entity, mut editable_text)) = console_inputs.iter_mut().next() else {
+        return;
+    };
+    if input_focus.get() != Some(input_entity) {
+        return;
+    }
+
+    if keyboard_input.just_pressed(Key::Escape) {
+        let console_scene_key = SceneKey::new(FOUNDATION_CONSOLE_SCENE_KEY);
+        scene_commands.write(SceneCommand::Close(SceneTarget::Key(console_scene_key)));
+        return;
+    }
+
+    if keyboard_input.just_pressed(Key::Tab) {
+        if let Some(completed_input) =
+            autocomplete_console_input(&console_ui_state.input, &console_registry)
+        {
+            replace_console_input(&mut editable_text, &completed_input);
+            console_ui_state.input = completed_input;
+        }
+        return;
+    }
+
+    if keyboard_input.just_pressed(Key::ArrowUp) {
+        if let Some(history_input) = previous_history_input(&mut console_ui_state, &console_history)
+        {
+            replace_console_input(&mut editable_text, &history_input);
+            console_ui_state.input = history_input;
+        }
+        return;
+    }
+
+    if keyboard_input.just_pressed(Key::ArrowDown) {
+        let history_input = next_history_input(&mut console_ui_state, &console_history);
+        replace_console_input(&mut editable_text, &history_input);
+        console_ui_state.input = history_input;
+        return;
+    }
+
+    if keyboard_input.just_pressed(Key::Enter) {
+        let submitted_command_line = console_ui_state.input.trim().to_string();
+        if submitted_command_line.is_empty() {
+            return;
+        }
+
+        replace_console_input(&mut editable_text, "");
+        console_ui_state.input.clear();
+        console_ui_state.history_cursor = None;
+
+        commands.queue(move |world: &mut World| {
+            execute_console_command_from_ui(world, submitted_command_line);
+        });
+    }
+}
+
+fn refresh_console_text_nodes(
+    console_ui_state: Res<FoundationConsoleUiState>,
+    console_history: Res<FoundationConsoleHistory>,
+    console_registry: Res<FoundationConsoleRegistry>,
+    mut console_outputs: Query<&mut Text, With<FoundationConsoleOutput>>,
+    mut console_suggestions: Query<&mut Text, With<FoundationConsoleSuggestion>>,
+) {
+    if console_ui_state.is_changed() || console_history.is_changed() {
+        let output_text = console_output_text(&console_history, &console_ui_state);
+        for mut text in &mut console_outputs {
+            text.0 = output_text.clone();
+        }
+    }
+
+    if console_ui_state.is_changed() || console_registry.is_changed() {
+        let suggestion_text = console_suggestion_text(&console_ui_state.input, &console_registry);
+        for mut text in &mut console_suggestions {
+            text.0 = suggestion_text.clone();
+        }
+    }
+}
+
+fn execute_console_command_from_ui(world: &mut World, submitted_command_line: String) {
+    let execution_result = {
+        let console_registry = world.resource::<FoundationConsoleRegistry>().clone();
+        console_registry.execute_command_line(world, &submitted_command_line)
+    };
+
+    let mut output_line = format!("> {submitted_command_line}");
+    match execution_result {
+        Ok(()) => {
+            output_line.push_str("\nCommand completed.");
+            let mut console_history = world.resource_mut::<FoundationConsoleHistory>();
+            console_history.push_command(submitted_command_line);
+        }
+        Err(command_error) => {
+            output_line.push_str(&format!("\nError: {command_error}"));
+        }
+    }
+
+    let mut console_ui_state = world.resource_mut::<FoundationConsoleUiState>();
+    console_ui_state.output_lines.push(output_line);
+    console_ui_state.history_cursor = None;
+}
+
+fn editable_text_value(editable_text: &EditableText) -> String {
+    let mut value = String::new();
+    value.reserve(editable_text.value().into_iter().map(str::len).sum());
+    for text_part in editable_text.value() {
+        value.push_str(text_part);
+    }
+    value
+}
+
+fn replace_console_input(editable_text: &mut EditableText, replacement: &str) {
+    editable_text.clear();
+    if !replacement.is_empty() {
+        editable_text.queue_edit(TextEdit::Insert(replacement.into()));
+    }
+}
+
+fn autocomplete_console_input(
+    console_input: &str,
+    console_registry: &FoundationConsoleRegistry,
+) -> Option<String> {
+    let command_prefix = console_input
+        .split_whitespace()
+        .next()
+        .unwrap_or(console_input);
+    let candidate = console_registry
+        .autocomplete_command_names(command_prefix)
+        .into_iter()
+        .next()?;
+
+    Some(command_placeholder(
+        &candidate.replacement,
+        console_registry,
+    ))
+}
+
+fn console_suggestion_text(
+    console_input: &str,
+    console_registry: &FoundationConsoleRegistry,
+) -> String {
+    let Some(suggestion) = autocomplete_console_input(console_input, console_registry) else {
+        return String::new();
+    };
+
+    if suggestion == console_input {
+        String::new()
+    } else {
+        format!("Tab: {suggestion}")
+    }
+}
+
+fn command_placeholder(command_name: &str, console_registry: &FoundationConsoleRegistry) -> String {
+    let Some(command) = console_registry.find_command(command_name) else {
+        return command_name.to_string();
+    };
+
+    let parameter_placeholders = (command.parameters)()
+        .iter()
+        .map(|parameter| format!("{}=<{}>", parameter.name, parameter.type_name))
+        .collect::<Vec<_>>();
+
+    if parameter_placeholders.is_empty() {
+        command_name.to_string()
+    } else {
+        format!("{} {}", command_name, parameter_placeholders.join(" "))
+    }
+}
+
+fn previous_history_input(
+    console_ui_state: &mut FoundationConsoleUiState,
+    console_history: &FoundationConsoleHistory,
+) -> Option<String> {
+    if console_history.commands.is_empty() {
+        return None;
+    }
+
+    let history_entry_index = console_ui_state
+        .history_cursor
+        .map(|history_cursor| history_cursor.saturating_sub(1))
+        .unwrap_or(console_history.commands.len() - 1);
+    console_ui_state.history_cursor = Some(history_entry_index);
+    console_history.commands.get(history_entry_index).cloned()
+}
+
+fn next_history_input(
+    console_ui_state: &mut FoundationConsoleUiState,
+    console_history: &FoundationConsoleHistory,
+) -> String {
+    let Some(history_cursor) = console_ui_state.history_cursor else {
+        return String::new();
+    };
+
+    let next_history_index = history_cursor + 1;
+    if next_history_index >= console_history.commands.len() {
+        console_ui_state.history_cursor = None;
+        String::new()
+    } else {
+        console_ui_state.history_cursor = Some(next_history_index);
+        console_history.commands[next_history_index].clone()
+    }
+}
+
 fn spawn_console_overlay(
     commands: &mut Commands,
     scene_id: crate::scene_stack::SceneId,
@@ -238,6 +467,7 @@ fn spawn_console_overlay(
     let console_text_color = TextColor(Color::srgba(0.82, 0.88, 0.78, 1.0));
     let input_background = BackgroundColor(Color::srgba(0.05, 0.05, 0.06, 1.0));
     let output_text = console_output_text(console_history, console_ui_state);
+    let suggestion_text = String::new();
 
     let root_entity = commands
         .spawn((
@@ -284,6 +514,25 @@ fn spawn_console_overlay(
         ))
         .id();
 
+    let suggestion_entity = commands
+        .spawn((
+            Name::new("Foundation Debug Console Suggestion"),
+            Node {
+                width: Val::Percent(100.0),
+                min_height: Val::Px(20.0),
+                ..default()
+            },
+            Text::new(suggestion_text),
+            TextFont {
+                font_size: 12.0.into(),
+                ..default()
+            },
+            TextColor(Color::srgba(0.50, 0.62, 0.92, 1.0)),
+            SceneOwner { scene_id },
+            FoundationConsoleSuggestion,
+        ))
+        .id();
+
     let input_container_entity = commands
         .spawn((
             Name::new("Foundation Debug Console Input Container"),
@@ -296,7 +545,6 @@ fn spawn_console_overlay(
             },
             input_background,
             BorderColor::all(Color::srgba(0.35, 0.35, 0.40, 1.0)),
-            FeathersTextInputContainer,
             SceneOwner { scene_id },
         ))
         .id();
@@ -308,7 +556,6 @@ fn spawn_console_overlay(
                 width: Val::Percent(100.0),
                 ..default()
             },
-            FeathersTextInput,
             FoundationConsoleInput,
             EditableText::new(console_ui_state.input.clone()),
             TextLayout::no_wrap(),
@@ -327,9 +574,11 @@ fn spawn_console_overlay(
     commands
         .entity(input_container_entity)
         .add_child(input_entity);
-    commands
-        .entity(root_entity)
-        .add_children(&[output_entity, input_container_entity]);
+    commands.entity(root_entity).add_children(&[
+        output_entity,
+        suggestion_entity,
+        input_container_entity,
+    ]);
 
     input_entity
 }
