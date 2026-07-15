@@ -1,0 +1,152 @@
+# External Template Game Tracker
+
+## Metadata
+- Feature slug: `external-template-game`
+- Feature area: `multi-area`
+- Primary area: `engine`
+- Branch: `feature/external-template-game`
+- Overall status: `Planned; awaiting user approval to implement`
+- Planning model: `gpt-5.5`
+- Preferred implementation model: `gpt-5.4`
+- Optional final review model: `gpt-5.5`
+- Current handoff state: `Ready for gpt-5.4 implementation after user approval`
+- Created: `2026-07-15`
+- Last updated: `2026-07-15`
+
+## Validation Rules
+- Task complete only after required validation passes and documentation generation is recorded, unless a waiver is recorded.
+- Phase complete only after required validation passes, documentation generation is recorded, and required user confirmation is recorded.
+- Never use Anthropic models.
+- Keep Foundation and TemplateGame commits in their respective repositories.
+- Push after each completed commit when `origin` is configured.
+
+## Phase 0: Branch Protection Dependency
+**Status:** Planned
+**Goal:** Ensure the branch-protection workflow feature is either merged first or its changes are preserved before this feature updates workflows.
+
+### Tasks
+- [ ] Confirm status of `feature/branch-protection-ci`.
+  - Status: Planned
+  - Notes: That feature adds PR triggers and `Main source branch policy`; this feature should not accidentally overwrite it.
+- [ ] Decide whether to merge branch protection first or rebase/cherry-pick compatible workflow changes.
+  - Status: Planned
+  - Notes: Preferred path is to merge branch protection first, then rebase this feature onto updated `dev`.
+
+### Validation
+- Git state inspection: Pending
+- User confirmation: Pending
+
+## Phase 1: Foundation External Project Support
+**Status:** Planned
+**Goal:** Let Foundation build, run, and package a game project outside the Foundation repository by relative or absolute path.
+
+### Tasks
+- [ ] Add `--project <path>` support to `foundation-build` while preserving `--game <name>` compatibility.
+  - Status: Planned
+  - Notes: Accept a directory containing `foundation.game.toml` or a direct manifest path.
+- [ ] Resolve manifest, game source, game asset, engine asset, output, and Cargo paths correctly for external projects.
+  - Status: Planned
+  - Notes: Game assets belong under `game/assets`; engine assets may exist under `engine/assets`.
+- [ ] Update build/run/package commands for external game Cargo manifests.
+  - Status: Planned
+  - Notes: External builds likely need `cargo build --manifest-path <game Cargo.toml>` rather than `cargo build -p` from Foundation workspace.
+- [ ] Add focused tests for relative project paths, absolute project paths, direct manifest paths, asset root resolution, and `CARGO_TARGET_DIR` compatibility.
+  - Status: Planned
+  - Notes: Preserve existing tests for in-repo games until the transition is complete.
+
+### Validation
+- Format: Pending
+- Lint: Pending
+- Tests: Pending
+- Build: Pending
+- Documentation generation: Pending
+- Full validation wrapper: Pending
+
+## Phase 2: Standalone TemplateGame Repository
+**Status:** Planned
+**Goal:** Populate `https://github.com/JonLangfordUK/template-game.git` as the reference external Foundation game.
+
+### Tasks
+- [ ] Create initial repository structure with `engine/`, `game/`, `scripts/`, `docs/`, and workflow directories.
+  - Status: Planned
+  - Notes: The remote repo is currently empty.
+- [ ] Add Foundation as the default `engine/` submodule.
+  - Status: Planned
+  - Notes: Use the correct Foundation branch or commit after deciding whether `dev` or a stable tag should be pinned initially.
+- [ ] Move TemplateGame source, manifest, and assets into `game/`.
+  - Status: Planned
+  - Notes: Convert workspace dependencies and metadata to standalone game repo form.
+- [ ] Add game-facing scripts for build, run, package, validation, and optional engine path association.
+  - Status: Planned
+  - Notes: Scripts should support default `engine/` and clear errors for missing engine association.
+- [ ] Add `main` and `dev` branches and push them to the new repo.
+  - Status: Planned
+  - Notes: Initial commit likely lands on `main`; create `dev` from `main` or vice versa according to the final branch setup.
+
+### Validation
+- Format: Pending
+- Lint: Pending
+- Tests: Pending
+- Build: Pending
+- Package: Pending
+- Workflow run: Pending
+
+## Phase 3: Workflows And Branch Protection Readiness
+**Status:** Planned
+**Goal:** Ensure both repositories can enforce PR-based changes with runner-backed checks.
+
+### Tasks
+- [ ] Update Foundation workflow expectations for external TemplateGame or an intentional minimal fixture.
+  - Status: Planned
+  - Notes: Must account for branch-protection workflow changes if already merged.
+- [ ] Add template-game workflow for PR validation and packaging on the Windows self-hosted runner.
+  - Status: Planned
+  - Notes: Game workflow should not publish Foundation releases.
+- [ ] Add source-branch policy for template-game `main`, allowing `dev` and `hotfix/*` sources.
+  - Status: Planned
+  - Notes: Match the Foundation branch-protection model.
+- [ ] Document branch protection setup for both repositories.
+  - Status: Planned
+  - Notes: Required checks must be selected after first PR workflow runs expose check names.
+
+### Validation
+- Foundation PR workflow: Pending
+- TemplateGame PR workflow: Pending
+- Branch protection setup walkthrough: Pending
+
+## Phase 4: Documentation And Cleanup
+**Status:** Planned
+**Goal:** Finish the transition from in-repo TemplateGame to external reference game.
+
+### Tasks
+- [ ] Update Foundation docs to describe external games and the TemplateGame repo.
+  - Status: Planned
+  - Notes: Include examples for `--project` and engine/game asset roots.
+- [ ] Update TemplateGame docs to describe clone, submodule, engine association, scripts, workflows, and branch protection.
+  - Status: Planned
+  - Notes: Include `git clone --recurse-submodules` instructions.
+- [ ] Remove or replace in-repo `games/template-game` according to the approved plan.
+  - Status: Planned
+  - Notes: If a minimal fixture remains, document why it exists and avoid presenting it as the real TemplateGame.
+
+### Validation
+- Documentation generation: Pending
+- Full Foundation validation: Pending
+- Full TemplateGame validation: Pending
+- User confirmation: Pending
+
+## Postponed Work
+- Game-specific release versioning for `template-game` is postponed unless the user asks to define it now.
+- Linux runner support remains postponed until a Linux runner/toolchain exists.
+
+## Progress Log
+- `2026-07-15`: Created planning documents for moving TemplateGame into `https://github.com/JonLangfordUK/template-game.git` and adding external Foundation game project support.
+- `2026-07-15`: Inspected the new template-game repository and found it empty with no commits.
+- `2026-07-15`: Noted dependency on unmerged `feature/branch-protection-ci` workflow changes.
+
+## Git And Push State
+- Foundation branch created from: `origin/dev`
+- Foundation branch: `feature/external-template-game`
+- Plan/tracker commit: Pending
+- Foundation push state: Pending
+- TemplateGame repo state: Empty remote inspected; no implementation commits yet
