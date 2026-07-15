@@ -48,7 +48,9 @@ package = "template-game"
 ```
 
 The engine only reads this data. The selected game process owns its concrete
-Bevy plugins, BSN scene catalog, assets, and gameplay systems.
+Bevy plugins, BSN scene catalog, assets, and gameplay systems. In TemplateGame,
+that process is a thin binary wrapper over the library's `template_game::run()`
+function so the game logic remains library-owned.
 
 ## Current Development Mode
 

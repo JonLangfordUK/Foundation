@@ -29,11 +29,7 @@ cargo run -p foundation -- --game template-game --editor
 
 The editor-time crate currently provides only a cleared Bevy-only shell. Future editor tools should attach through `foundation-editor-library` and the engine `--editor` mode.
 
-A direct game launcher remains useful during development:
-
-```cmd
-cargo run -p template-game
-```
+`games/template-game/src/main.rs` is intentionally only a thin wrapper around `template_game::run()`. The primary development path remains Foundation-first, but the wrapper also keeps `cargo run -p template-game` and future `template-game.exe` packaging paths available.
 
 ## Scene authoring
 Scenes are now code-authored with Bevy 0.19 BSN (`bsn!`) in Rust. Bevy does not currently ship a first-party `.bsn` asset loader, so scene definitions live in Rust scene functions for now.

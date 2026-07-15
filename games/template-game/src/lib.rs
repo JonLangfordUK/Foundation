@@ -6,7 +6,15 @@
 
 use std::path::PathBuf;
 
-use bevy::prelude::*;
+use bevy::{
+    asset::AssetPlugin,
+    prelude::*,
+    render::{
+        RenderPlugin,
+        settings::{Backends, InstanceFlags, RenderCreation, WgpuSettings},
+    },
+};
+use foundation_editor_library::prelude::*;
 use foundation_runtime_library::prelude::*;
 
 pub mod scenes;
@@ -19,6 +27,73 @@ pub const GAME_NAME: &str = "template-game";
 /// Foundation uses this when launching TemplateGame as a statically registered game.
 pub fn asset_root() -> PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
+}
+
+/// Runs TemplateGame with Foundation runtime systems installed.
+///
+/// This is shared by the thin Cargo binary wrapper and future packaged launchers.
+pub fn run() -> AppExit {
+    let asset_root = asset_root().to_string_lossy().to_string();
+    let editor_enabled = std::env::args().any(|argument| argument == "--editor");
+
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::BLACK))
+        .set_error_handler(bevy::ecs::error::error)
+        .add_plugins(template_game_default_plugins(asset_root))
+        .add_plugins(FoundationPlugin)
+        .add_plugins(TemplateGamePlugin)
+        .add_systems(Startup, spawn_default_camera);
+
+    if editor_enabled {
+        app.add_plugins(FoundationEditorPlugin);
+        app.insert_resource(FoundationEditorMode { enabled: true });
+        debug!("Foundation editor mode enabled for TemplateGame.");
+    }
+
+    app.run()
+}
+
+fn template_game_default_plugins(asset_root: String) -> impl PluginGroup {
+    DefaultPlugins
+        .build()
+        .disable::<GilrsPlugin>()
+        .set(AssetPlugin {
+            file_path: asset_root,
+            ..default()
+        })
+        .set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
+                backends: platform_render_backends(),
+                instance_flags: InstanceFlags::empty().with_env(),
+                ..default()
+            })),
+            ..default()
+        })
+}
+
+fn platform_render_backends() -> Option<Backends> {
+    // Keep the fast Windows path that made gameplay appear immediately, while disabling
+    // validation layers separately so local Vulkan SDK warnings do not flood normal logs.
+    #[cfg(target_os = "windows")]
+    {
+        Some(Backends::from_env().unwrap_or(Backends::VULKAN))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Some(Backends::from_env().unwrap_or(Backends::PRIMARY))
+    }
+}
+
+fn spawn_default_camera(mut commands: Commands) {
+    let camera_order = 100;
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: camera_order,
+            ..default()
+        },
+    ));
 }
 
 /// TemplateGame's Bevy plugin.
