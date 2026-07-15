@@ -115,6 +115,8 @@ pub struct FoundationConsoleUiState {
     pub output_lines: Vec<String>,
     /// Current history cursor used by Up/Down navigation.
     pub history_cursor: Option<usize>,
+    /// Number of rendered output lines to scroll back from the newest output.
+    pub output_scroll_lines: usize,
 }
 
 /// Root component for the generated Foundation debug console UI.
@@ -313,6 +315,7 @@ fn handle_console_keyboard_actions(
         replace_console_input(&mut editable_text, "");
         console_ui_state.input.clear();
         console_ui_state.history_cursor = None;
+        console_ui_state.output_scroll_lines = 0;
 
         commands.queue(move |world: &mut World| {
             execute_console_command_from_ui(world, submitted_command_line);
@@ -320,7 +323,8 @@ fn handle_console_keyboard_actions(
     }
 }
 
-const FOUNDATION_CONSOLE_SCROLL_LINE_HEIGHT: f32 = 21.0;
+const FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP: usize = 3;
+const FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES: usize = 9;
 
 fn refresh_console_text_nodes(
     console_ui_state: Res<FoundationConsoleUiState>,
@@ -359,41 +363,39 @@ fn refresh_console_text_nodes(
 fn scroll_console_output(
     mut mouse_wheel_messages: MessageReader<MouseWheel>,
     console_state: Res<FoundationConsoleState>,
-    mut console_outputs: Query<
-        (&mut ScrollPosition, &Node, &ComputedNode),
-        With<FoundationConsoleOutputViewport>,
-    >,
+    mut console_ui_state: ResMut<FoundationConsoleUiState>,
 ) {
     if !console_state.is_open {
         mouse_wheel_messages.clear();
         return;
     }
 
-    let scroll_delta = mouse_wheel_messages
-        .read()
-        .map(|mouse_wheel| {
-            let unit_scale = match mouse_wheel.unit {
-                MouseScrollUnit::Line => FOUNDATION_CONSOLE_SCROLL_LINE_HEIGHT,
-                MouseScrollUnit::Pixel => 1.0,
-            };
-            -mouse_wheel.y * unit_scale
-        })
-        .sum::<f32>();
+    let mut scroll_steps: i32 = 0;
+    for mouse_wheel in mouse_wheel_messages.read() {
+        let unit_multiplier = match mouse_wheel.unit {
+            MouseScrollUnit::Line => 1.0,
+            MouseScrollUnit::Pixel => 0.05,
+        };
+        scroll_steps += (mouse_wheel.y * unit_multiplier).round() as i32;
+    }
 
-    if scroll_delta == 0.0 {
+    if scroll_steps == 0 {
         return;
     }
 
-    for (mut scroll_position, node, computed_node) in &mut console_outputs {
-        if node.overflow.y != OverflowAxis::Scroll {
-            continue;
-        }
+    let output_line_count = console_output_lines(&console_ui_state).len();
+    let max_scroll_lines =
+        output_line_count.saturating_sub(FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES);
+    let scroll_line_delta =
+        scroll_steps.unsigned_abs() as usize * FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP;
 
-        let max_scroll_offset = (computed_node.content_size().y - computed_node.size().y)
-            * computed_node.inverse_scale_factor();
-        let clamped_max_scroll_offset = max_scroll_offset.max(0.0);
-        scroll_position.y =
-            (scroll_position.y + scroll_delta).clamp(0.0, clamped_max_scroll_offset);
+    if scroll_steps > 0 {
+        console_ui_state.output_scroll_lines =
+            (console_ui_state.output_scroll_lines + scroll_line_delta).min(max_scroll_lines);
+    } else {
+        console_ui_state.output_scroll_lines = console_ui_state
+            .output_scroll_lines
+            .saturating_sub(scroll_line_delta);
     }
 }
 
@@ -418,6 +420,7 @@ fn execute_console_command_from_ui(world: &mut World, submitted_command_line: St
     let mut console_ui_state = world.resource_mut::<FoundationConsoleUiState>();
     console_ui_state.output_lines.push(output_line);
     console_ui_state.history_cursor = None;
+    console_ui_state.output_scroll_lines = 0;
 }
 
 fn editable_text_value(editable_text: &EditableText) -> String {
@@ -676,11 +679,26 @@ fn console_output_text(
     _console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> String {
-    if console_ui_state.output_lines.is_empty() {
-        "Foundation debug console ready.".to_string()
-    } else {
-        console_ui_state.output_lines.join("\n")
+    let output_lines = console_output_lines(console_ui_state);
+    if output_lines.is_empty() {
+        return "Foundation debug console ready.".to_string();
     }
+
+    let newest_visible_line_end = output_lines
+        .len()
+        .saturating_sub(console_ui_state.output_scroll_lines);
+    let visible_line_end = newest_visible_line_end.max(1);
+    let visible_line_start =
+        visible_line_end.saturating_sub(FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES);
+    output_lines[visible_line_start..visible_line_end].join("\n")
+}
+
+fn console_output_lines(console_ui_state: &FoundationConsoleUiState) -> Vec<String> {
+    console_ui_state
+        .output_lines
+        .iter()
+        .flat_map(|output_entry| output_entry.lines().map(str::to_string))
+        .collect()
 }
 
 /// Snapshot of console command descriptors linked into this binary.
@@ -1138,6 +1156,7 @@ mod tests {
                     .to_string(),
             ],
             history_cursor: None,
+            output_scroll_lines: 0,
         };
 
         let output_text = console_output_text(&console_history, &console_ui_state);
@@ -1145,6 +1164,46 @@ mod tests {
         assert_eq!(
             output_text,
             "> example.say-hello name=Jon\nCommand completed.\n> hello world\nError: Expected console argument `world` to use name=value syntax."
+        );
+    }
+
+    #[test]
+    fn console_output_scrolls_to_older_lines() {
+        let console_history = FoundationConsoleHistory::default();
+        let console_ui_state = FoundationConsoleUiState {
+            input: String::new(),
+            output_lines: (1..=12)
+                .map(|line_number| format!("line {line_number}"))
+                .collect(),
+            history_cursor: None,
+            output_scroll_lines: 3,
+        };
+
+        let output_text = console_output_text(&console_history, &console_ui_state);
+
+        assert_eq!(
+            output_text,
+            "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9"
+        );
+    }
+
+    #[test]
+    fn console_output_defaults_to_newest_lines() {
+        let console_history = FoundationConsoleHistory::default();
+        let console_ui_state = FoundationConsoleUiState {
+            input: String::new(),
+            output_lines: (1..=12)
+                .map(|line_number| format!("line {line_number}"))
+                .collect(),
+            history_cursor: None,
+            output_scroll_lines: 0,
+        };
+
+        let output_text = console_output_text(&console_history, &console_ui_state);
+
+        assert_eq!(
+            output_text,
+            "line 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12"
         );
     }
 
