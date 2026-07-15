@@ -208,4 +208,5 @@
 - `2026-07-15`: User reported scrolling only reached the newest few commands and blank space instead of older output. Changed output rendering to a line-window model with an explicit scrollback offset, so the newest lines show by default and mouse-wheel up pages through older output lines.
 - `2026-07-15`: User reported Up/Down history navigation only cycled the most recent command. Fixed `EditableText` change synchronization so programmatic history replacements do not immediately clear the history cursor, and added a test covering full history traversal and clear-input behavior.
 - `2026-07-15`: User confirmed history navigation works and requested a larger history/output box that fills more of the console vertically. Increased console height, output viewport height, and visible output line count.
+- `2026-07-15`: User confirmed the larger history area looks good and requested two additional visible output lines. Increased visible output line count from 14 to 16.
 - `2026-07-15`: Added TemplateGame `say_hello` example command registered as `example.say-hello`, demonstrating macro command-name override with named `name` input metadata.

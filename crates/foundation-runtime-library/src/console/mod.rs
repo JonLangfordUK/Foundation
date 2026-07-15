@@ -327,7 +327,7 @@ fn handle_console_keyboard_actions(
 }
 
 const FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP: usize = 3;
-const FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES: usize = 14;
+const FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES: usize = 16;
 
 fn refresh_console_text_nodes(
     console_ui_state: Res<FoundationConsoleUiState>,
