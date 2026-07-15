@@ -2571,6 +2571,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "foundation-console-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "foundation-editor-library"
 version = "0.1.0"
 dependencies = [
@@ -2582,6 +2591,10 @@ name = "foundation-runtime-library"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_feathers",
+ "bevy_input_focus",
+ "foundation-console-macros",
+ "linkme",
  "serde",
  "serde_json",
  "toml",
@@ -3368,6 +3381,26 @@ name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
+
+[[package]]
+name = "linkme"
+version = "0.3.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e83272d46373fb8decca684579ac3e7c8f3d71d4cc3aa693df8759e260ae41cf"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32d59e20403c7d08fe62b4376edfe5c7fb2ef1e6b1465379686d0f21c8df444b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "linux-raw-sys"
@@ -4876,6 +4909,7 @@ dependencies = [
  "bevy",
  "foundation-editor-library",
  "foundation-runtime-library",
+ "linkme",
 ]
 
 [[package]]

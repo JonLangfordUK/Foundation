@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/foundation",
+    "crates/foundation-console-macros",
     "crates/foundation-editor-library",
     "crates/foundation-runtime-library",
     "games/template-game",
@@ -19,11 +20,18 @@ bevy = { version = "0.19.0", features = [
     "reflect_documentation",
     "serialize",
 ] }
+bevy_feathers = "0.19.0"
+bevy_input_focus = "0.19.0"
 ctrlc = "3"
+foundation-console-macros = { path = "crates/foundation-console-macros" }
 foundation-editor-library = { path = "crates/foundation-editor-library" }
 foundation-runtime-library = { path = "crates/foundation-runtime-library" }
+linkme = "0.3"
+proc-macro2 = "1"
+quote = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+syn = { version = "2", features = ["full", "parsing", "printing"] }
 toml = "0.9"
 
 [profile.dev]

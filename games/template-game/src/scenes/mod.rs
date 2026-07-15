@@ -84,6 +84,8 @@ pub fn spawn_requested_template_game_scenes(
             Some(PAUSE_MENU_SCENE) => {
                 commands.spawn_scene(pause_menu_scene(scene_owner));
             }
+            Some(foundation_runtime_scene_key)
+                if foundation_runtime_scene_key.starts_with("foundation/") => {}
             Some(unknown_scene_key) => {
                 warn!("Unknown TemplateGame scene requested: {unknown_scene_key}");
             }
