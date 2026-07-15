@@ -32,13 +32,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Rust workspace
-        shell: pwsh
-        run: |
-          cargo fmt --all -- --check
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
-          cargo test --workspace --all-features
-          cargo build --workspace --all-features
-          cargo doc --workspace --all-features --no-deps
+        shell: cmd
+        run: scripts\validate-project.cmd
 
   package:
     name: Package windows-x64 ${{ matrix.configuration }} on Windows
@@ -55,23 +50,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install selected Rust target
-        shell: pwsh
+        shell: cmd
         run: rustup target add x86_64-pc-windows-msvc
 
       - name: Package Foundation game
-        shell: pwsh
-        run: |
-          cargo run -p foundation-build -- package `
-            --game "$env:FOUNDATION_GAME" `
-            --platform windows-x64 `
-            --configuration "${{ matrix.configuration }}" `
-            --target game
+        shell: cmd
+        run: >-
+          cargo run -p foundation-build -- package
+          --game "%FOUNDATION_GAME%"
+          --platform windows-x64
+          --configuration "${{ matrix.configuration }}"
+          --target game
 
       - name: Stage release assets
-        shell: pwsh
+        shell: cmd
         run: |
-          New-Item -ItemType Directory -Force -Path artifacts/release-assets | Out-Null
-          Copy-Item "artifacts/packages/$env:FOUNDATION_GAME/windows-x64/${{ matrix.configuration }}/*.tar.gz" artifacts/release-assets/
+          if not exist artifacts\release-assets mkdir artifacts\release-assets
+          copy "artifacts\packages\%FOUNDATION_GAME%\windows-x64\${{ matrix.configuration }}\*.tar.gz" artifacts\release-assets\
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -117,11 +112,11 @@ jobs:
             core.setOutput('tag', `0.0.${nextPatch}`);
 
       - name: Create release tag
-        shell: pwsh
+        shell: cmd
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.next-version.outputs.tag }}" "$env:GITHUB_SHA"
+          git tag "${{ steps.next-version.outputs.tag }}" "%GITHUB_SHA%"
           git push origin "${{ steps.next-version.outputs.tag }}"
 
       - name: Publish GitHub prerelease
@@ -171,11 +166,11 @@ jobs:
             core.setOutput('tag', `0.${nextMinor}.0`);
 
       - name: Create release tag
-        shell: pwsh
+        shell: cmd
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.next-version.outputs.tag }}" "$env:GITHUB_SHA"
+          git tag "${{ steps.next-version.outputs.tag }}" "%GITHUB_SHA%"
           git push origin "${{ steps.next-version.outputs.tag }}"
 
       - name: Publish GitHub Release
