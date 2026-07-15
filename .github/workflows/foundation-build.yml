@@ -22,6 +22,7 @@ concurrency:
 
 env:
   FOUNDATION_GAME: ${{ inputs.game || 'template-game' }}
+  CARGO_TARGET_DIR: C:\actions-runner\cargo-target\Foundation
 
 jobs:
   validate:

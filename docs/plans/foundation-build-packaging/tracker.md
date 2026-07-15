@@ -216,3 +216,4 @@
 - `2026-07-15`: Disabled Linux runner jobs until a Linux agent is available. The workflow now uses the Windows self-hosted runner for validation, Windows packages, tagging, prereleases, and releases.
 - `2026-07-15`: Fixed first workflow failure from the Windows runner: `pwsh: command not found`. Replaced PowerShell Core steps with `cmd` shell commands and existing `.cmd` validation wrapper.
 - `2026-07-15`: Second workflow failure showed `cargo` was not on the runner service PATH. Removed hard-coded runner paths; workflow now verifies `cargo` and `rustup` with `where` so runner environment issues fail clearly and can be fixed on the agent.
+- `2026-07-15`: Added workflow-only `CARGO_TARGET_DIR` under `C:\actions-runner\cargo-target\Foundation` so self-hosted CI can reuse compiled Cargo artifacts across checkouts without changing local developer target directories.
