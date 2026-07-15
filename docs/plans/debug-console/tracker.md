@@ -55,37 +55,38 @@
 - TemplateGame now has a macro-registered command and a test proving it is linked into the TemplateGame binary's registry.
 
 ## Phase 2: Feathers Console UI And Input Focus
-**Status:** Planned  
+**Status:** In progress  
 **Goal:** Provide a UE5-style bottom console overlay using Bevy Feathers with robust keyboard and mouse focus while open.
 
 ### Tasks
 - [ ] Verify Bevy 0.19 Feathers imports, required features, and text input APIs.
-  - Status: Planned
-  - Notes: Research indicates Feathers has text input widgets and Bevy 0.19 includes `EditableText`.
+  - Status: Implemented; awaiting phase validation
+  - Notes: Local Bevy 0.19 source confirms `bevy_feathers::FeathersPlugins`, `FeathersTextInputContainer`, and `FeathersTextInput` exist. Added direct `bevy_feathers` and `bevy_input_focus` dependencies for the runtime console UI.
 - [ ] Implement backtick toggle behavior for opening/closing the console.
-  - Status: Planned
-  - Notes: Ensure backtick while focused in console does not produce unwanted text.
+  - Status: Implemented; awaiting phase validation
+  - Notes: Backquote now opens the console as a scene-stack runtime scene with `INPUT_BLOCKING_OVERLAY`, so gameplay continues updating while lower-scene input is blocked. Backquote closes the keyed console scene while open.
 - [ ] Spawn/despawn or show/hide a full-width bottom console overlay with history/output above the input row.
-  - Status: Planned
-  - Notes: Use a high UI order/layer suitable for in-game overlays.
+  - Status: Implemented; awaiting phase validation
+  - Notes: Added scene-load handling that spawns a full-width bottom overlay with high `GlobalZIndex`, history/output text, Feathers text input markers, and scene ownership for cleanup.
 - [ ] Capture mouse and keyboard focus while the console is open.
-  - Status: Planned
-  - Notes: Gameplay input leakage is a key review risk.
+  - Status: In progress
+  - Notes: The generated input entity uses Bevy `EditableText`, `TabIndex`, `AutoFocus`, and explicit `InputFocus` assignment. More validation is still needed around gameplay input leakage and text input behavior.
 - [ ] Implement Enter execution, Escape/backtick close behavior, Up/Down history navigation, and Tab autocomplete completion.
   - Status: Planned
   - Notes: Coordinate Tab with Bevy UI tab navigation.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
+- Format: Passed focused check via `cargo fmt --all` and `scripts/format-project.cmd` on 2026-07-15
+- Lint: Passed focused check via `cargo clippy -p foundation-runtime-library --all-targets --all-features -- -D warnings` on 2026-07-15
+- Tests: Passed focused check via `cargo test -p foundation-runtime-library console --all-features` on 2026-07-15
+- Build: Pending phase-level build
+- Documentation generation: Pending phase-level documentation generation
 - Full validation wrapper: Pending / Not required yet
 - User confirmation: Pending / Not required yet
 
 ### Notes
 - Manual runtime testing will be necessary because UI focus behavior is hard to prove with unit tests alone.
+- Remaining Phase 2 work: Enter execution, Escape close, Up/Down history navigation, Tab autocomplete completion, and stronger focus/input-leak validation.
 
 ## Phase 3: Autocomplete, Placeholder Text, And Example Commands
 **Status:** Planned  
@@ -190,3 +191,6 @@
 - `2026-07-15`: Verified active branch `feature/debug-console`; `dev` is an ancestor of `HEAD` before implementation edits. Started implementation with `gpt-5.4`.
 - `2026-07-15`: Implemented Phase 1 command core: console runtime module, plugin/resource registration, linked command registry, procedural macros, built-in Foundation command, TemplateGame example command, parser/dispatch tests, and linked-game registry test.
 - `2026-07-15`: Phase 1 validation passed: `scripts/format-project.cmd`, `scripts/lint-project.cmd`, `scripts/test-project.cmd`, `scripts/compile-project.cmd`, and `scripts/doc-project.cmd`.
+- `2026-07-15`: Phase 1 committed and pushed as `68e1218`.
+- `2026-07-15`: Started Phase 2 Feathers console UI and scene-stack integration.
+- `2026-07-15`: Implemented initial Phase 2 UI skeleton: Feathers dependencies/plugins, backquote scene-stack open/close, input-blocking non-pausing presentation, scene-load UI spawning, high-Z bottom overlay, `EditableText` input, and focus assignment.

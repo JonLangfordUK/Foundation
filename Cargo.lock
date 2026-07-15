@@ -2591,6 +2591,8 @@ name = "foundation-runtime-library"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_feathers",
+ "bevy_input_focus",
  "foundation-console-macros",
  "linkme",
  "serde",

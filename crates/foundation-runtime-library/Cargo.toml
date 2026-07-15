@@ -8,6 +8,8 @@ description = "Reusable Foundation runtime systems for Bevy games"
 
 [dependencies]
 bevy.workspace = true
+bevy_feathers.workspace = true
+bevy_input_focus.workspace = true
 foundation-console-macros.workspace = true
 linkme.workspace = true
 serde.workspace = true

@@ -7,7 +7,19 @@
 
 use std::{collections::BTreeMap, fmt, path::PathBuf};
 
-use bevy::prelude::*;
+use crate::scene_stack::{
+    OpenSceneOptions, SceneAdded, SceneCommand, SceneKey, SceneLoadRequested, SceneOwner,
+    ScenePresentation, SceneRemoved, SceneSource, SceneTarget,
+};
+use bevy::{
+    prelude::*,
+    text::{EditableText, TextCursorStyle, TextLayout},
+};
+use bevy_feathers::{
+    controls::{FeathersTextInput, FeathersTextInputContainer},
+    FeathersPlugins,
+};
+use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus, FocusCause, InputFocus};
 use linkme::distributed_slice;
 use serde::{Deserialize, Serialize};
 
@@ -35,9 +47,26 @@ pub struct FoundationConsolePlugin;
 
 impl Plugin for FoundationConsolePlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<bevy_feathers::FeathersCorePlugin>() {
+            app.add_plugins(FeathersPlugins);
+        }
+
         app.init_resource::<FoundationConsoleState>()
             .init_resource::<FoundationConsoleHistory>()
-            .init_resource::<FoundationConsoleRegistry>();
+            .init_resource::<FoundationConsoleRegistry>()
+            .init_resource::<FoundationConsoleUiState>()
+            .register_type::<FoundationConsoleRoot>()
+            .register_type::<FoundationConsoleInput>()
+            .register_type::<FoundationConsoleOutput>()
+            .add_systems(
+                Update,
+                (
+                    toggle_console_scene,
+                    spawn_console_scene_from_stack_request,
+                    track_console_scene_added,
+                    track_console_scene_removed,
+                ),
+            );
     }
 }
 
@@ -47,6 +76,32 @@ pub struct FoundationConsoleState {
     /// Whether the debug console scene is currently open.
     pub is_open: bool,
 }
+
+/// Runtime UI state for the Foundation debug console.
+#[derive(Clone, Debug, Default, Resource)]
+pub struct FoundationConsoleUiState {
+    /// Current editable command line.
+    pub input: String,
+    /// Console output and status lines displayed above the input.
+    pub output_lines: Vec<String>,
+    /// Current history cursor used by Up/Down navigation.
+    pub history_cursor: Option<usize>,
+}
+
+/// Root component for the generated Foundation debug console UI.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleRoot;
+
+/// Marker component for the editable console input entity.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleInput;
+
+/// Marker component for the console history and output text entity.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleOutput;
 
 /// Persisted command history for the Foundation debug console.
 #[derive(Clone, Debug, Default, Resource, Serialize, Deserialize)]
@@ -67,6 +122,224 @@ impl FoundationConsoleHistory {
         if !command_line.trim().is_empty() {
             self.commands.push(command_line);
         }
+    }
+}
+
+fn toggle_console_scene(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    console_state: Res<FoundationConsoleState>,
+    mut scene_commands: MessageWriter<SceneCommand>,
+) {
+    if !keyboard_input.just_pressed(KeyCode::Backquote) {
+        return;
+    }
+
+    let console_scene_key = SceneKey::new(FOUNDATION_CONSOLE_SCENE_KEY);
+    if console_state.is_open {
+        scene_commands.write(SceneCommand::Close(SceneTarget::Key(console_scene_key)));
+    } else {
+        let console_scene_source = SceneSource::runtime(console_scene_key.clone());
+        let console_scene_options = OpenSceneOptions::default()
+            .with_key(console_scene_key)
+            .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY);
+        scene_commands.write(SceneCommand::open_with_options(
+            console_scene_source,
+            console_scene_options,
+        ));
+    }
+}
+
+fn spawn_console_scene_from_stack_request(
+    mut commands: Commands,
+    mut scene_load_requests: MessageReader<SceneLoadRequested>,
+    console_history: Res<FoundationConsoleHistory>,
+    console_ui_state: Res<FoundationConsoleUiState>,
+    mut input_focus: ResMut<InputFocus>,
+) {
+    for scene_load_request in scene_load_requests.read() {
+        if !is_console_scene_source(&scene_load_request.source) {
+            continue;
+        }
+
+        let input_entity = spawn_console_overlay(
+            &mut commands,
+            scene_load_request.scene_id,
+            &console_history,
+            &console_ui_state,
+        );
+        input_focus.set(input_entity, FocusCause::Navigated);
+    }
+}
+
+fn track_console_scene_added(
+    mut scene_added_messages: MessageReader<SceneAdded>,
+    scene_stack: Res<crate::scene_stack::SceneStack>,
+    mut console_state: ResMut<FoundationConsoleState>,
+) {
+    for scene_added_message in scene_added_messages.read() {
+        let Some(scene_entry) = scene_stack.get(scene_added_message.scene_id) else {
+            continue;
+        };
+        if is_console_scene_source(&scene_entry.source) {
+            console_state.is_open = true;
+        }
+    }
+}
+
+fn track_console_scene_removed(
+    mut scene_removed_messages: MessageReader<SceneRemoved>,
+    mut console_state: ResMut<FoundationConsoleState>,
+    console_roots: Query<&SceneOwner, With<FoundationConsoleRoot>>,
+    mut input_focus: ResMut<InputFocus>,
+) {
+    for scene_removed_message in scene_removed_messages.read() {
+        if console_roots
+            .iter()
+            .any(|scene_owner| scene_owner.scene_id == scene_removed_message.scene_id)
+        {
+            console_state.is_open = false;
+            input_focus.clear();
+        }
+    }
+}
+
+fn is_console_scene_source(scene_source: &SceneSource) -> bool {
+    matches!(
+        scene_source,
+        SceneSource::Runtime { key } if key.0 == FOUNDATION_CONSOLE_SCENE_KEY
+    )
+}
+
+fn spawn_console_overlay(
+    commands: &mut Commands,
+    scene_id: crate::scene_stack::SceneId,
+    console_history: &FoundationConsoleHistory,
+    console_ui_state: &FoundationConsoleUiState,
+) -> Entity {
+    let console_root_height = Val::Px(280.0);
+    let console_padding = UiRect::all(Val::Px(10.0));
+    let console_gap = Val::Px(8.0);
+    let console_background = BackgroundColor(Color::srgba(0.02, 0.02, 0.025, 0.92));
+    let console_border = BorderColor::all(Color::srgba(0.25, 0.25, 0.30, 1.0));
+    let console_text_color = TextColor(Color::srgba(0.82, 0.88, 0.78, 1.0));
+    let input_background = BackgroundColor(Color::srgba(0.05, 0.05, 0.06, 1.0));
+    let output_text = console_output_text(console_history, console_ui_state);
+
+    let root_entity = commands
+        .spawn((
+            Name::new("Foundation Debug Console"),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: console_root_height,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
+                row_gap: console_gap,
+                padding: console_padding,
+                border: UiRect::top(Val::Px(1.0)),
+                ..default()
+            },
+            console_background,
+            console_border,
+            GlobalZIndex(10_000),
+            SceneOwner { scene_id },
+            FoundationConsoleRoot,
+        ))
+        .id();
+
+    let output_entity = commands
+        .spawn((
+            Name::new("Foundation Debug Console Output"),
+            Node {
+                width: Val::Percent(100.0),
+                flex_grow: 1.0,
+                overflow: Overflow::clip_y(),
+                ..default()
+            },
+            Text::new(output_text),
+            TextFont {
+                font_size: 14.0.into(),
+                ..default()
+            },
+            console_text_color,
+            SceneOwner { scene_id },
+            FoundationConsoleOutput,
+        ))
+        .id();
+
+    let input_container_entity = commands
+        .spawn((
+            Name::new("Foundation Debug Console Input Container"),
+            Node {
+                width: Val::Percent(100.0),
+                min_height: Val::Px(34.0),
+                padding: UiRect::all(Val::Px(6.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
+            input_background,
+            BorderColor::all(Color::srgba(0.35, 0.35, 0.40, 1.0)),
+            FeathersTextInputContainer,
+            SceneOwner { scene_id },
+        ))
+        .id();
+
+    let input_entity = commands
+        .spawn((
+            Name::new("Foundation Debug Console Input"),
+            Node {
+                width: Val::Percent(100.0),
+                ..default()
+            },
+            FeathersTextInput,
+            FoundationConsoleInput,
+            EditableText::new(console_ui_state.input.clone()),
+            TextLayout::no_wrap(),
+            TextFont {
+                font_size: 14.0.into(),
+                ..default()
+            },
+            console_text_color,
+            TextCursorStyle::default(),
+            TabIndex(0),
+            AutoFocus,
+            SceneOwner { scene_id },
+        ))
+        .id();
+
+    commands
+        .entity(input_container_entity)
+        .add_child(input_entity);
+    commands
+        .entity(root_entity)
+        .add_children(&[output_entity, input_container_entity]);
+
+    input_entity
+}
+
+fn console_output_text(
+    console_history: &FoundationConsoleHistory,
+    console_ui_state: &FoundationConsoleUiState,
+) -> String {
+    let mut output_lines = Vec::new();
+    output_lines.extend(console_ui_state.output_lines.iter().cloned());
+    output_lines.extend(
+        console_history
+            .commands
+            .iter()
+            .rev()
+            .take(8)
+            .rev()
+            .map(|command_line| format!("> {command_line}")),
+    );
+
+    if output_lines.is_empty() {
+        "Foundation debug console ready.".to_string()
+    } else {
+        output_lines.join("\n")
     }
 }
 
