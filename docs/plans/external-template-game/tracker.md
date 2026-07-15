@@ -37,27 +37,27 @@
 - User confirmation: Pending
 
 ## Phase 1: Foundation External Project Support
-**Status:** Planned
+**Status:** Awaiting broader validation
 **Goal:** Let Foundation build, run, and package a game project outside the Foundation repository by relative or absolute path.
 
 ### Tasks
-- [ ] Add `--project <path>` support to `foundation-build` while preserving `--game <name>` compatibility.
-  - Status: Planned
-  - Notes: Accept a directory containing `foundation.game.toml` or a direct manifest path.
-- [ ] Resolve manifest, game source, game asset, engine asset, output, and Cargo paths correctly for external projects.
-  - Status: Planned
-  - Notes: Game assets belong under `game/assets`; engine assets may exist under `engine/assets`.
-- [ ] Update build/run/package commands for external game Cargo manifests.
-  - Status: Planned
-  - Notes: External builds likely need `cargo build --manifest-path <game Cargo.toml>` rather than `cargo build -p` from Foundation workspace.
-- [ ] Add focused tests for relative project paths, absolute project paths, direct manifest paths, asset root resolution, and `CARGO_TARGET_DIR` compatibility.
-  - Status: Planned
-  - Notes: Preserve existing tests for in-repo games until the transition is complete.
+- [x] Add `--project <path>` support to `foundation-build` while preserving `--game <name>` compatibility.
+  - Status: Awaiting broader validation
+  - Notes: Added `--project` parsing and validation. It accepts either `--game` or `--project`, not both.
+- [x] Resolve manifest, game source, game asset, engine asset, output, and Cargo paths correctly for external projects.
+  - Status: Awaiting broader validation
+  - Notes: External project paths can point at a directory containing `foundation.game.toml` or the manifest file directly. Game asset roots resolve relative to the game directory. Engine assets under `engine/assets` package to `assets/engine` when present.
+- [x] Update build/run/package commands for external game Cargo manifests.
+  - Status: Awaiting broader validation
+  - Notes: External builds use `cargo build --manifest-path <game Cargo.toml>`. In-workspace `--game` builds continue to use `cargo build -p`.
+- [x] Add focused tests for relative project paths, absolute project paths, direct manifest paths, asset root resolution, and `CARGO_TARGET_DIR` compatibility.
+  - Status: Partial; awaiting more path tests
+  - Notes: Added tests for `--project` parsing, `--game`/`--project` conflicts, external default target directory behavior, and `CARGO_TARGET_DIR` override behavior. Direct manifest and asset copy tests still need integration coverage.
 
 ### Validation
-- Format: Pending
+- Format: Passed via `cargo fmt --all` on 2026-07-15
 - Lint: Pending
-- Tests: Pending
+- Tests: Passed focused `cargo test -p foundation-build` on 2026-07-15
 - Build: Pending
 - Documentation generation: Pending
 - Full validation wrapper: Pending
@@ -143,11 +143,14 @@
 - `2026-07-15`: Created planning documents for moving TemplateGame into `https://github.com/JonLangfordUK/template-game.git` and adding external Foundation game project support.
 - `2026-07-15`: Inspected the new template-game repository and found it empty with no commits.
 - `2026-07-15`: Noted dependency on unmerged `feature/branch-protection-ci` workflow changes.
-- `2026-07-15`: User approved implementation. Confirmed active branch is `feature/external-template-game`, matching the tracker. Branch was created from `origin/dev`; branch-protection changes are still on a separate feature branch and will be incorporated before workflow edits.
+- `2026-07-15`: User approved implementation. Confirmed active branch is `feature/external-template-game`, matching the tracker. Branch was created from `origin/dev`; branch-protection changes are already present in `origin/dev`, so no manual merge was required.
+- `2026-07-15`: Added initial external `--project` support to `foundation-build`, updated Foundation scripts to work when called from outside the engine root, and validated with `cargo fmt --all` plus `cargo test -p foundation-build`.
 
 ## Git And Push State
 - Foundation branch created from: `origin/dev`
 - Foundation branch: `feature/external-template-game`
-- Plan/tracker commit: Pending
-- Foundation push state: Pending
+- Plan/tracker commit: `a6fdbe5 Add external TemplateGame plan`
+- Implementation start commit: `ae83014 Start external TemplateGame implementation`
+- Foundation external project support commit: Pending
+- Foundation push state: Implementation start pushed; external project support push pending
 - TemplateGame repo state: Empty remote inspected; no implementation commits yet
