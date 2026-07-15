@@ -100,13 +100,11 @@ jobs:
           path: artifacts/release-assets/*.tar.gz
           if-no-files-found: error
 
-  main-release:
-    name: Publish tagged main release
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  dev-release:
+    name: Publish tagged dev release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     needs: package
     runs-on: [self-hosted, Linux]
-    outputs:
-      release-tag: ${{ steps.next-version.outputs.tag }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -119,7 +117,7 @@ jobs:
           path: artifacts/release-downloads
           merge-multiple: true
 
-      - name: Calculate next semantic version tag
+      - name: Calculate next dev version tag
         id: next-version
         uses: actions/github-script@v7
         with:
@@ -129,22 +127,68 @@ jobs:
               repo: context.repo.repo,
               per_page: 100,
             });
-            const versions = tags
-              .map((tag) => tag.name.match(/^(\d+)\.(\d+)\.(\d+)$/))
+            const devPatches = tags
+              .map((tag) => tag.name.match(/^0\.0\.(\d+)$/))
               .filter(Boolean)
-              .map((match) => ({
-                major: Number(match[1]),
-                minor: Number(match[2]),
-                patch: Number(match[3]),
-              }))
-              .sort((left, right) =>
-                left.major - right.major || left.minor - right.minor || left.patch - right.patch
-              );
-            const latest = versions.at(-1);
-            const next = latest
-              ? `${latest.major}.${latest.minor}.${latest.patch + 1}`
-              : '0.0.0';
-            core.setOutput('tag', next);
+              .map((match) => Number(match[1]))
+              .sort((left, right) => left - right);
+            const latestPatch = devPatches.at(-1);
+            const nextPatch = latestPatch === undefined ? 0 : latestPatch + 1;
+            core.setOutput('tag', `0.0.${nextPatch}`);
+
+      - name: Create release tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.next-version.outputs.tag }}" "${GITHUB_SHA}"
+          git push origin "${{ steps.next-version.outputs.tag }}"
+
+      - name: Publish GitHub prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.next-version.outputs.tag }}
+          name: Foundation Dev ${{ steps.next-version.outputs.tag }}
+          draft: false
+          prerelease: true
+          files: artifacts/release-downloads/*.tar.gz
+
+  main-release:
+    name: Publish tagged main release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: package
+    runs-on: [self-hosted, Linux]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/release-downloads
+          merge-multiple: true
+
+      - name: Calculate next main version tag
+        id: next-version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const mainMinors = tags
+              .map((tag) => tag.name.match(/^0\.(\d+)\.0$/))
+              .filter(Boolean)
+              .map((match) => Number(match[1]))
+              .filter((minor) => minor > 0)
+              .sort((left, right) => left - right);
+            const latestMinor = mainMinors.at(-1);
+            const nextMinor = latestMinor === undefined ? 1 : latestMinor + 1;
+            core.setOutput('tag', `0.${nextMinor}.0`);
 
       - name: Create release tag
         shell: bash
@@ -162,22 +206,3 @@ jobs:
           draft: false
           prerelease: false
           files: artifacts/release-downloads/*.tar.gz
-
-  dev-artifacts:
-    name: Publish untagged dev artifacts
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: package
-    runs-on: [self-hosted, Linux]
-    steps:
-      - name: Download package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/dev-downloads
-          merge-multiple: true
-
-      - name: Upload combined dev artifact bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.FOUNDATION_GAME }}-dev-${{ github.sha }}
-          path: artifacts/dev-downloads/*.tar.gz
-          if-no-files-found: error

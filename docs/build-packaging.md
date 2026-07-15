@@ -133,12 +133,15 @@ Pushes to `dev`:
 - validate the workspace on both Windows and Linux self-hosted runners,
 - build package artifacts for `windows-x64` and `linux-x64`,
 - always produce `test` and `shipping` game packages,
-- publish untagged workflow artifacts for the commit SHA.
+- create the next dev tag in `0.0.#` format,
+- publish a GitHub prerelease containing the `test` and `shipping` package artifacts.
 
 Pushes to `main`:
 
 - perform the same validation and package matrix,
-- create the next semantic version tag using `major.minor.patch` format such as `0.0.0`,
+- create the next main tag in `0.#.0` format, starting at `0.1.0`,
 - publish a non-prerelease GitHub Release containing the `test` and `shipping` package artifacts.
+
+Manual shipping milestones use `#.0.0` tags and are intentionally not created by this workflow.
 
 The current release matrix uses native platform runners: Windows runners produce `windows-x64` packages and Linux runners produce `linux-x64` packages. The package command and artifact layout are shared so outputs follow the same structure on either host. Full cross-host builds for every target remain dependent on installed platform SDKs, linkers, and Bevy/wgpu native requirements.
