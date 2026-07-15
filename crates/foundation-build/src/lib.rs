@@ -46,13 +46,14 @@ pub fn run(arguments: impl IntoIterator<Item = String>) -> Result<(), String> {
 fn print_usage() {
     println!("Foundation build tool");
     println!("Usage:");
-    println!("  cargo run -p foundation-build -- package --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor> [--output <directory>]");
-    println!("  cargo run -p foundation-build -- build   --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor>");
-    println!("  cargo run -p foundation-build -- run     --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor> [-- <game arguments>]");
+    println!("  cargo run -p foundation-build -- package --game <name> [--platform <alias>] [--configuration <debug|test|shipping>] [--target <game|game-editor>] [--output <directory>]");
+    println!("  cargo run -p foundation-build -- build   --game <name> [--platform <alias>] [--configuration <debug|test|shipping>] [--target <game|game-editor>]");
+    println!("  cargo run -p foundation-build -- run     --game <name> [--platform <alias>] [--configuration <debug|test|shipping>] [--target <game|game-editor>] [-- <game arguments>]");
     println!("Examples:");
-    println!("  cargo run -p foundation-build -- run --game template-game --platform windows-x64 --configuration debug --target-kind game-editor");
-    println!("  cargo run -p foundation-build -- package --game template-game --platform windows-x64 --configuration test --target-kind game");
-    println!("  cargo run -p foundation-build -- package --game template-game --platform linux-x64 --configuration shipping --target-kind game");
+    println!("  cargo run -p foundation-build -- run --game template-game");
+    println!("  cargo run -p foundation-build -- run --game template-game --platform windows-x64 --configuration debug --target game-editor");
+    println!("  cargo run -p foundation-build -- package --game template-game --platform windows-x64 --configuration test --target game");
+    println!("  cargo run -p foundation-build -- package --game template-game --platform linux-x64 --configuration shipping --target game");
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,7 +138,7 @@ impl TargetKind {
             "game" => Ok(Self::Game),
             "game-editor" | "gameeditor" | "editor" => Ok(Self::GameEditor),
             _ => Err(format!(
-                "Unknown target kind `{target_kind_text}`. Expected `game` or `game-editor`."
+                "Unknown target `{target_kind_text}`. Expected `game` or `game-editor`."
             )),
         }
     }
@@ -186,6 +187,16 @@ fn executable_suffix_for_target(rust_target_triple: &str) -> &'static str {
         ".exe"
     } else {
         ""
+    }
+}
+
+fn current_platform_alias() -> Result<String, String> {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("windows", "x86_64") => Ok("windows-x64".to_string()),
+        ("linux", "x86_64") => Ok("linux-x64".to_string()),
+        (current_os, current_arch) => Err(format!(
+            "No default Foundation platform alias is configured for {current_os}/{current_arch}. Pass `--platform <alias-or-target-triple>` explicitly."
+        )),
     }
 }
 
@@ -239,9 +250,9 @@ impl BuildInvocation {
                     invocation.configuration =
                         Some(BuildConfiguration::parse(&configuration_text)?);
                 }
-                "--target-kind" => {
-                    let target_kind_text = required_value("--target-kind", &mut argument_iterator)?;
-                    invocation.target_kind = Some(TargetKind::parse(&target_kind_text)?);
+                "--target" => {
+                    let target_text = required_value("--target", &mut argument_iterator)?;
+                    invocation.target_kind = Some(TargetKind::parse(&target_text)?);
                 }
                 "--output" => {
                     let output_directory_text = required_value("--output", &mut argument_iterator)?;
@@ -266,15 +277,6 @@ impl BuildInvocation {
     fn validate_required_arguments(&self) -> Result<(), String> {
         if self.game_name.trim().is_empty() {
             return Err("Expected `--game <name>`.".to_string());
-        }
-        if self.platform_text.trim().is_empty() {
-            return Err("Expected `--platform <alias-or-target-triple>`.".to_string());
-        }
-        if self.configuration.is_none() {
-            return Err("Expected `--configuration <debug|test|shipping>`.".to_string());
-        }
-        if self.target_kind.is_none() {
-            return Err("Expected `--target-kind <game|game-editor>`.".to_string());
         }
         Ok(())
     }
@@ -312,12 +314,8 @@ impl BuildRequest {
         let command = invocation
             .command
             .expect("command is validated before request creation");
-        let configuration = invocation
-            .configuration
-            .expect("configuration is validated before request creation");
-        let target_kind = invocation
-            .target_kind
-            .expect("target kind is validated before request creation");
+        let configuration = invocation.configuration.unwrap_or(BuildConfiguration::Test);
+        let target_kind = invocation.target_kind.unwrap_or(TargetKind::Game);
 
         if configuration == BuildConfiguration::Shipping && target_kind == TargetKind::GameEditor {
             return Err(
@@ -326,7 +324,12 @@ impl BuildRequest {
             );
         }
 
-        let platform = TargetPlatform::parse(&invocation.platform_text)?;
+        let platform_text = if invocation.platform_text.trim().is_empty() {
+            current_platform_alias()?
+        } else {
+            invocation.platform_text
+        };
+        let platform = TargetPlatform::parse(&platform_text)?;
         let package = game_manifest.launch.package;
         let package_metadata = game_manifest.package.unwrap_or_default();
         let executable_name = package_metadata
@@ -674,7 +677,7 @@ fn write_package_metadata(
 ) -> Result<(), String> {
     let metadata_path = package_directory.join("foundation.package.toml");
     let metadata_text = format!(
-        "[package]\nname = \"{}\"\nconfiguration = \"{}\"\ntarget-kind = \"{}\"\nplatform = \"{}\"\nrust-target = \"{}\"\n",
+        "[package]\nname = \"{}\"\nconfiguration = \"{}\"\ntarget = \"{}\"\nplatform = \"{}\"\nrust-target = \"{}\"\n",
         build_request.game_name,
         build_request.configuration.as_output_segment(),
         build_request.target_kind.as_output_segment(),
@@ -830,6 +833,26 @@ mod tests {
     }
 
     #[test]
+    fn omitted_configuration_and_target_default_to_test_game() {
+        let invocation = BuildInvocation {
+            command: Some(BuildCommand::Run),
+            game_name: "template-game".to_string(),
+            platform_text: "windows-x64".to_string(),
+            configuration: None,
+            target_kind: None,
+            output_directory: None,
+            runtime_arguments: Vec::new(),
+            help_requested: false,
+        };
+        let manifest = template_game_manifest();
+        let build_request = BuildRequest::new(invocation, manifest).expect("request should build");
+
+        assert_eq!(build_request.configuration, BuildConfiguration::Test);
+        assert_eq!(build_request.target_kind, TargetKind::Game);
+        assert_eq!(build_request.platform.alias, "windows-x64");
+    }
+
+    #[test]
     fn run_command_preserves_runtime_arguments() {
         let arguments = [
             "run",
@@ -839,7 +862,7 @@ mod tests {
             "windows-x64",
             "--configuration",
             "debug",
-            "--target-kind",
+            "--target",
             "game-editor",
             "--",
             "--custom-game-argument",

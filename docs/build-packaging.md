@@ -5,13 +5,13 @@ Foundation games should be built, run, and packaged through the Foundation build
 Preferred local run command:
 
 ```cmd
-scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target-kind game-editor
+scripts\foundation-build.cmd run --game template-game
 ```
 
 Preferred local package command:
 
 ```cmd
-scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration test --target-kind game
+scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration test --target game
 ```
 
 The older command, `cargo run -p foundation -- --game template-game`, remains useful as loose launcher context, but it is no longer the intended build/package workflow.
@@ -26,10 +26,10 @@ The older command, `cargo run -p foundation -- --game template-game`, remains us
 
 `shipping` builds pass `--no-default-features` to the game crate and use the `foundation-shipping` Cargo profile. This is the configuration that must exclude console commands, log windows, editor plugins, and other dev-only systems.
 
-## Target Kinds
+## Targets
 
 - `game`: builds the standalone game.
-- `game-editor`: builds the game with Foundation editor support. This target kind is rejected for `shipping`.
+- `game-editor`: builds the game with Foundation editor support. This target is rejected for `shipping`.
 
 ## Platforms
 
@@ -40,7 +40,21 @@ Initial aliases:
 | `windows-x64` | `x86_64-pc-windows-msvc` |
 | `linux-x64` | `x86_64-unknown-linux-gnu` |
 
-A Rust target triple can also be passed directly. Cross-compilation support depends on the host toolchain, target toolchain, linker, and native dependencies required by Bevy/wgpu. The build tool validates Foundation's build matrix, but it cannot install platform SDKs for the runner.
+A Rust target triple can also be passed directly. If `--platform` is omitted, Foundation defaults to the current host platform when it has a known alias. Cross-compilation support depends on the host toolchain, target toolchain, linker, and native dependencies required by Bevy/wgpu. The build tool validates Foundation's build matrix, but it cannot install platform SDKs for the runner.
+
+## Defaults
+
+If omitted, the build tool uses:
+
+- `--configuration test`
+- `--target game`
+- `--platform` matching the current host, currently `windows-x64` on x86_64 Windows or `linux-x64` on x86_64 Linux
+
+This means the default play/debug loop is:
+
+```cmd
+scripts\foundation-build.cmd run --game template-game
+```
 
 ## Game Manifest Metadata
 
@@ -66,17 +80,17 @@ asset-roots = ["assets"]
 ## Local Examples
 
 ```cmd
-scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target-kind game-editor
-scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration test --target-kind game
-scripts\foundation-build.cmd build --game template-game --platform windows-x64 --configuration debug --target-kind game
-scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration test --target-kind game-editor
-scripts\foundation-build.cmd package --game template-game --platform linux-x64 --configuration shipping --target-kind game
+scripts\foundation-build.cmd run --game template-game
+scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target game-editor
+scripts\foundation-build.cmd build --game template-game --platform windows-x64 --configuration debug --target game
+scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration test --target game-editor
+scripts\foundation-build.cmd package --game template-game --platform linux-x64 --configuration shipping --target game
 ```
 
 Runtime arguments can be passed after `--`:
 
 ```cmd
-scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target-kind game -- --some-game-argument
+scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target game -- --some-game-argument
 ```
 
 `game-editor` runs automatically pass `--editor` to the game executable.
@@ -84,7 +98,7 @@ scripts\foundation-build.cmd run --game template-game --platform windows-x64 --c
 Invalid example:
 
 ```cmd
-scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration shipping --target-kind game-editor
+scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration shipping --target game-editor
 ```
 
 ## Package Layout
@@ -92,7 +106,7 @@ scripts\foundation-build.cmd package --game template-game --platform windows-x64
 Packages are written under:
 
 ```text
-artifacts/packages/<game>/<platform>/<configuration>/<target-kind>/
+artifacts/packages/<game>/<platform>/<configuration>/<target>/
 ```
 
 A package contains:

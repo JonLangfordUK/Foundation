@@ -27,7 +27,7 @@
 - [x] Define `Debug`, `Test`, and `Shipping` semantics in code/config documentation.
   - Status: Complete
   - Notes: Implemented in `crates/foundation-build` and documented in `docs/build-packaging.md`. Shipping means no debug/dev/editor tooling and uses `--no-default-features`.
-- [x] Define `Game` and `GameEditor` target kinds and reject `Shipping + GameEditor`.
+- [x] Define `Game` and `GameEditor` targets and reject `Shipping + GameEditor`.
   - Status: Complete
   - Notes: `foundation-build` rejects `shipping` plus `game-editor`; manual invalid-combination smoke test returned the expected failure.
 - [x] Extend or design the `foundation.game.toml` schema for package/build metadata.
@@ -47,7 +47,8 @@
 - User confirmation: Pending final user acceptance
 
 ### Notes
-- The stable command contract is `foundation-build <build|run|package> --game <name> --platform <alias-or-target> --configuration <debug|test|shipping> --target-kind <game|game-editor>`.
+- The stable command contract is `foundation-build <build|run|package> --game <name> [--platform <alias-or-target>] [--configuration <debug|test|shipping>] [--target <game|game-editor>]`.
+- Defaults are `--configuration test`, `--target game`, and the current host platform when it has a known Foundation alias.
 
 ## Phase 2: Build Mode Feature Gating
 **Status:** Complete  
@@ -63,7 +64,7 @@
 - [x] Gate `foundation-editor-library` usage behind non-shipping `GameEditor` configuration.
   - Status: Complete
   - Notes: `template-game` editor dependency is optional and enabled only by the `editor` feature.
-- [x] Update `template-game` to respect the build configuration and target kind.
+- [x] Update `template-game` to respect the build configuration and target.
   - Status: Complete
   - Notes: `template-game` gates console commands behind `dev-tools`, gates editor integration behind `editor`, and resolves packaged assets beside the executable.
 
@@ -84,7 +85,7 @@
 **Goal:** Provide a local command interface to build and package any Foundation game into deterministic output artifacts.
 
 ### Tasks
-- [x] Implement command parsing for `--game`, `--platform`, `--configuration`, `--target-kind`, and output location.
+- [x] Implement command parsing for `--game`, `--platform`, `--configuration`, `--target`, and output location.
   - Status: Complete
   - Notes: Implemented in `crates/foundation-build/src/lib.rs` with unit tests.
 - [x] Implement target alias to Rust target triple mapping.
@@ -113,9 +114,9 @@
 - User confirmation: Pending final user acceptance
 
 ### Notes
-- Manual smoke command passed: `scripts/foundation-build.cmd package --game template-game --platform windows-x64 --configuration debug --target-kind game`.
-- Manual smoke command passed: `scripts/foundation-build.cmd package --game template-game --platform windows-x64 --configuration shipping --target-kind game`.
-- Manual invalid command failed as expected: `scripts/foundation-build.cmd package --game template-game --platform windows-x64 --configuration shipping --target-kind game-editor`.
+- Manual smoke command passed: `scripts/foundation-build.cmd package --game template-game --platform windows-x64 --configuration debug --target game`.
+- Manual smoke command passed: `scripts/foundation-build.cmd package --game template-game --platform windows-x64 --configuration shipping --target game`.
+- Manual invalid command failed as expected: `scripts/foundation-build.cmd package --game template-game --platform windows-x64 --configuration shipping --target game-editor`.
 
 ## Phase 4: CI And Release Publishing
 **Status:** Complete  
@@ -150,6 +151,7 @@
 ### Notes
 - CI workflow has not been executed on real self-hosted GitHub runners in this session.
 - User asked for the tool to be the one-stop shop for playing and debugging too, so the build tool now supports `run` in addition to `build` and `package`.
+- User requested renaming CLI `--target-kind` to `--target` and adding defaults so `scripts\foundation-build.cmd run --game template-game` runs the game as a `test` configuration on the current platform.
 
 ## Phase 5: Documentation, Examples, And Final Validation
 **Status:** Awaiting user confirmation  
@@ -175,7 +177,7 @@
 - Tests: Passed via `scripts/test-project.cmd` on 2026-07-15
 - Build: Passed via `scripts/compile-project.cmd` on 2026-07-15
 - Documentation generation: Passed via `scripts/doc-project.cmd` on 2026-07-15
-- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15 before final profile tuning; focused format/lint/test/build/doc validation reran afterward and passed. After adding `run`, focused format/lint/test/build/doc validation reran and passed.
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15 before final profile tuning; focused format/lint/test/build/doc validation reran afterward and passed. After adding `run`, focused format/lint/test/build/doc validation reran and passed. After renaming `--target` and adding defaults, focused format/lint/test/build/doc validation reran and passed.
 - User confirmation: Pending final user acceptance
 
 ### Notes
@@ -191,6 +193,7 @@
 - Treat cross-compilation as capability-based: validate/document supported host-target pairs rather than assuming every host can build every target.
 - The preferred workflow going forward is the Foundation build tool, not `cargo run -p foundation -- --game template-game`.
 - Use `scripts/foundation-build.cmd run ...` for local play/debug loops without packaging.
+- The shortest default local play command is `scripts\foundation-build.cmd run --game template-game`.
 
 ## Postponed Work
 - Store-specific upload/signing/installer support is postponed until after GitHub Release packaging is exercised on real runners.
@@ -204,4 +207,5 @@
 - `2026-07-15`: Implemented Foundation build/package crate, manifest package metadata, feature-gated dev/editor tooling, package scripts, documentation, and GitHub workflow template.
 - `2026-07-15`: Validation passed: format, lint, tests, compile, docs, full validation wrapper, no-default-features shipping checks, invalid matrix smoke test, and Windows debug/shipping package smoke tests.
 - `2026-07-15`: Implementation commit `787d0ef Add Foundation build packaging system` pushed to `origin/feature/foundation-build-packaging`.
-- `2026-07-15`: Added `foundation-build run` as the one-stop play/debug command. It builds with the selected configuration/target kind, runs the built executable, sets `FOUNDATION_ASSET_ROOT` for local assets, automatically passes `--editor` for `game-editor`, and forwards game arguments after `--`.
+- `2026-07-15`: Added `foundation-build run` as the one-stop play/debug command. It builds with the selected configuration/target, runs the built executable, sets `FOUNDATION_ASSET_ROOT` for local assets, automatically passes `--editor` for `game-editor`, and forwards game arguments after `--`.
+- `2026-07-15`: Renamed CLI `--target-kind` to `--target`, added default configuration/target/platform handling, documented defaults, and smoke-tested `scripts\foundation-build.cmd build --game template-game` resolving to `windows-x64 / test / game`.

@@ -16,8 +16,8 @@ on:
           - test
           - shipping
         default: test
-      target-kind:
-        description: Build target kind
+      target:
+        description: Build target
         required: true
         type: choice
         options:
@@ -74,13 +74,13 @@ jobs:
             --game "${{ inputs.game }}" \
             --platform "${{ matrix.platform }}" \
             --configuration "${{ inputs.configuration }}" \
-            --target-kind "${{ inputs.target-kind }}"
+            --target "${{ inputs.target }}"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.game }}-${{ matrix.platform }}-${{ inputs.configuration }}-${{ inputs.target-kind }}
-          path: artifacts/packages/${{ inputs.game }}/${{ matrix.platform }}/${{ inputs.configuration }}/${{ inputs.target-kind }}*
+          name: ${{ inputs.game }}-${{ matrix.platform }}-${{ inputs.configuration }}-${{ inputs.target }}
+          path: artifacts/packages/${{ inputs.game }}/${{ matrix.platform }}/${{ inputs.configuration }}/${{ inputs.target }}*
           if-no-files-found: error
 
       - name: Upload release assets

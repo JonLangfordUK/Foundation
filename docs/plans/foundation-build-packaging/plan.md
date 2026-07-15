@@ -19,10 +19,10 @@ The requested build concepts are:
 - `Debug`: full debugging, no optimizations.
 - `Test`: development features enabled, including console commands, log windows, and other dev tools.
 - `Shipping`: no debugging, no dev tools, just the game and assets.
-- Target kind: `Game` or `GameEditor`, with `GameEditor` excluded from `Shipping`.
+- Target: `Game` or `GameEditor`, with `GameEditor` excluded from `Shipping`.
 
 ## Feature Summary
-Add a Foundation build and packaging pipeline that turns loose development workspace games into deterministic distributable outputs. The pipeline should define a stable vocabulary for game selection, platform selection, build configuration, target kind, asset/package layout, and release publishing. It should be configurable per game and per platform, extensible for future stores/signing/installers, and usable both locally and from GitHub Actions self-hosted runners.
+Add a Foundation build and packaging pipeline that turns loose development workspace games into deterministic distributable outputs. The pipeline should define a stable vocabulary for game selection, platform selection, build configuration, target, asset/package layout, and release publishing. It should be configurable per game and per platform, extensible for future stores/signing/installers, and usable both locally and from GitHub Actions self-hosted runners.
 
 ## Feature Area Classification
 - Area: `multi-area`
@@ -54,12 +54,12 @@ Add a Foundation build and packaging pipeline that turns loose development works
 - `games/*/src/main.rs` and `games/*/src/lib.rs`: route runtime/editor/dev-tool activation through configuration that can be controlled by build mode.
 - `scripts/`: add local wrappers for build, package, test, and release preparation.
 - `.github/workflows/`: add self-hosted runner workflow templates for matrix builds, tests, artifacts, and release publishing.
-- `docs/`: add user-facing documentation for build modes, target kinds, configuration files, local commands, CI workflows, and known cross-compilation limits.
+- `docs/`: add user-facing documentation for build modes, targets, configuration files, local commands, CI workflows, and known cross-compilation limits.
 
 ## Proposed Implementation Approach
 1. Define the Foundation build vocabulary and compatibility matrix:
    - Build configurations: `Debug`, `Test`, `Shipping`.
-   - Target kinds: `Game`, `GameEditor`.
+   - Targets: `Game`, `GameEditor`.
    - Invalid combination: `Shipping + GameEditor`.
    - Platform target: Rust target triple plus a friendly Foundation platform alias such as `windows-x64` or `linux-x64`.
 2. Add/extend per-game manifest metadata:
@@ -71,10 +71,10 @@ Add a Foundation build and packaging pipeline that turns loose development works
    - `Shipping`: release/LTO/strip-oriented build with debug/dev/editor features disabled.
    - `GameEditor`: enables editor features and uses non-shipping-compatible dependencies only.
 4. Create a repo-owned build/package command interface:
-   - Prefer a small Rust `xtask`/tooling crate or equivalent script entry point that accepts `--game`, `--platform`, `--configuration`, `--target-kind`, and `--output`.
+   - Prefer a small Rust `xtask`/tooling crate or equivalent script entry point that accepts `--game`, `--platform`, `--configuration`, `--target`, and `--output`.
    - Scripts should call this command so local and CI usage share the same logic.
 5. Implement packaging layout:
-   - Produce deterministic output under `artifacts/packages/<game>/<platform>/<configuration>/<target-kind>/`.
+   - Produce deterministic output under `artifacts/packages/<game>/<platform>/<configuration>/<target>/`.
    - Copy executable, assets, manifests/config, licenses/notices, and any platform runtime files.
    - Produce an archive suitable for sharing/uploading.
 6. Add validation commands:
@@ -82,7 +82,7 @@ Add a Foundation build and packaging pipeline that turns loose development works
    - Run existing format/lint/test/build/doc wrappers.
    - Add packaging smoke checks that verify executable presence, asset presence, and manifest metadata.
 7. Add GitHub workflow support for self-hosted runners:
-   - Matrix over game/platform/configuration/target-kind.
+   - Matrix over game/platform/configuration/target.
    - Separate jobs for validation, package artifacts, and release upload.
    - Support Windows and Linux runner labels.
    - Document cross-compilation prerequisites and fallbacks when a target cannot be built from a host.
@@ -122,7 +122,7 @@ Add a Foundation build and packaging pipeline that turns loose development works
 ## Documentation Expectations
 - Public APIs added or changed by this feature must have Rustdoc comments, or this plan must explicitly justify why they are internal/undocumented.
 - Add feature-level documentation under `docs/`, likely `docs/build-packaging.md`, covering build vocabulary, manifest schema, commands, package layout, examples, CI runner setup, and cross-compilation limitations.
-- Document the exact meaning of `Debug`, `Test`, and `Shipping`, and the `Game` versus `GameEditor` target-kind matrix.
+- Document the exact meaning of `Debug`, `Test`, and `Shipping`, and the `Game` versus `GameEditor` target matrix.
 - Document how to add a new game to the build system.
 - Generated documentation must be produced before the feature is considered complete.
 
@@ -144,10 +144,10 @@ Add a Foundation build and packaging pipeline that turns loose development works
 - Verify package contents are deterministic and exclude dev-only files.
 
 ## Success Criteria
-- A developer can run one command to build/package a selected game for a selected platform, configuration, and target kind.
+- A developer can run one command to build/package a selected game for a selected platform, configuration, and target.
 - The produced executable is named after the selected game.
 - `Debug`, `Test`, and `Shipping` have documented and enforced semantics.
-- `Game` and `GameEditor` target kinds are supported where valid, and `Shipping + GameEditor` is rejected.
+- `Game` and `GameEditor` targets are supported where valid, and `Shipping + GameEditor` is rejected.
 - Shipping packages exclude dev tools, editor features, and debug-only assets/configuration.
 - Test packages include dev tools such as console/log tooling.
 - The build configuration is manifest/config driven and extendable per game/platform.
