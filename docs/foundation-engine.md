@@ -20,16 +20,11 @@ Enable the current editor-time shell for that game:
 cargo run -p foundation -- --game <game-name> --editor
 ```
 
-For the repository's example game, the manifest declares the game name
-`template-game`, so the development command is:
-
-```cmd
-cargo run -p foundation -- --game template-game
-```
+For external games, prefer the build workflow documented in [`build-packaging.md`](build-packaging.md). The loose launcher remains available for in-repo manifests when a repository intentionally carries a local game fixture.
 
 ## Game Manifests
 
-During development, Foundation discovers game extensions under `games/*` by
+During in-repo development, Foundation discovers game extensions under `games/*` by
 looking for:
 
 ```text
@@ -48,16 +43,15 @@ package = "template-game"
 ```
 
 The engine only reads this data. The selected game process owns its concrete
-Bevy plugins, BSN scene catalog, assets, and gameplay systems. In TemplateGame,
-that process is a thin binary wrapper over the library's `template_game::run()`
-function so the game logic remains library-owned.
+Bevy plugins, BSN scene catalog, assets, and gameplay systems. TemplateGame now
+lives in its own repository as the reference external Foundation game.
 
 ## Current Development Mode
 
 The current implementation is a loose Cargo-package launch mode:
 
 1. `foundation` parses `--game <game-name>` and optional `--editor`.
-2. `foundation` discovers manifests from `games/*/foundation.game.toml`.
+2. `foundation` discovers manifests from `games/*/foundation.game.toml` when local game manifests exist.
 3. It selects the matching manifest by `[game].name`.
 4. It launches the manifest's `[launch].package` with `cargo run -p <package>`.
 5. It forwards `--editor` to the selected game process.
@@ -99,4 +93,5 @@ autocomplete behavior, history persistence, and command registration rules.
 - `crates/foundation-runtime-library`: reusable runtime systems such as scene
   stack, splash flow, menu primitives, settings, and credits.
 - `crates/foundation-editor-library`: Bevy-only editor-time extension shell.
-- `games/*`: concrete games, manifests, assets, plugins, and BSN scene catalogs.
+- External game repositories: concrete games, manifests, assets, plugins, and BSN scene catalogs.
+- Optional `games/*` fixtures: local engine-development game manifests when intentionally added.
