@@ -1,3 +1,0 @@
-[alias]
-editor = "run --bin editor --features editor"
-play = "run"

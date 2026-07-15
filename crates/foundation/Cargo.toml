@@ -1,12 +1,12 @@
 [package]
-name = "jackdaw-editor"
+name = "foundation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "Jackdaw editor launcher"
+description = "Foundation engine launcher for Bevy games"
 
 [dependencies]
-bevy.workspace = true
 ctrlc.workspace = true
-jackdaw.workspace = true
+serde.workspace = true
+toml.workspace = true

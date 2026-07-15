@@ -2,7 +2,7 @@
 //!
 //! The scene stack is data-driven: games and systems request stack mutations by
 //! writing [`SceneCommand`] messages, while Foundation systems own the stack
-//! resource and lifecycle messages. Jackdaw `.jsn` levels are represented as a
+//! resource and lifecycle messages. Bevy BSN levels are represented as a
 //! scene source instead of being converted into a separate Foundation-specific
 //! scene format.
 
@@ -23,10 +23,16 @@ impl Plugin for FoundationSceneStackPlugin {
             .add_message::<SceneUnfocused>()
             .add_message::<SceneLoadRequested>()
             .register_type::<SceneOwner>()
-            // Cleanup runs after command processing so removed scene IDs are available first.
+            // Visibility sync and cleanup run after command processing so both
+            // observe the freshly recomputed stack flags and removed scene IDs.
             .add_systems(
                 PostUpdate,
-                (process_scene_commands, cleanup_removed_scene_entities).chain(),
+                (
+                    process_scene_commands,
+                    sync_scene_entity_visibility,
+                    cleanup_removed_scene_entities,
+                )
+                    .chain(),
             );
     }
 }
@@ -63,20 +69,20 @@ impl From<String> for SceneKey {
 
 /// Describes where scene content comes from.
 ///
-/// `.jsn` level files are first-class sources so FoundationRuntimeLibrary can cooperate
-/// with Jackdaw-authored levels without defining a second level format.
+/// BSN scene keys are first-class sources so FoundationRuntimeLibrary can cooperate
+/// with code-authored BSN scenes without defining a second scene-stack API.
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum SceneSource {
-    /// A Jackdaw `.jsn` level or scene file.
-    JsnLevel { path: String },
+    /// A Bevy BSN scene key resolved by the active game catalog.
+    BsnScene { key: String },
     /// A runtime scene identified by key, such as a menu or overlay assembled by systems.
     Runtime { key: SceneKey },
 }
 
 impl SceneSource {
-    /// Creates a source for a Jackdaw `.jsn` level file.
-    pub fn jsn_level(path: impl Into<String>) -> Self {
-        Self::JsnLevel { path: path.into() }
+    /// Creates a source for a Bevy BSN scene key.
+    pub fn bsn_scene(key: impl Into<String>) -> Self {
+        Self::BsnScene { key: key.into() }
     }
 
     /// Creates a source for a runtime/system-authored scene.
@@ -133,6 +139,11 @@ impl Default for ScenePresentation {
 }
 
 /// Derived runtime flags for a scene stack entry.
+///
+/// Foundation enforces these flags for scene-owned entities: `visible` drives
+/// [`Visibility`] on scene-root entities each frame, and Foundation gameplay
+/// systems skip entities whose scene is not `updating`. Game systems should
+/// consult [`SceneStack::is_updating`] for their own update gating.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
 pub struct SceneRuntimeFlags {
     /// True when this scene owns primary focus.
@@ -218,6 +229,22 @@ impl SceneStack {
     /// Returns the next id that will be assigned by command processing.
     pub fn next_scene_id(&self) -> SceneId {
         SceneId(self.next_id)
+    }
+
+    /// Returns true when the scene with this id should update/simulate.
+    ///
+    /// Unknown ids report false so entities owned by removed scenes never keep
+    /// running while their cleanup is pending.
+    pub fn is_updating(&self, id: SceneId) -> bool {
+        self.get(id).is_some_and(|entry| entry.flags.updating)
+    }
+
+    /// Returns true when the scene with this id should be visible.
+    ///
+    /// Unknown ids report false so entities owned by removed scenes never stay
+    /// visible while their cleanup is pending.
+    pub fn is_visible(&self, id: SceneId) -> bool {
+        self.get(id).is_some_and(|entry| entry.flags.visible)
     }
 
     fn allocate_id(&mut self) -> SceneId {
@@ -366,7 +393,7 @@ pub struct SceneUnfocused {
 
 /// Message emitted when scene content should be loaded or assembled.
 ///
-/// Systems that bridge to Jackdaw `.jsn` loading should listen for this message,
+/// Systems that bridge to Bevy BSN loading should listen for this message,
 /// load the requested [`SceneSource`], and tag spawned entities with
 /// [`SceneOwner`] using the supplied scene id.
 #[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
@@ -381,7 +408,7 @@ pub struct SceneLoadRequested {
 ///
 /// Scene-owned entities should remain alive while their owning scene is in the
 /// stack and be cleaned up when that scene is removed.
-#[derive(Clone, Copy, Debug, Component, PartialEq, Eq, Reflect)]
+#[derive(Clone, Copy, Debug, Default, Component, PartialEq, Eq, Reflect)]
 #[reflect(Component)]
 pub struct SceneOwner {
     /// Scene that owns this entity.
@@ -468,6 +495,9 @@ fn process_scene_commands(
 ) {
     // Drain commands before applying them so stack mutations cannot affect this read pass.
     let scene_commands = commands.read().cloned().collect::<Vec<_>>();
+    if scene_commands.is_empty() {
+        return;
+    }
 
     for command in scene_commands {
         apply_scene_command(
@@ -475,11 +505,13 @@ fn process_scene_commands(
             &mut stack,
             &mut added,
             &mut removed,
-            &mut focused,
-            &mut unfocused,
             &mut load_requested,
         );
     }
+
+    // Recompute focus and derived flags once per batch so callers observe only
+    // the net focus transition, never transient intermediate stack states.
+    update_runtime_flags(&mut stack, &mut focused, &mut unfocused);
 }
 
 fn apply_scene_command(
@@ -487,8 +519,6 @@ fn apply_scene_command(
     stack: &mut SceneStack,
     added: &mut MessageWriter<SceneAdded>,
     removed: &mut MessageWriter<SceneRemoved>,
-    focused: &mut MessageWriter<SceneFocused>,
-    unfocused: &mut MessageWriter<SceneUnfocused>,
     load_requested: &mut MessageWriter<SceneLoadRequested>,
 ) {
     match command {
@@ -509,9 +539,6 @@ fn apply_scene_command(
             open_scene(source, options, stack, added, load_requested);
         }
     }
-
-    // Recompute focus and visibility after every stack mutation batch.
-    update_runtime_flags(stack, focused, unfocused);
 }
 
 fn open_scene(
@@ -601,6 +628,33 @@ fn cleanup_removed_scene_entities(
     }
 }
 
+fn sync_scene_entity_visibility(
+    stack: Res<SceneStack>,
+    mut owned_visibilities: Query<(&SceneOwner, Option<&ChildOf>, &mut Visibility)>,
+    owners: Query<&SceneOwner>,
+) {
+    for (scene_owner, parent_link, mut visibility) in &mut owned_visibilities {
+        // Drive only scene-root entities; owned children follow through Bevy's
+        // visibility inheritance, which keeps authored child visibility intact.
+        let parent_owned_by_same_scene = parent_link
+            .and_then(|parent_link| owners.get(parent_link.0).ok())
+            .is_some_and(|parent_owner| parent_owner.scene_id == scene_owner.scene_id);
+        if parent_owned_by_same_scene {
+            continue;
+        }
+
+        let scene_visibility = if stack.is_visible(scene_owner.scene_id) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        // Compare before writing so unchanged scenes do not trigger change detection.
+        if *visibility != scene_visibility {
+            *visibility = scene_visibility;
+        }
+    }
+}
+
 fn update_runtime_flags(
     stack: &mut SceneStack,
     focused: &mut MessageWriter<SceneFocused>,
@@ -682,11 +736,11 @@ mod tests {
     }
 
     #[test]
-    fn scene_sources_support_jsn_levels_and_runtime_keys() {
+    fn scene_sources_support_bsn_scenes_and_runtime_keys() {
         assert_eq!(
-            SceneSource::jsn_level("assets/scene.jsn"),
-            SceneSource::JsnLevel {
-                path: "assets/scene.jsn".to_string()
+            SceneSource::bsn_scene("assets/scene"),
+            SceneSource::BsnScene {
+                key: "assets/scene".to_string()
             }
         );
         assert_eq!(
@@ -699,7 +753,7 @@ mod tests {
 
     #[test]
     fn command_helpers_construct_expected_commands() {
-        let source = SceneSource::jsn_level("levels/one.jsn");
+        let source = SceneSource::bsn_scene("levels/one");
         assert_eq!(
             SceneCommand::open(source.clone()),
             SceneCommand::Open {
@@ -729,7 +783,7 @@ mod tests {
     fn processing_open_command_pushes_scene_and_focuses_it() {
         let mut app = test_app();
         app.world_mut()
-            .write_message(SceneCommand::open(SceneSource::jsn_level("levels/one.jsn")));
+            .write_message(SceneCommand::open(SceneSource::bsn_scene("levels/one")));
 
         app.update();
 
@@ -737,7 +791,7 @@ mod tests {
         assert_eq!(stack.len(), 1);
         let entry = stack.current().expect("opened scene should be stacked");
         assert_eq!(entry.id, SceneId(1));
-        assert_eq!(entry.source, SceneSource::jsn_level("levels/one.jsn"));
+        assert_eq!(entry.source, SceneSource::bsn_scene("levels/one"));
         assert!(entry.flags.visible);
         assert!(entry.flags.interactive);
         assert!(entry.flags.updating);
@@ -792,13 +846,42 @@ mod tests {
     }
 
     #[test]
+    fn closing_input_overlay_restores_underlying_scene_input() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("options"),
+                OpenSceneOptions::default()
+                    .with_key("options")
+                    .with_presentation(ScenePresentation::INPUT_BLOCKING_OVERLAY),
+            ));
+        app.update();
+
+        app.world_mut().write_message(SceneCommand::CloseCurrent);
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        let main_menu = stack
+            .current()
+            .expect("main menu should remain after closing options");
+        assert_eq!(stack.len(), 1);
+        assert_eq!(main_menu.source, SceneSource::runtime("main-menu"));
+        assert!(main_menu.flags.visible);
+        assert!(main_menu.flags.interactive);
+        assert!(main_menu.flags.updating);
+        assert!(main_menu.flags.focused);
+    }
+
+    #[test]
     fn clear_and_open_replaces_stack() {
         let mut app = test_app();
         app.world_mut()
             .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
         app.world_mut()
-            .write_message(SceneCommand::clear_and_open(SceneSource::jsn_level(
-                "levels/two.jsn",
+            .write_message(SceneCommand::clear_and_open(SceneSource::bsn_scene(
+                "levels/two",
             )));
 
         app.update();
@@ -809,7 +892,7 @@ mod tests {
             .current()
             .expect("replacement scene should be stacked");
         assert_eq!(entry.id, SceneId(2));
-        assert_eq!(entry.source, SceneSource::jsn_level("levels/two.jsn"));
+        assert_eq!(entry.source, SceneSource::bsn_scene("levels/two"));
     }
 
     #[test]
@@ -825,16 +908,9 @@ mod tests {
         app.update();
 
         let log = app.world().resource::<LifecycleLog>();
-        assert_eq!(
-            log.0,
-            vec![
-                "added:1",
-                "added:2",
-                "unfocused:1",
-                "focused:1",
-                "focused:2"
-            ]
-        );
+        // One frame's command batch emits only the net focus transition, not
+        // transient focus flips for intermediate stack states.
+        assert_eq!(log.0, vec!["added:1", "added:2", "focused:2"]);
     }
 
     #[test]
@@ -894,19 +970,74 @@ mod tests {
     }
 
     #[test]
-    fn open_scene_emits_load_request_for_jsn_bridge() {
+    fn covered_scene_entities_are_hidden_until_uncovered() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.update();
+
+        let owned_entity = app
+            .world_mut()
+            .spawn((
+                SceneOwner {
+                    scene_id: SceneId(1),
+                },
+                Visibility::default(),
+            ))
+            .id();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.update();
+
+        assert_eq!(
+            app.world().get::<Visibility>(owned_entity),
+            Some(&Visibility::Hidden),
+            "entities in covered scenes should be hidden"
+        );
+
+        app.world_mut().write_message(SceneCommand::CloseCurrent);
+        app.update();
+
+        assert_eq!(
+            app.world().get::<Visibility>(owned_entity),
+            Some(&Visibility::Inherited),
+            "entities should become visible again once uncovered"
+        );
+    }
+
+    #[test]
+    fn scene_stack_reports_update_and_visibility_state_by_id() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert!(!stack.is_updating(SceneId(1)));
+        assert!(!stack.is_visible(SceneId(1)));
+        assert!(stack.is_updating(SceneId(2)));
+        assert!(stack.is_visible(SceneId(2)));
+        // Unknown scenes are treated as inert so stale owners never keep running.
+        assert!(!stack.is_updating(SceneId(99)));
+        assert!(!stack.is_visible(SceneId(99)));
+    }
+
+    #[test]
+    fn open_scene_emits_load_request_for_bsn_bridge() {
         let mut app = test_app();
         app.init_resource::<LoadRequestLog>();
         app.add_systems(Last, collect_load_requests);
 
         app.world_mut()
-            .write_message(SceneCommand::open(SceneSource::jsn_level("levels/one.jsn")));
+            .write_message(SceneCommand::open(SceneSource::bsn_scene("levels/one")));
         app.update();
 
         let log = app.world().resource::<LoadRequestLog>();
         assert_eq!(
             log.0,
-            vec![(SceneId(1), SceneSource::jsn_level("levels/one.jsn"))]
+            vec![(SceneId(1), SceneSource::bsn_scene("levels/one"))]
         );
     }
 

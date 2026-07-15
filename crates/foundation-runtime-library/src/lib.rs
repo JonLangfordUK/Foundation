@@ -1,15 +1,12 @@
 //! FoundationRuntimeLibrary provides reusable Bevy building blocks for Foundation games.
 //!
-//! The crate is intentionally small at this baseline stage. Jackdaw supplies the
-//! editor and scene-authoring layer; FoundationRuntimeLibrary supplies shared game and
-//! editor-compatible code that multiple Jackdaw-style games can compose.
+//! The crate is intentionally small at this baseline stage. Foundation supplies shared runtime systems on top of Bevy. Games provide
+//! concrete BSN scene catalogs and game-specific plugins.
 //!
 //! Game crates should add [`FoundationPlugin`] before their game-specific plugin
 //! so shared resources, systems, and reflected types are available first.
 
 use bevy::prelude::*;
-use jackdaw_runtime::prelude::*;
-
 pub mod credits;
 pub mod game_settings;
 pub mod menu;
@@ -18,8 +15,7 @@ pub mod splash_screen;
 
 /// Shared baseline plugin for Foundation games.
 ///
-/// Add this plugin to both standalone game binaries and game-specific Jackdaw
-/// editor binaries. Future reusable components, resources, and systems should be
+/// Add this plugin to both standalone game binaries and Foundation engine launches. Future reusable components, resources, and systems should be
 /// registered here when they are intended to be available across games.
 #[derive(Default)]
 pub struct FoundationPlugin;
@@ -65,11 +61,11 @@ impl Default for FoundationSettings {
 /// Baseline shared component for Foundation-authored actors.
 ///
 /// This component demonstrates the pattern reusable FoundationRuntimeLibrary components
-/// should follow to be available to both games and Jackdaw editor binaries:
-/// derive [`Component`] and [`Reflect`], add Jackdaw editor metadata, and
+/// should follow to be available to both games and Foundation engine launches:
+/// derive [`Component`] and [`Reflect`], add Foundation editor metadata, and
 /// register the type from [`FoundationPlugin`].
 #[derive(Clone, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation"))]
+#[reflect(Component)]
 pub struct FoundationActor {
     /// Optional human-readable actor label for diagnostics and editor display.
     pub label: String,
@@ -79,8 +75,9 @@ pub struct FoundationActor {
 pub mod prelude {
     pub use crate::credits::{
         flatten_credits_document, header_font_size_for_depth, CreditPerson, CreditsDisplayRow,
-        CreditsDocument, CreditsGroup, FoundationCreditsPlugin, FoundationCreditsRoll,
-        FoundationCreditsRuntime, FoundationCreditsRuntimeSettings, FoundationGeneratedCreditsUi,
+        CreditsDocument, CreditsGroup, FoundationCreditsAssetRoots, FoundationCreditsPlugin,
+        FoundationCreditsRoll, FoundationCreditsRuntime, FoundationCreditsRuntimeSettings,
+        FoundationGeneratedCreditsUi,
     };
     pub use crate::game_settings::{
         FoundationGameSettings, FoundationGameSettingsIoError, FOUNDATION_GAME_SETTINGS_FILE_NAME,
@@ -90,7 +87,7 @@ pub mod prelude {
         FoundationExitRequested, FoundationGeneratedMenuUi, FoundationMenuButton,
         FoundationMenuPlugin, FoundationMenuRuntimeSettings, FoundationOptionsMenu,
         FoundationPauseOpener, FoundationPauseState, FoundationPlaceholderMenu,
-        FoundationSimpleGameplayLevel, FoundationSpin, FoundationUiOrder,
+        FoundationResumeOnEscape, FoundationSimpleGameplayLevel, FoundationSpin,
     };
     pub use crate::scene_stack::{
         FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,

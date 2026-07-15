@@ -69,13 +69,13 @@ When adapting this template for a new Rust project:
 4. Add `src/main.rs` for binary projects, or convert to a Cargo workspace if multiple crates are needed.
 5. Keep Pi skills, prompts, scripts, and planning templates unless the user asks to remove them.
 
-When the user asks about Foundation runtime systems, Foundation editor tooling, Jackdaw editor windows, game settings, scene-stack behavior, reusable game components, or TemplateGame integration with Foundation crates:
+When the user asks about Foundation runtime systems, Foundation engine launch behavior, Foundation editor tooling, game settings, scene-stack behavior, reusable game components, BSN scenes, or TemplateGame integration with Foundation crates:
 1. Read `.pi/skills/foundation-architecture/SKILL.md` first.
-2. Keep runtime/game systems in `crates/foundation-runtime-library`.
-3. Keep Jackdaw editor extensions, dockable editor windows, editor operators, and editor-only UI in `crates/foundation-editor-library`.
-4. Keep concrete game assets and game-specific plugin glue in `games/template-game`.
-5. Do not add a full `jackdaw` dependency to `foundation-runtime-library` unless the user explicitly approves a major architecture change.
-6. When reflected component crate paths change, update `.jsn` serialized type paths in the same feature.
+2. Treat `crates/foundation` as the Foundation engine executable/wrapper around Bevy; it must discover game extensions rather than depend on concrete game crates.
+3. Keep runtime/game systems in `crates/foundation-runtime-library`.
+4. Keep Bevy-only editor-time extension points in `crates/foundation-editor-library`; this crate is intentionally cleared for now.
+5. Keep concrete game BSN scene functions, game manifests, and game-specific plugin glue in `games/template-game`.
+6. Do not add Jackdaw dependencies; the project is now Bevy-only after the Jackdaw removal feature.
 
 When the user asks about Git workflow, branch strategy, merges, or commit message formatting:
 1. Read `.pi/skills/gitflow-workflow/SKILL.md` first.
@@ -121,7 +121,7 @@ When the user asks for a final sanity review of implemented feature work:
 
 ## Important notes
 - Treat `Cargo.toml` as the source of truth for crate/workspace structure.
-- The active workspace uses `crates/foundation-runtime-library` for reusable runtime/game systems and `crates/foundation-editor-library` for Jackdaw editor extensions and windows.
+- The active workspace uses `crates/foundation` as the Foundation engine executable, `crates/foundation-runtime-library` for reusable runtime/game systems, and `crates/foundation-editor-library` for Bevy-only editor-time extension points.
 - Treat `src/lib.rs` as placeholder template code until replaced by real project code.
 - Use `cargo metadata` or `scripts/show-config.cmd` to inspect workspace structure when needed.
 - Put generated outputs under `artifacts/` and logs under `logs/` if the project needs persistent generated files.
