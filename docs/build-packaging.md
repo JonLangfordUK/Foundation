@@ -1,8 +1,14 @@
 # Foundation Build And Packaging
 
-Foundation games should be built through the Foundation build tool instead of the loose development launcher.
+Foundation games should be built, run, and packaged through the Foundation build tool instead of the loose development launcher.
 
-Preferred local command shape:
+Preferred local run command:
+
+```cmd
+scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target-kind game-editor
+```
+
+Preferred local package command:
 
 ```cmd
 scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration test --target-kind game
@@ -60,10 +66,20 @@ asset-roots = ["assets"]
 ## Local Examples
 
 ```cmd
+scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target-kind game-editor
+scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration test --target-kind game
 scripts\foundation-build.cmd build --game template-game --platform windows-x64 --configuration debug --target-kind game
 scripts\foundation-build.cmd package --game template-game --platform windows-x64 --configuration test --target-kind game-editor
 scripts\foundation-build.cmd package --game template-game --platform linux-x64 --configuration shipping --target-kind game
 ```
+
+Runtime arguments can be passed after `--`:
+
+```cmd
+scripts\foundation-build.cmd run --game template-game --platform windows-x64 --configuration debug --target-kind game -- --some-game-argument
+```
+
+`game-editor` runs automatically pass `--editor` to the game executable.
 
 Invalid example:
 

@@ -47,7 +47,7 @@
 - User confirmation: Pending final user acceptance
 
 ### Notes
-- The stable command contract is `foundation-build <build|package> --game <name> --platform <alias-or-target> --configuration <debug|test|shipping> --target-kind <game|game-editor>`.
+- The stable command contract is `foundation-build <build|run|package> --game <name> --platform <alias-or-target> --configuration <debug|test|shipping> --target-kind <game|game-editor>`.
 
 ## Phase 2: Build Mode Feature Gating
 **Status:** Complete  
@@ -149,6 +149,7 @@
 
 ### Notes
 - CI workflow has not been executed on real self-hosted GitHub runners in this session.
+- User asked for the tool to be the one-stop shop for playing and debugging too, so the build tool now supports `run` in addition to `build` and `package`.
 
 ## Phase 5: Documentation, Examples, And Final Validation
 **Status:** Awaiting user confirmation  
@@ -174,7 +175,7 @@
 - Tests: Passed via `scripts/test-project.cmd` on 2026-07-15
 - Build: Passed via `scripts/compile-project.cmd` on 2026-07-15
 - Documentation generation: Passed via `scripts/doc-project.cmd` on 2026-07-15
-- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15 before final profile tuning; focused format/lint/test/build/doc validation reran afterward and passed.
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15 before final profile tuning; focused format/lint/test/build/doc validation reran afterward and passed. After adding `run`, focused format/lint/test/build/doc validation reran and passed.
 - User confirmation: Pending final user acceptance
 
 ### Notes
@@ -189,6 +190,7 @@
 - Do not add Jackdaw dependencies.
 - Treat cross-compilation as capability-based: validate/document supported host-target pairs rather than assuming every host can build every target.
 - The preferred workflow going forward is the Foundation build tool, not `cargo run -p foundation -- --game template-game`.
+- Use `scripts/foundation-build.cmd run ...` for local play/debug loops without packaging.
 
 ## Postponed Work
 - Store-specific upload/signing/installer support is postponed until after GitHub Release packaging is exercised on real runners.
@@ -202,3 +204,4 @@
 - `2026-07-15`: Implemented Foundation build/package crate, manifest package metadata, feature-gated dev/editor tooling, package scripts, documentation, and GitHub workflow template.
 - `2026-07-15`: Validation passed: format, lint, tests, compile, docs, full validation wrapper, no-default-features shipping checks, invalid matrix smoke test, and Windows debug/shipping package smoke tests.
 - `2026-07-15`: Implementation commit `787d0ef Add Foundation build packaging system` pushed to `origin/feature/foundation-build-packaging`.
+- `2026-07-15`: Added `foundation-build run` as the one-stop play/debug command. It builds with the selected configuration/target kind, runs the built executable, sets `FOUNDATION_ASSET_ROOT` for local assets, automatically passes `--editor` for `game-editor`, and forwards game arguments after `--`.

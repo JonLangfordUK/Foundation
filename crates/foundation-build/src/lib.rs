@@ -30,14 +30,14 @@ pub fn run(arguments: impl IntoIterator<Item = String>) -> Result<(), String> {
     let game_manifest = find_game_manifest(&workspace_root, &invocation.game_name)?;
     let build_request = BuildRequest::new(invocation, game_manifest)?;
 
-    if build_request.command == BuildCommand::Build
-        || build_request.command == BuildCommand::Package
-    {
+    if build_request.command.builds_executable() {
         build_game(&workspace_root, &build_request)?;
     }
 
-    if build_request.command == BuildCommand::Package {
-        package_game(&workspace_root, &build_request)?;
+    match build_request.command {
+        BuildCommand::Build => {}
+        BuildCommand::Package => package_game(&workspace_root, &build_request)?,
+        BuildCommand::Run => run_game(&workspace_root, &build_request)?,
     }
 
     Ok(())
@@ -48,7 +48,9 @@ fn print_usage() {
     println!("Usage:");
     println!("  cargo run -p foundation-build -- package --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor> [--output <directory>]");
     println!("  cargo run -p foundation-build -- build   --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor>");
+    println!("  cargo run -p foundation-build -- run     --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor> [-- <game arguments>]");
     println!("Examples:");
+    println!("  cargo run -p foundation-build -- run --game template-game --platform windows-x64 --configuration debug --target-kind game-editor");
     println!("  cargo run -p foundation-build -- package --game template-game --platform windows-x64 --configuration test --target-kind game");
     println!("  cargo run -p foundation-build -- package --game template-game --platform linux-x64 --configuration shipping --target-kind game");
 }
@@ -57,6 +59,7 @@ fn print_usage() {
 enum BuildCommand {
     Build,
     Package,
+    Run,
 }
 
 impl BuildCommand {
@@ -64,9 +67,16 @@ impl BuildCommand {
         match command_text {
             "build" => Ok(Self::Build),
             "package" => Ok(Self::Package),
+            "run" => Ok(Self::Run),
             unknown_command => Err(format!(
-                "Unknown Foundation build command `{unknown_command}`. Expected `build` or `package`."
+                "Unknown Foundation build command `{unknown_command}`. Expected `build`, `package`, or `run`."
             )),
+        }
+    }
+
+    fn builds_executable(self) -> bool {
+        match self {
+            Self::Build | Self::Package | Self::Run => true,
         }
     }
 }
@@ -187,6 +197,7 @@ struct BuildInvocation {
     configuration: Option<BuildConfiguration>,
     target_kind: Option<TargetKind>,
     output_directory: Option<PathBuf>,
+    runtime_arguments: Vec<String>,
     help_requested: bool,
 }
 
@@ -196,7 +207,9 @@ impl BuildInvocation {
         let mut argument_iterator = arguments.into_iter();
 
         let Some(command_or_help) = argument_iterator.next() else {
-            return Err("Expected `build` or `package`. Use `--help` for usage.".to_string());
+            return Err(
+                "Expected `build`, `package`, or `run`. Use `--help` for usage.".to_string(),
+            );
         };
 
         if command_or_help == "--help" || command_or_help == "-h" {
@@ -207,6 +220,11 @@ impl BuildInvocation {
         invocation.command = Some(BuildCommand::parse(&command_or_help)?);
 
         while let Some(argument_name) = argument_iterator.next() {
+            if argument_name == "--" {
+                invocation.runtime_arguments.extend(argument_iterator);
+                break;
+            }
+
             match argument_name.as_str() {
                 "--game" => {
                     invocation.game_name = required_value("--game", &mut argument_iterator)?
@@ -283,6 +301,7 @@ struct BuildRequest {
     configuration: BuildConfiguration,
     target_kind: TargetKind,
     output_directory: PathBuf,
+    runtime_arguments: Vec<String>,
 }
 
 impl BuildRequest {
@@ -333,6 +352,7 @@ impl BuildRequest {
             configuration,
             target_kind,
             output_directory,
+            runtime_arguments: invocation.runtime_arguments,
         })
     }
 
@@ -506,6 +526,45 @@ fn build_game(workspace_root: &Path, build_request: &BuildRequest) -> Result<(),
         .map_err(|error| format!("Failed to start cargo build: {error}"))?;
     if !build_status.success() {
         return Err(format!("Cargo build failed with status {build_status}."));
+    }
+
+    Ok(())
+}
+
+fn run_game(workspace_root: &Path, build_request: &BuildRequest) -> Result<(), String> {
+    let built_executable_path = build_request.built_executable_path(workspace_root);
+    let mut game_command = Command::new(&built_executable_path);
+    game_command.current_dir(workspace_root);
+
+    if let Some(first_asset_root) = build_request.asset_roots.first() {
+        let local_asset_root = workspace_root
+            .join(GAMES_DIRECTORY_NAME)
+            .join(&build_request.game_name)
+            .join(first_asset_root);
+        game_command.env("FOUNDATION_ASSET_ROOT", local_asset_root);
+    }
+
+    if build_request.target_kind == TargetKind::GameEditor {
+        game_command.arg("--editor");
+    }
+    game_command.args(&build_request.runtime_arguments);
+
+    println!(
+        "Running {} for {} / {} / {}.",
+        build_request.game_name,
+        build_request.platform.alias,
+        build_request.configuration.as_output_segment(),
+        build_request.target_kind.as_output_segment()
+    );
+
+    let game_status = game_command.status().map_err(|error| {
+        format!(
+            "Failed to run built game executable {}: {error}",
+            built_executable_path.display()
+        )
+    })?;
+    if !game_status.success() {
+        return Err(format!("Game exited with status {game_status}."));
     }
 
     Ok(())
@@ -716,6 +775,7 @@ mod tests {
             configuration: Some(BuildConfiguration::Shipping),
             target_kind: Some(TargetKind::GameEditor),
             output_directory: None,
+            runtime_arguments: Vec::new(),
             help_requested: false,
         };
         let manifest = template_game_manifest();
@@ -736,6 +796,7 @@ mod tests {
             configuration: Some(BuildConfiguration::Test),
             target_kind: Some(TargetKind::GameEditor),
             output_directory: None,
+            runtime_arguments: Vec::new(),
             help_requested: false,
         };
         let manifest = template_game_manifest();
@@ -756,6 +817,7 @@ mod tests {
             configuration: Some(BuildConfiguration::Shipping),
             target_kind: Some(TargetKind::Game),
             output_directory: None,
+            runtime_arguments: Vec::new(),
             help_requested: false,
         };
         let manifest = template_game_manifest();
@@ -765,6 +827,29 @@ mod tests {
             build_request.cargo_feature_arguments(),
             ["--no-default-features"]
         );
+    }
+
+    #[test]
+    fn run_command_preserves_runtime_arguments() {
+        let arguments = [
+            "run",
+            "--game",
+            "template-game",
+            "--platform",
+            "windows-x64",
+            "--configuration",
+            "debug",
+            "--target-kind",
+            "game-editor",
+            "--",
+            "--custom-game-argument",
+        ]
+        .map(str::to_string);
+
+        let invocation = BuildInvocation::parse(arguments).expect("run arguments should parse");
+
+        assert_eq!(invocation.command, Some(BuildCommand::Run));
+        assert_eq!(invocation.runtime_arguments, ["--custom-game-argument"]);
     }
 
     #[test]
