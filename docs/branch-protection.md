@@ -52,7 +52,7 @@ After the first pull request run, GitHub will expose the exact check names. Requ
 
 If GitHub displays matrix job names with extra suffixes, select the exact names shown in the pull request checks list.
 
-The `Main source branch policy` check enforces that pull requests into `main` come only from `dev` or `hotfix/*` branches. Pull requests into `dev` are allowed from normal feature branches.
+The `Main source branch policy` check enforces that pull requests into `main` come only from `dev` or `hotfix/*` branches. Pull requests into `dev` are allowed from normal feature branches. Validation and packaging jobs depend on this policy check, so invalid `main` pull request sources fail before expensive runner validation starts.
 
 ## Self-hosted runner caution
 

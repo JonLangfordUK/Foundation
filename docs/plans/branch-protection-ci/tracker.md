@@ -74,12 +74,14 @@
 - `2026-07-15`: Created planning documents for `feature/branch-protection-ci`. Identified that project changes are needed because the existing workflow only triggers on pushes to `dev`/`main` and manual dispatch, not pull requests.
 - `2026-07-15`: User approved implementation. Added pull request workflow triggers for `dev` and `main`, preserved push-only release jobs, and documented GitHub branch protection setup.
 - `2026-07-15`: Added a `Main source branch policy` workflow job so `main` pull requests must come from `dev` or `hotfix/*`.
+- `2026-07-15`: Updated workflow dependencies so validation and packaging wait for `Main source branch policy`, causing invalid `main` pull request sources to fail before expensive runner validation starts.
 
 ## Git And Push State
 - Branch created from: `origin/dev`
 - Branch: `feature/branch-protection-ci`
 - Plan/tracker commit: `0de1e45 Add branch protection CI plan`
 - Implementation commit: `d64677f Add pull request branch checks`
-- Source policy commit: Pending
-- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`; source policy push pending
+- Source policy commit: `b58ce4c Restrict main pull request sources`
+- Fail-fast policy commit: Pending
+- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`; fail-fast policy push pending
 - Validation note: `scripts/format-project.cmd` passed locally after workflow/docs edits; heavier Rust validation waived because this feature only changes GitHub workflow triggers and Markdown documentation.

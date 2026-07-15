@@ -31,12 +31,12 @@ env:
 jobs:
   main-source-branch-policy:
     name: Main source branch policy
-    if: github.event_name == 'pull_request'
     runs-on: [self-hosted, Windows]
     steps:
       - name: Require dev or hotfix source for main
         shell: cmd
         run: |
+          if not "%GITHUB_EVENT_NAME%"=="pull_request" exit /b 0
           if not "%GITHUB_BASE_REF%"=="main" exit /b 0
           if "%GITHUB_HEAD_REF%"=="dev" exit /b 0
           if "%GITHUB_HEAD_REF:~0,7%"=="hotfix/" exit /b 0
@@ -46,6 +46,7 @@ jobs:
 
   validate:
     name: Validate workspace on Windows
+    needs: main-source-branch-policy
     runs-on: [self-hosted, Windows]
     steps:
       - name: Check out repository
