@@ -25,22 +25,14 @@ env:
 
 jobs:
   validate:
-    name: Validate workspace on ${{ matrix.host }}
-    runs-on: ${{ fromJson(matrix.runner) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - host: windows
-            runner: '["self-hosted", "Windows"]'
-          - host: linux
-            runner: '["self-hosted", "Linux"]'
+    name: Validate workspace on Windows
+    runs-on: [self-hosted, Windows]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Validate Rust workspace
-        shell: bash
+        shell: pwsh
         run: |
           cargo fmt --all -- --check
           cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -49,54 +41,42 @@ jobs:
           cargo doc --workspace --all-features --no-deps
 
   package:
-    name: Package ${{ matrix.platform }} ${{ matrix.configuration }} on ${{ matrix.host }}
+    name: Package windows-x64 ${{ matrix.configuration }} on Windows
     needs: validate
-    runs-on: ${{ fromJson(matrix.runner) }}
+    runs-on: [self-hosted, Windows]
     strategy:
       fail-fast: false
       matrix:
         configuration:
           - test
           - shipping
-        platform:
-          - windows-x64
-          - linux-x64
-        include:
-          - platform: windows-x64
-            host: windows
-            rust-target: x86_64-pc-windows-msvc
-            runner: '["self-hosted", "Windows"]'
-          - platform: linux-x64
-            host: linux
-            rust-target: x86_64-unknown-linux-gnu
-            runner: '["self-hosted", "Linux"]'
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Install selected Rust target
-        shell: bash
-        run: rustup target add "${{ matrix.rust-target }}"
+        shell: pwsh
+        run: rustup target add x86_64-pc-windows-msvc
 
       - name: Package Foundation game
-        shell: bash
+        shell: pwsh
         run: |
-          cargo run -p foundation-build -- package \
-            --game "${FOUNDATION_GAME}" \
-            --platform "${{ matrix.platform }}" \
-            --configuration "${{ matrix.configuration }}" \
+          cargo run -p foundation-build -- package `
+            --game "$env:FOUNDATION_GAME" `
+            --platform windows-x64 `
+            --configuration "${{ matrix.configuration }}" `
             --target game
 
       - name: Stage release assets
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p artifacts/release-assets
-          cp artifacts/packages/${FOUNDATION_GAME}/${{ matrix.platform }}/${{ matrix.configuration }}/*.tar.gz artifacts/release-assets/
+          New-Item -ItemType Directory -Force -Path artifacts/release-assets | Out-Null
+          Copy-Item "artifacts/packages/$env:FOUNDATION_GAME/windows-x64/${{ matrix.configuration }}/*.tar.gz" artifacts/release-assets/
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.FOUNDATION_GAME }}-${{ matrix.platform }}-${{ matrix.configuration }}
+          name: ${{ env.FOUNDATION_GAME }}-windows-x64-${{ matrix.configuration }}
           path: artifacts/release-assets/*.tar.gz
           if-no-files-found: error
 
@@ -104,7 +84,7 @@ jobs:
     name: Publish tagged dev release
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     needs: package
-    runs-on: [self-hosted, Linux]
+    runs-on: [self-hosted, Windows]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -137,11 +117,11 @@ jobs:
             core.setOutput('tag', `0.0.${nextPatch}`);
 
       - name: Create release tag
-        shell: bash
+        shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.next-version.outputs.tag }}" "${GITHUB_SHA}"
+          git tag "${{ steps.next-version.outputs.tag }}" "$env:GITHUB_SHA"
           git push origin "${{ steps.next-version.outputs.tag }}"
 
       - name: Publish GitHub prerelease
@@ -157,7 +137,7 @@ jobs:
     name: Publish tagged main release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: package
-    runs-on: [self-hosted, Linux]
+    runs-on: [self-hosted, Windows]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -191,11 +171,11 @@ jobs:
             core.setOutput('tag', `0.${nextMinor}.0`);
 
       - name: Create release tag
-        shell: bash
+        shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.next-version.outputs.tag }}" "${GITHUB_SHA}"
+          git tag "${{ steps.next-version.outputs.tag }}" "$env:GITHUB_SHA"
           git push origin "${{ steps.next-version.outputs.tag }}"
 
       - name: Publish GitHub Release

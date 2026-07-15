@@ -150,8 +150,9 @@
 
 ### Notes
 - CI workflow has not been executed on real self-hosted GitHub runners in this session.
-- Workflow now runs automatically for pushes to `dev` and `main`, validates on Windows and Linux self-hosted runners, and packages native Windows/Linux `test` and `shipping` artifacts.
+- Workflow now runs automatically for pushes to `dev` and `main`, validates on a Windows self-hosted runner, and packages native Windows `test` and `shipping` artifacts.
 - `dev` pushes create the next `0.0.#` tag and publish a GitHub prerelease. `main` pushes create the next `0.#.0` tag and publish a non-prerelease GitHub Release. Manual shipping milestones use `#.0.0` tags outside this workflow.
+- Linux runner jobs are disabled until a Linux self-hosted runner is available. Windows-to-Linux cross-builds are not enabled until the required Linux linker/native dependency toolchain is validated.
 - User asked for the tool to be the one-stop shop for playing and debugging too, so the build tool now supports `run` in addition to `build` and `package`.
 - User requested renaming CLI `--target-kind` to `--target` and adding defaults so `scripts\foundation-build.cmd run --game template-game` runs the game as a `test` configuration on the current platform.
 
@@ -211,4 +212,5 @@
 - `2026-07-15`: Implementation commit `787d0ef Add Foundation build packaging system` pushed to `origin/feature/foundation-build-packaging`.
 - `2026-07-15`: Added `foundation-build run` as the one-stop play/debug command. It builds with the selected configuration/target, runs the built executable, sets `FOUNDATION_ASSET_ROOT` for local assets, automatically passes `--editor` for `game-editor`, and forwards game arguments after `--`.
 - `2026-07-15`: Renamed CLI `--target-kind` to `--target`, added default configuration/target/platform handling, documented defaults, and smoke-tested `scripts\foundation-build.cmd build --game template-game` resolving to `windows-x64 / test / game`.
-- `2026-07-15`: Updated `.github/workflows/foundation-build.yml` for automatic `dev`/`main` release automation. `dev` computes `0.0.#` tags and publishes prereleases. `main` computes `0.#.0` tags and publishes normal releases. Manual `#.0.0` shipping tags are left to the user. Both release paths include `test` and `shipping` packages for Windows and Linux.
+- `2026-07-15`: Updated `.github/workflows/foundation-build.yml` for automatic `dev`/`main` release automation. `dev` computes `0.0.#` tags and publishes prereleases. `main` computes `0.#.0` tags and publishes normal releases. Manual `#.0.0` shipping tags are left to the user. Both release paths include `test` and `shipping` packages.
+- `2026-07-15`: Disabled Linux runner jobs until a Linux agent is available. The workflow now uses the Windows self-hosted runner for validation, Windows packages, tagging, prereleases, and releases.

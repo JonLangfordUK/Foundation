@@ -130,8 +130,8 @@ The workflow in `.github/workflows/foundation-build.yml` runs on pushes to `dev`
 
 Pushes to `dev`:
 
-- validate the workspace on both Windows and Linux self-hosted runners,
-- build package artifacts for `windows-x64` and `linux-x64`,
+- validate the workspace on a Windows self-hosted runner,
+- build `windows-x64` package artifacts,
 - always produce `test` and `shipping` game packages,
 - create the next dev tag in `0.0.#` format,
 - publish a GitHub prerelease containing the `test` and `shipping` package artifacts.
@@ -144,4 +144,6 @@ Pushes to `main`:
 
 Manual shipping milestones use `#.0.0` tags and are intentionally not created by this workflow.
 
-The current release matrix uses native platform runners: Windows runners produce `windows-x64` packages and Linux runners produce `linux-x64` packages. The package command and artifact layout are shared so outputs follow the same structure on either host. Full cross-host builds for every target remain dependent on installed platform SDKs, linkers, and Bevy/wgpu native requirements.
+Linux runner jobs are currently disabled because no Linux self-hosted runner is available. The workflow can be expanded back to a Windows/Linux matrix when a Linux runner is online.
+
+A Windows runner may be able to build Linux packages later, but it is not enabled by default. Cross-building `linux-x64` from Windows requires a Linux Rust target, a compatible linker/toolchain, and native dependency support for Bevy/wgpu. Until that toolchain is validated, Linux packages should be produced by a Linux runner.
