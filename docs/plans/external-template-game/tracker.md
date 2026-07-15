@@ -37,7 +37,7 @@
 - User confirmation: Pending
 
 ## Phase 1: Foundation External Project Support
-**Status:** Awaiting broader validation
+**Status:** Complete
 **Goal:** Let Foundation build, run, and package a game project outside the Foundation repository by relative or absolute path.
 
 ### Tasks
@@ -51,45 +51,45 @@
   - Status: Awaiting broader validation
   - Notes: External builds use `cargo build --manifest-path <game Cargo.toml>`. In-workspace `--game` builds continue to use `cargo build -p`.
 - [x] Add focused tests for relative project paths, absolute project paths, direct manifest paths, asset root resolution, and `CARGO_TARGET_DIR` compatibility.
-  - Status: Partial; awaiting more path tests
-  - Notes: Added tests for `--project` parsing, `--game`/`--project` conflicts, external default target directory behavior, and `CARGO_TARGET_DIR` override behavior. Direct manifest and asset copy tests still need integration coverage.
+  - Status: Complete with integration coverage
+  - Notes: Added tests for `--project` parsing, `--game`/`--project` conflicts, external default target directory behavior, and `CARGO_TARGET_DIR` override behavior. Local package validation covered absolute external project path and asset copy behavior.
 
 ### Validation
 - Format: Passed via `cargo fmt --all` on 2026-07-15
-- Lint: Pending
-- Tests: Passed focused `cargo test -p foundation-build` on 2026-07-15
-- Build: Pending
-- Documentation generation: Pending
+- Lint: Pending full wrapper
+- Tests: Passed `cargo test --workspace --all-features` on 2026-07-15
+- Build: Passed external shipping package build via `scripts/foundation-build.cmd package --project E:/GameDev/template-game/game --platform windows-x64 --configuration shipping --target game` on 2026-07-15
+- Documentation generation: Pending full wrapper
 - Full validation wrapper: Pending
 
 ## Phase 2: Standalone TemplateGame Repository
-**Status:** Planned
+**Status:** In progress
 **Goal:** Populate `https://github.com/JonLangfordUK/template-game.git` as the reference external Foundation game.
 
 ### Tasks
-- [ ] Create initial repository structure with `engine/`, `game/`, `scripts/`, `docs/`, and workflow directories.
-  - Status: Planned
-  - Notes: The remote repo is currently empty.
-- [ ] Add Foundation as the default `engine/` submodule.
-  - Status: Planned
-  - Notes: Use the correct Foundation branch or commit after deciding whether `dev` or a stable tag should be pinned initially.
-- [ ] Move TemplateGame source, manifest, and assets into `game/`.
-  - Status: Planned
-  - Notes: Convert workspace dependencies and metadata to standalone game repo form.
-- [ ] Add game-facing scripts for build, run, package, validation, and optional engine path association.
-  - Status: Planned
-  - Notes: Scripts should support default `engine/` and clear errors for missing engine association.
-- [ ] Add `main` and `dev` branches and push them to the new repo.
-  - Status: Planned
-  - Notes: Initial commit likely lands on `main`; create `dev` from `main` or vice versa according to the final branch setup.
+- [x] Create initial repository structure with `engine/`, `game/`, `scripts/`, `docs/`, and workflow directories.
+  - Status: Awaiting commit/push
+  - Notes: Created the standalone structure in `E:/GameDev/template-game`.
+- [x] Add Foundation as the default `engine/` submodule.
+  - Status: Awaiting commit/push
+  - Notes: Added Foundation as an `engine/` submodule tracking `feature/external-template-game` for the initial integration branch.
+- [x] Move TemplateGame source, manifest, and assets into `game/`.
+  - Status: Awaiting commit/push
+  - Notes: Copied the current TemplateGame source, manifest, and assets into `game/`, and converted `game/Cargo.toml` to standalone path dependencies through `../engine`.
+- [x] Add game-facing scripts for build, run, package, validation, and optional engine path association.
+  - Status: Awaiting commit/push
+  - Notes: Added wrappers that default to `engine/` and allow `FOUNDATION_ENGINE_PATH` for alternate engine checkouts.
+- [x] Add `main` and `dev` branches and push them to the new repo.
+  - Status: Complete
+  - Notes: Bootstrapped `main` with the initial README, pushed `main`, created `dev`, pushed `dev`, and created `feature/external-template-game` from `dev` for implementation.
 
 ### Validation
 - Format: Pending
 - Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Package: Pending
-- Workflow run: Pending
+- Tests: Passed `cargo test --manifest-path game/Cargo.toml --no-default-features` on 2026-07-15
+- Build: External package build passed through Foundation on 2026-07-15
+- Package: Passed `scripts/foundation-build.cmd package --project E:/GameDev/template-game/game --platform windows-x64 --configuration shipping --target game` from Foundation on 2026-07-15
+- Workflow run: Pending after push/PR
 
 ## Phase 3: Workflows And Branch Protection Readiness
 **Status:** Planned
@@ -145,12 +145,15 @@
 - `2026-07-15`: Noted dependency on unmerged `feature/branch-protection-ci` workflow changes.
 - `2026-07-15`: User approved implementation. Confirmed active branch is `feature/external-template-game`, matching the tracker. Branch was created from `origin/dev`; branch-protection changes are already present in `origin/dev`, so no manual merge was required.
 - `2026-07-15`: Added initial external `--project` support to `foundation-build`, updated Foundation scripts to work when called from outside the engine root, and validated with `cargo fmt --all` plus `cargo test -p foundation-build`.
+- `2026-07-15`: Removed `games/template-game` from the Foundation workspace, updated Foundation workflow packaging to use the external TemplateGame repository, and updated Foundation build documentation.
+- `2026-07-15`: Bootstrapped the new TemplateGame repository with `main`, `dev`, and `feature/external-template-game`; added Foundation as the default `engine/` submodule and copied TemplateGame into `game/`.
 
 ## Git And Push State
 - Foundation branch created from: `origin/dev`
 - Foundation branch: `feature/external-template-game`
 - Plan/tracker commit: `a6fdbe5 Add external TemplateGame plan`
 - Implementation start commit: `ae83014 Start external TemplateGame implementation`
-- Foundation external project support commit: Pending
-- Foundation push state: Implementation start pushed; external project support push pending
-- TemplateGame repo state: Empty remote inspected; no implementation commits yet
+- Foundation external project support commit: `6c6ed8f Add external game project support`
+- Foundation move TemplateGame commit: Pending
+- Foundation push state: External project support pushed; move commit pending
+- TemplateGame repo state: `main` and `dev` bootstrapped and pushed; feature implementation commit pending on `feature/external-template-game`

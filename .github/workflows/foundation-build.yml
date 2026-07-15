@@ -10,11 +10,6 @@ on:
       - main
       - dev
   workflow_dispatch:
-    inputs:
-      game:
-        description: Foundation game name
-        required: true
-        default: template-game
 
 permissions:
   contents: write
@@ -25,7 +20,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  FOUNDATION_GAME: ${{ inputs.game || 'template-game' }}
+  FOUNDATION_GAME: template-game
+  FOUNDATION_GAME_PROJECT: external\template-game\game
   CARGO_TARGET_DIR: C:\actions-runner\cargo-target\Foundation
 
 jobs:
@@ -86,11 +82,24 @@ jobs:
         shell: cmd
         run: rustup target add x86_64-pc-windows-msvc
 
+      - name: Check out TemplateGame reference project
+        uses: actions/checkout@v4
+        with:
+          repository: JonLangfordUK/template-game
+          ref: dev
+          path: external/template-game
+
+      - name: Use current Foundation checkout as TemplateGame engine
+        shell: cmd
+        run: |
+          if exist external\template-game\engine rmdir /S /Q external\template-game\engine
+          mklink /J external\template-game\engine "%GITHUB_WORKSPACE%"
+
       - name: Package Foundation game
         shell: cmd
         run: >-
           cargo run -p foundation-build -- package
-          --game "%FOUNDATION_GAME%"
+          --project "%FOUNDATION_GAME_PROJECT%"
           --platform windows-x64
           --configuration "${{ matrix.configuration }}"
           --target game
