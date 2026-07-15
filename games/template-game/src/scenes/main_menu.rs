@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;
 
-use crate::scenes::{GAMEPLAY_LEVEL_SCENE, OPTIONS_MENU_SCENE};
+use crate::scenes::{CREDITS_SCENE, GAMEPLAY_LEVEL_SCENE, OPTIONS_MENU_SCENE};
 
 /// Returns the main menu scene.
 pub fn main_menu_scene(scene_owner: SceneOwner) -> impl Scene {
@@ -29,6 +29,11 @@ pub fn main_menu_scene(scene_owner: SceneOwner) -> impl Scene {
             main_menu_button(
                 "Options",
                 FoundationMenuButton::open_overlay_scene(OPTIONS_MENU_SCENE, "options"),
+                scene_owner,
+            ),
+            main_menu_button(
+                "Credits",
+                FoundationMenuButton::open_scene(CREDITS_SCENE, "credits"),
                 scene_owner,
             ),
             main_menu_button("Exit", FoundationMenuButton::exit(), scene_owner),

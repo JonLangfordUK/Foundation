@@ -1,0 +1,299 @@
+{
+  "groups": [
+    {
+      "name": "Pixel Perfect",
+      "people": [],
+      "groups": [
+        {
+          "name": "Team",
+          "people": [
+            {
+              "name": "Jon Langford",
+              "role": "Project Lead"
+            }
+          ]
+        },
+        {
+          "name": "Special Thanks",
+          "people": [
+            {
+              "name": "Sky Stanley",
+              "role": ""
+            },
+            {
+              "name": "Armani Gentles-Williams",
+              "role": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bevy",
+      "top_margin_pixels": 100.0,
+      "people": [],
+      "groups": [
+        {
+          "name": "Maintainers",
+          "people": [
+            {
+              "name": "Carter Anderson",
+              "role": "Project Lead"
+            },
+            {
+              "name": "Rob Swain",
+              "role": "Rendering"
+            },
+            {
+              "name": "François Mockers",
+              "role": "Animation | Input | Mobile"
+            },
+            {
+              "name": "Alice Cecile",
+              "role": "Docs | ECS | Input"
+            },
+            {
+              "name": "James Liu",
+              "role": "Animation | ECS"
+            }
+          ],
+          "groups": []
+        },
+        {
+          "name": "Members",
+          "people": [
+            {
+              "name": "Gino Valente",
+              "role": "Reflection"
+            },
+            {
+              "name": "Icesentry",
+              "role": "Rendering"
+            },
+            {
+              "name": "Talin",
+              "role": "UI"
+            },
+            {
+              "name": "Charlotte",
+              "role": "Rendering"
+            },
+            {
+              "name": "Joseph Giordano",
+              "role": "ECS"
+            },
+            {
+              "name": "Rob Macdonald",
+              "role": "Rendering"
+            },
+            {
+              "name": "AndriyDev",
+              "role": "Assets"
+            },
+            {
+              "name": "Ickshonpe",
+              "role": "UI"
+            },
+            {
+              "name": "Joy",
+              "role": "ECS"
+            },
+            {
+              "name": "Ida \"Iyes\"",
+              "role": ""
+            },
+            {
+              "name": "BD103",
+              "role": ""
+            },
+            {
+              "name": "Jerome Humbert",
+              "role": ""
+            },
+            {
+              "name": "Harudagondi",
+              "role": ""
+            },
+            {
+              "name": "Aceeri",
+              "role": ""
+            },
+            {
+              "name": "Kurt Kühnert",
+              "role": ""
+            },
+            {
+              "name": "Rob Parrett",
+              "role": ""
+            },
+            {
+              "name": "Aevyrie Roessler",
+              "role": ""
+            },
+            {
+              "name": "Jan Hohenheim",
+              "role": ""
+            },
+            {
+              "name": "Spencer C. Imbleau",
+              "role": ""
+            },
+            {
+              "name": "Nicola Papale",
+              "role": ""
+            },
+            {
+              "name": "Joona Aalto",
+              "role": ""
+            },
+            {
+              "name": "Niklas Eicker",
+              "role": ""
+            },
+            {
+              "name": "JMS",
+              "role": ""
+            },
+            {
+              "name": "Soqb",
+              "role": ""
+            },
+            {
+              "name": "Jakob Hellermann",
+              "role": ""
+            },
+            {
+              "name": "Thierry Berger",
+              "role": ""
+            },
+            {
+              "name": "Nile",
+              "role": ""
+            },
+            {
+              "name": "Trial",
+              "role": ""
+            },
+            {
+              "name": "VitalyR, Vitaly Ankh",
+              "role": ""
+            },
+            {
+              "name": "Nathan Stocks",
+              "role": ""
+            },
+            {
+              "name": "Mike Hsu",
+              "role": ""
+            }
+          ],
+          "groups": []
+        },
+        {
+          "name": "Community",
+          "people": [
+            {
+              "name": "Arvin",
+              "role": ""
+            },
+            {
+              "name": "Cryscan",
+              "role": ""
+            },
+            {
+              "name": "William Pederzoli",
+              "role": ""
+            },
+            {
+              "name": "Cihangir Timur Sefergil",
+              "role": ""
+            },
+            {
+              "name": "Crispy",
+              "role": ""
+            },
+            {
+              "name": "Josiah Mbao",
+              "role": ""
+            },
+            {
+              "name": "Michael Van Der Velden",
+              "role": ""
+            },
+            {
+              "name": "Therabug",
+              "role": ""
+            },
+            {
+              "name": "Zjikra",
+              "role": ""
+            },
+            {
+              "name": "Piotr Kosek",
+              "role": ""
+            },
+            {
+              "name": "Nathan Graule",
+              "role": ""
+            },
+            {
+              "name": "Paul Hansen",
+              "role": ""
+            },
+            {
+              "name": "Schell Carl Scivally",
+              "role": ""
+            },
+            {
+              "name": "Lixou",
+              "role": ""
+            },
+            {
+              "name": "Kat Marchán",
+              "role": ""
+            },
+            {
+              "name": "Anselmo Sampietro",
+              "role": ""
+            },
+            {
+              "name": "Phaestus Fox Or Phox For Short",
+              "role": ""
+            },
+            {
+              "name": "Pascal Hertleif",
+              "role": ""
+            },
+            {
+              "name": "Shown Zhang",
+              "role": ""
+            },
+            {
+              "name": "Luke Yoo",
+              "role": ""
+            },
+            {
+              "name": "Linwei Zhang",
+              "role": ""
+            },
+            {
+              "name": "Jos Feenstra",
+              "role": ""
+            },
+            {
+              "name": "Piotr Siuszko",
+              "role": ""
+            }
+          ],
+          "groups": []
+        }
+      ]
+    },
+    {
+      "name": "Thank You!",
+      "top_margin_pixels": 100.0,
+      "people": [],
+      "groups": []
+    }
+  ]
+}

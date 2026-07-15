@@ -473,6 +473,7 @@ fn spawn_credit_person_row(
     let name_column_width = Val::Px(300.0);
     let role_column_width = Val::Px(300.0);
     let center_gap_width = Val::Px(28.0);
+    let row_width = Val::Px(628.0);
     let row_entity = commands
         .spawn((
             Node {
@@ -481,6 +482,7 @@ fn spawn_credit_person_row(
                 column_gap: center_gap_width,
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::Center,
+                width: row_width,
                 ..default()
             },
             FoundationGeneratedCreditsUi,
@@ -493,21 +495,21 @@ fn spawn_credit_person_row(
         value: credited_person_name,
         font_size: credits_roll.person_font_size,
         column_width: name_column_width,
-        justify: Justify::Right,
+        horizontal_alignment: JustifyContent::FlexEnd,
     };
-    let name_text_entity =
-        spawn_credit_person_text(commands, asset_server, credits_roll, name_text, scene_owner);
+    let name_text_cell_entity =
+        spawn_credit_person_text_cell(commands, asset_server, credits_roll, name_text, scene_owner);
     let role_text = CreditPersonTextSpec {
         value: credited_person_role,
         font_size: credits_roll.person_font_size,
         column_width: role_column_width,
-        justify: Justify::Left,
+        horizontal_alignment: JustifyContent::FlexStart,
     };
-    let role_text_entity =
-        spawn_credit_person_text(commands, asset_server, credits_roll, role_text, scene_owner);
+    let role_text_cell_entity =
+        spawn_credit_person_text_cell(commands, asset_server, credits_roll, role_text, scene_owner);
     commands
         .entity(row_entity)
-        .replace_children(&[name_text_entity, role_text_entity]);
+        .replace_children(&[name_text_cell_entity, role_text_cell_entity]);
 
     row_entity
 }
@@ -529,6 +531,8 @@ fn spawn_centered_credit_text(
             Text::new(text_value.to_string()),
             credits_text_font(asset_server, credits_roll, font_size),
             TextColor(Color::WHITE),
+            // Credits rows must stay one row tall while scrolling through the clipped viewport.
+            TextLayout::no_wrap(),
             FoundationGeneratedCreditsUi,
             Name::new(text_value.to_string()),
         ))
@@ -541,32 +545,47 @@ struct CreditPersonTextSpec<'a> {
     value: &'a str,
     font_size: f32,
     column_width: Val,
-    justify: Justify,
+    horizontal_alignment: JustifyContent,
 }
 
-fn spawn_credit_person_text(
+fn spawn_credit_person_text_cell(
     commands: &mut Commands,
     asset_server: &AssetServer,
     credits_roll: &FoundationCreditsRoll,
     text_spec: CreditPersonTextSpec,
     scene_owner: Option<SceneOwner>,
 ) -> Entity {
-    let text_entity = commands
+    let cell_entity = commands
         .spawn((
             Node {
                 width: text_spec.column_width,
+                justify_content: text_spec.horizontal_alignment,
                 ..default()
             },
+            FoundationGeneratedCreditsUi,
+            Name::new(format!("{} Credit Cell", text_spec.value)),
+        ))
+        .id();
+    insert_scene_owner(commands, cell_entity, scene_owner);
+
+    let text_entity = commands
+        .spawn((
             Text::new(text_spec.value.to_string()),
             credits_text_font(asset_server, credits_roll, text_spec.font_size),
             TextColor(Color::WHITE),
-            TextLayout::justify(text_spec.justify),
+            // The column cell controls horizontal alignment, while text layout prevents wrapping.
+            TextLayout::no_wrap(),
             FoundationGeneratedCreditsUi,
             Name::new(text_spec.value.to_string()),
         ))
         .id();
     insert_scene_owner(commands, text_entity, scene_owner);
-    text_entity
+
+    commands
+        .entity(cell_entity)
+        .replace_children(&[text_entity]);
+
+    cell_entity
 }
 
 fn credits_text_font(

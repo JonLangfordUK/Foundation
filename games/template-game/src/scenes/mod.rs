@@ -4,6 +4,7 @@
 //! keys and maps each key to one scene-specific Rust module.
 
 mod bevy_splash;
+mod credits;
 mod gameplay;
 mod main_menu;
 mod options_menu;
@@ -14,6 +15,7 @@ use bevy::prelude::*;
 use foundation_runtime_library::prelude::*;
 
 pub use bevy_splash::spawn_bevy_splash_scene;
+pub use credits::credits_scene;
 pub use gameplay::gameplay_level_scene;
 pub use main_menu::main_menu_scene;
 pub use options_menu::options_menu_scene;
@@ -28,6 +30,8 @@ pub const BEVY_SPLASH_SCENE: &str = "template-game/splash_bevy";
 pub const MAIN_MENU_SCENE: &str = "template-game/main_menu";
 /// Scene key for the stack-based options menu.
 pub const OPTIONS_MENU_SCENE: &str = "template-game/options_menu";
+/// Scene key for the scrolling credits scene.
+pub const CREDITS_SCENE: &str = "template-game/credits";
 /// Scene key for the small sample gameplay level.
 pub const GAMEPLAY_LEVEL_SCENE: &str = "template-game/gameplay_level";
 /// Scene key for the gameplay pause menu.
@@ -71,6 +75,9 @@ pub fn spawn_requested_template_game_scenes(
             Some(OPTIONS_MENU_SCENE) => {
                 commands.spawn_scene(options_menu_scene(scene_owner));
             }
+            Some(CREDITS_SCENE) => {
+                commands.spawn_scene(credits_scene(scene_owner));
+            }
             Some(GAMEPLAY_LEVEL_SCENE) => {
                 commands.spawn_scene(gameplay_level_scene(scene_owner));
             }
@@ -107,6 +114,7 @@ mod tests {
         assert_eq!(BEVY_SPLASH_SCENE, "template-game/splash_bevy");
         assert_eq!(MAIN_MENU_SCENE, "template-game/main_menu");
         assert_eq!(OPTIONS_MENU_SCENE, "template-game/options_menu");
+        assert_eq!(CREDITS_SCENE, "template-game/credits");
         assert_eq!(GAMEPLAY_LEVEL_SCENE, "template-game/gameplay_level");
         assert_eq!(PAUSE_MENU_SCENE, "template-game/pause_menu");
     }
