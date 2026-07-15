@@ -6,11 +6,11 @@
 - Primary area: `engine`
 - Branch: `feature/debug-console`
 - Branch status: `Created from dev on 2026-07-15`
-- Overall status: `In progress`
+- Overall status: `Implementation complete; optional review available`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Implementation in progress with gpt-5.4`
+- Current handoff state: `Ready for optional gpt-5.5 sanity review`
 - Created: `2026-07-15`
 - Last updated: `2026-07-15`
 
@@ -55,117 +55,117 @@
 - TemplateGame now has a macro-registered command and a test proving it is linked into the TemplateGame binary's registry.
 
 ## Phase 2: Feathers Console UI And Input Focus
-**Status:** In progress  
+**Status:** Complete  
 **Goal:** Provide a UE5-style bottom console overlay using Bevy Feathers with robust keyboard and mouse focus while open.
 
 ### Tasks
-- [ ] Verify Bevy 0.19 Feathers imports, required features, and text input APIs.
-  - Status: Implemented; awaiting phase validation
-  - Notes: Local Bevy 0.19 source confirms `bevy_feathers::FeathersPlugins`, `FeathersTextInputContainer`, and `FeathersTextInput` exist. Added direct `bevy_feathers` and `bevy_input_focus` dependencies for the runtime console UI.
-- [ ] Implement backtick toggle behavior for opening/closing the console.
-  - Status: Implemented; awaiting phase validation
-  - Notes: Backquote now opens the console as a scene-stack runtime scene with `INPUT_BLOCKING_OVERLAY`, so gameplay continues updating while lower-scene input is blocked. Backquote closes the keyed console scene while open.
-- [ ] Spawn/despawn or show/hide a full-width bottom console overlay with history/output above the input row.
-  - Status: Implemented; awaiting phase validation
-  - Notes: Added scene-load handling that spawns a full-width bottom overlay with high `GlobalZIndex`, history/output text, Feathers text input markers, and scene ownership for cleanup.
-- [ ] Capture mouse and keyboard focus while the console is open.
-  - Status: In progress
-  - Notes: The generated input entity uses Bevy `EditableText`, `TabIndex`, `AutoFocus`, and explicit `InputFocus` assignment. More validation is still needed around gameplay input leakage and text input behavior.
-- [ ] Implement Enter execution, Escape/backtick close behavior, Up/Down history navigation, and Tab autocomplete completion.
-  - Status: Planned
-  - Notes: Coordinate Tab with Bevy UI tab navigation.
+- [x] Verify Bevy 0.19 Feathers imports, required features, and text input APIs.
+  - Status: Complete
+  - Notes: Local Bevy 0.19 source confirmed `bevy_feathers::FeathersPlugins`, `FeathersTextInputContainer`, and `FeathersTextInput` exist. Added direct `bevy_feathers` and `bevy_input_focus` dependencies for the runtime console UI.
+- [x] Implement backtick toggle behavior for opening/closing the console.
+  - Status: Complete
+  - Notes: Backquote opens the console as a scene-stack runtime scene with `INPUT_BLOCKING_OVERLAY`, so gameplay continues updating while lower-scene input is blocked. Backquote closes the keyed console scene while open.
+- [x] Spawn/despawn or show/hide a full-width bottom console overlay with history/output above the input row.
+  - Status: Complete
+  - Notes: Added scene-load handling that spawns a full-width bottom overlay with high `GlobalZIndex`, scrollback output text, suggestion text, input text, and scene ownership for cleanup.
+- [x] Capture mouse and keyboard focus while the console is open.
+  - Status: Complete
+  - Notes: The generated input entity uses Bevy `EditableText`, `TabIndex`, `AutoFocus`, explicit `InputFocus` assignment, and runtime user testing confirmed open/close, typing, Tab, Enter, history, and scrollback behavior.
+- [x] Implement Enter execution, Escape/backtick close behavior, Up/Down history navigation, and Tab autocomplete completion.
+  - Status: Complete
+  - Notes: Implemented focused keyboard action handling for Enter, Escape, Backquote, Up/Down history traversal, Tab completion, output scrolling, and persisted command history.
 
 ### Validation
-- Format: Passed focused check via `cargo fmt --all` and `scripts/format-project.cmd` on 2026-07-15
-- Lint: Passed focused check via `cargo clippy -p foundation-runtime-library --all-targets --all-features -- -D warnings` on 2026-07-15
-- Tests: Passed focused check via `cargo test -p foundation-runtime-library console --all-features` on 2026-07-15; rerun after reopen fix with 8 console tests passing; rerun after input/action fix with 8 console tests passing
-- Build: Pending phase-level build
-- Documentation generation: Pending phase-level documentation generation
-- Full validation wrapper: Pending / Not required yet
-- User confirmation: Pending / Not required yet
+- Format: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Build: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- User confirmation: User confirmed console behavior is working perfectly on 2026-07-15
 
 ### Notes
-- Manual runtime testing will be necessary because UI focus behavior is hard to prove with unit tests alone.
-- User reported missing predictive text, Enter doing nothing, TemplateGame warning for `foundation/debug-console`, and Bevy scene-component errors from direct Feathers scene-component spawning.
-- Addressed by adding focused keyboard action handling, suggestion text refresh, queued command execution, Escape close, Up/Down history navigation, Tab completion, ignoring Foundation runtime scenes in TemplateGame scene loading, and removing direct spawning of Feathers scene components that Bevy expects to be spawned through scene syntax.
-- Output containment issue addressed by setting the output area to a fixed-height viewport and rendering a scrollback line window. Recent output stays just above the input by default, and mouse-wheel up/down moves through older/newer output without exposing blank space.
-- Remaining Phase 2 work: stronger runtime/focus validation and persisted history disk I/O.
+- Manual runtime testing was performed by the user throughout Phase 2 and drove fixes for reopen state, input actions, Bevy query conflicts, Tab completion crash, output ordering, scroll containment, scrollback range, history navigation, output area size, and executable-relative persisted history.
+- TemplateGame ignores Foundation runtime scene requests so the game scene catalog no longer warns about `foundation/debug-console`.
+- Feathers plugin installation is guarded so MinimalPlugins tests that lack asset resources do not panic while normal DefaultPlugins game launches still receive Feathers support.
 
 ## Phase 3: Autocomplete, Placeholder Text, And Example Commands
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Complete the user-facing console behavior with predictions, parameter hints, and Foundation/TemplateGame command examples.
 
 ### Tasks
-- [ ] Implement deterministic prefix-based command and parameter autocomplete.
-  - Status: Planned
-  - Notes: Stable ordering should make tests reliable.
-- [ ] Generate placeholder/dummy text from named command parameter metadata.
-  - Status: Planned
-  - Notes: Placeholders should update as the active command/prediction changes.
-- [ ] Add at least one Foundation-authored command and one TemplateGame-authored command using the macro.
-  - Status: Planned
-  - Notes: Examples should prove Foundation plus current game command availability.
-- [ ] Add tests for autocomplete, placeholder generation, and example command registration.
-  - Status: Planned
-  - Notes: Tests should avoid depending on nondeterministic linker ordering.
-- [ ] Add user-facing docs or examples for declaring commands.
-  - Status: Planned
-  - Notes: Include supported signatures and limitations.
+- [x] Implement deterministic prefix-based command and parameter autocomplete.
+  - Status: Complete
+  - Notes: Command-name autocomplete uses deterministic sorted registry order and Tab completion inserts the command with generated parameter placeholders.
+- [x] Generate placeholder/dummy text from named command parameter metadata.
+  - Status: Complete
+  - Notes: `ConsoleCommandInput` derives named field metadata and placeholders render as `name=<Type>` style parameter hints.
+- [x] Add at least one Foundation-authored command and one TemplateGame-authored command using the macro.
+  - Status: Complete
+  - Notes: Added `foundation_console_history_size`; TemplateGame includes `template_game_greeting` and `say_hello` registered as `example.say-hello`.
+- [x] Add tests for autocomplete, placeholder generation, and example command registration.
+  - Status: Complete
+  - Notes: Console tests cover parser, metadata, command dispatch, scrollback, history persistence, and history navigation. TemplateGame tests verify command registration and overridden command name metadata.
+- [x] Add user-facing docs or examples for declaring commands.
+  - Status: Complete
+  - Notes: Added `docs/debug-console.md` and linked it from `docs/foundation-engine.md`.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending / Not required yet
-- User confirmation: Pending / Not required yet
+- Format: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Build: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- User confirmation: User confirmed command UX is working on 2026-07-15
 
 ### Notes
 - TemplateGame commands are compiled when running TemplateGame. Other game crates should not be included unless their package is selected/linked.
 - TemplateGame includes `say_hello` as an example command registered in-console as `example.say-hello`.
+- Command history persists under `<executable-dir>/saved/console/history.json`.
 
 ## Phase 4: Full Validation, Commit Checkpoints, And Handoff
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Complete validation, documentation generation, commit/push checkpoints, and prepare optional review.
 
 ### Tasks
-- [ ] Run `scripts/format-project.cmd`.
-  - Status: Planned
-  - Notes: Required before completion.
-- [ ] Run `scripts/lint-project.cmd`.
-  - Status: Planned
-  - Notes: Required before completion.
-- [ ] Run `scripts/test-project.cmd`.
-  - Status: Planned
-  - Notes: Required before completion.
-- [ ] Run `scripts/compile-project.cmd`.
-  - Status: Planned
-  - Notes: Required before completion.
-- [ ] Run `scripts/doc-project.cmd`.
-  - Status: Planned
-  - Notes: Required before completion because public APIs are expected.
-- [ ] Run `scripts/validate-project.cmd` for full validation.
-  - Status: Planned
-  - Notes: Preferred final validation wrapper.
-- [ ] Commit completed tasks/phases with required file lists and push to `origin`.
-  - Status: Planned
-  - Notes: `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
+- [x] Run `scripts/format-project.cmd`.
+  - Status: Complete
+  - Notes: Passed as part of `scripts/validate-project.cmd` on 2026-07-15.
+- [x] Run `scripts/lint-project.cmd`.
+  - Status: Complete
+  - Notes: Passed as part of `scripts/validate-project.cmd` on 2026-07-15.
+- [x] Run `scripts/test-project.cmd`.
+  - Status: Complete
+  - Notes: Passed as part of `scripts/validate-project.cmd` on 2026-07-15.
+- [x] Run `scripts/compile-project.cmd`.
+  - Status: Complete
+  - Notes: Passed as part of `scripts/validate-project.cmd` on 2026-07-15.
+- [x] Run `scripts/doc-project.cmd`.
+  - Status: Complete
+  - Notes: Passed as part of `scripts/validate-project.cmd` on 2026-07-15.
+- [x] Run `scripts/validate-project.cmd` for full validation.
+  - Status: Complete
+  - Notes: Passed on 2026-07-15 after fixing Feathers plugin initialization for MinimalPlugins tests.
+- [x] Commit completed tasks/phases with required file lists and push to `origin`.
+  - Status: Complete
+  - Notes: Final documentation/tracker update is included in the feature finish-up commit and pushed to `origin`. `origin` is configured as `https://github.com/JonLangfordUK/Foundation.git`.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
-- Full validation wrapper: Pending
-- User confirmation: Pending / Not required yet
+- Format: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Build: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Full validation wrapper: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- User confirmation: User requested finish-up on 2026-07-15
 
 ### Notes
-- Do not mark the feature complete until validation and documentation generation pass or a user-approved waiver is recorded.
+- Full validation initially failed because `FoundationConsolePlugin` always installed `FeathersPlugins`, and MinimalPlugins tests lacked required asset resources. The console plugin now installs Feathers only when the app already has `AssetServer`, allowing lightweight tests to pass while DefaultPlugins game launches keep Feathers support.
+- Optional final sanity review remains available through the project review workflow.
 
 ## Implementation / Review Handoff Notes
-- User approved implementation after plan review. Implementation has started with `gpt-5.4`.
+- User approved implementation after plan review. Implementation is complete with `gpt-5.4`; optional final sanity review can use `gpt-5.5`.
 - Implementation must use `gpt-5.4`; review must use `gpt-5.5`; never use Anthropic models.
 - Before implementation edits, read the plan and tracker, confirm branch `feature/debug-console`, and update this tracker to record implementation start/resume.
 - Required skills before implementation: `feature-tracker-update`, `feature-plan-docs`, `foundation-architecture`, `rust-workspace-dev`, `rust-coding-standards`, and `gitflow-workflow`.
@@ -211,4 +211,7 @@
 - `2026-07-15`: User confirmed the larger history area looks good and requested two additional visible output lines. Increased visible output line count from 14 to 16.
 - `2026-07-15`: User reported command history was not available between game runs. Implemented loading history from `saved/console/history.json` when the console plugin starts and saving history after each submitted command, including failed command attempts, so Up/Down navigation persists across runs.
 - `2026-07-15`: User clarified the saved history path should be relative to the built executable, not the project/current working directory. Updated history path resolution to use `std::env::current_exe()` and store under `<executable-dir>/saved/console/history.json`.
+- `2026-07-15`: Added user-facing documentation in `docs/debug-console.md` and linked it from `docs/foundation-engine.md`.
+- `2026-07-15`: Ran `scripts/validate-project.cmd`; initial run failed because Feathers plugin installation required asset resources in MinimalPlugins tests. Guarded Feathers plugin installation behind existing `AssetServer` availability.
+- `2026-07-15`: Re-ran `scripts/validate-project.cmd`; full validation passed including format, lint, tests, build, and docs.
 - `2026-07-15`: Added TemplateGame `say_hello` example command registered as `example.say-hello`, demonstrating macro command-name override with named `name` input metadata.

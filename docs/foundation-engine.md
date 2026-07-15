@@ -87,6 +87,12 @@ bundled-game selection.
 features should remain in `crates/foundation-editor-library` or game-owned
 editor integration, not in concrete-game branches inside `crates/foundation`.
 
+## Runtime Debug Console
+
+Foundation games include a reusable debug console through `FoundationPlugin`.
+See [`debug-console.md`](debug-console.md) for command usage, macro examples,
+autocomplete behavior, history persistence, and command registration rules.
+
 ## Crate Boundaries
 
 - `crates/foundation`: game-agnostic engine launcher and manifest discovery.

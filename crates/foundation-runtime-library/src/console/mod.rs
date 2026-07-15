@@ -55,7 +55,9 @@ pub struct FoundationConsolePlugin;
 
 impl Plugin for FoundationConsolePlugin {
     fn build(&self, app: &mut App) {
-        if !app.is_plugin_added::<bevy_feathers::FeathersCorePlugin>() {
+        if app.world().contains_resource::<AssetServer>()
+            && !app.is_plugin_added::<bevy_feathers::FeathersCorePlugin>()
+        {
             app.add_plugins(FeathersPlugins);
         }
 
