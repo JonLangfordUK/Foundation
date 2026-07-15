@@ -251,8 +251,11 @@ fn update_console_input_state(
     console_inputs: Query<&EditableText, (With<FoundationConsoleInput>, Changed<EditableText>)>,
 ) {
     for editable_text in &console_inputs {
-        console_ui_state.input = editable_text_value(editable_text);
-        console_ui_state.history_cursor = None;
+        let changed_input = editable_text_value(editable_text);
+        if changed_input != console_ui_state.input {
+            console_ui_state.input = changed_input;
+            console_ui_state.history_cursor = None;
+        }
     }
 }
 
@@ -1184,6 +1187,47 @@ mod tests {
         assert_eq!(
             output_text,
             "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9"
+        );
+    }
+
+    #[test]
+    fn history_navigation_cycles_through_all_commands_until_clear_input() {
+        let console_history = FoundationConsoleHistory {
+            commands: vec![
+                "first".to_string(),
+                "second".to_string(),
+                "third".to_string(),
+            ],
+        };
+        let mut console_ui_state = FoundationConsoleUiState::default();
+
+        assert_eq!(
+            previous_history_input(&mut console_ui_state, &console_history),
+            Some("third".to_string())
+        );
+        assert_eq!(
+            previous_history_input(&mut console_ui_state, &console_history),
+            Some("second".to_string())
+        );
+        assert_eq!(
+            previous_history_input(&mut console_ui_state, &console_history),
+            Some("first".to_string())
+        );
+        assert_eq!(
+            previous_history_input(&mut console_ui_state, &console_history),
+            Some("first".to_string())
+        );
+        assert_eq!(
+            next_history_input(&mut console_ui_state, &console_history),
+            "second"
+        );
+        assert_eq!(
+            next_history_input(&mut console_ui_state, &console_history),
+            "third"
+        );
+        assert_eq!(
+            next_history_input(&mut console_ui_state, &console_history),
+            ""
         );
     }
 
