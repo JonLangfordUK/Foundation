@@ -31,6 +31,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Add Rust tools to PATH
+        shell: cmd
+        run: |
+          set "PATH=%USERPROFILE%\.cargo\bin;C:\Users\jonla\.cargo\bin;%PATH%"
+          if exist "%USERPROFILE%\.cargo\bin\cargo.exe" echo %USERPROFILE%\.cargo\bin>>"%GITHUB_PATH%"
+          if exist "C:\Users\jonla\.cargo\bin\cargo.exe" echo C:\Users\jonla\.cargo\bin>>"%GITHUB_PATH%"
+          where cargo
+          where rustup
+
       - name: Validate Rust workspace
         shell: cmd
         run: scripts\validate-project.cmd
@@ -48,6 +57,15 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Add Rust tools to PATH
+        shell: cmd
+        run: |
+          set "PATH=%USERPROFILE%\.cargo\bin;C:\Users\jonla\.cargo\bin;%PATH%"
+          if exist "%USERPROFILE%\.cargo\bin\cargo.exe" echo %USERPROFILE%\.cargo\bin>>"%GITHUB_PATH%"
+          if exist "C:\Users\jonla\.cargo\bin\cargo.exe" echo C:\Users\jonla\.cargo\bin>>"%GITHUB_PATH%"
+          where cargo
+          where rustup
 
       - name: Install selected Rust target
         shell: cmd
