@@ -13,7 +13,7 @@
 - Last updated: `2026-07-15`
 
 ## User Request
-Move the current `template-game` out of the Foundation repository into the new public GitHub repository `https://github.com/JonLangfordUK/template-game.git`. The new game repository should use an Unreal-like layout where `engine/` contains Foundation as a submodule, checkout, junction, or externally supplied path, and `game/` contains the game source and game assets. Foundation should support building, running, and packaging external game projects by relative or absolute path. Both repositories should have working build systems and branch-protection-ready workflows using `dev` and `main` branches.
+Move the current `template-game` out of the Foundation repository into the new public GitHub repository `https://github.com/Perfect-Pixel-Games/template-game.git`. The new game repository should use an Unreal-like layout where `engine/` contains Foundation as a submodule, checkout, junction, or externally supplied path, and `game/` contains the game source and game assets. Foundation should support building, running, and packaging external game projects by relative or absolute path. Both repositories should have working build systems and branch-protection-ready workflows using `dev` and `main` branches.
 
 ## Feature Summary
 Foundation will evolve from an engine repository that contains `games/template-game` as an in-workspace test game into an engine repository that can build external Foundation game projects. The `template-game` repository will become the reference external game project and will pin Foundation through an `engine/` submodule by default, while still supporting alternate engine locations through scripts or path association.
@@ -31,7 +31,7 @@ Foundation will evolve from an engine repository that contains `games/template-g
 - `games/template-game/Cargo.toml` uses workspace dependencies and workspace package metadata, so it must be converted for standalone game repo use or generated from a game workspace root.
 - `games/template-game/src/lib.rs` currently uses `env!("CARGO_MANIFEST_DIR")` and `FOUNDATION_ASSET_ROOT` for asset root discovery. This can continue to work if the standalone game crate owns `game/assets` and packaging sets/copies the correct roots.
 - `.github/workflows/foundation-build.yml` on `origin/dev` currently validates and packages the in-repo `template-game` and publishes releases on pushes to `dev` and `main`. The separate `feature/branch-protection-ci` branch adds PR checks and main source-branch policy but is not yet merged into `dev` at plan creation time.
-- The new `https://github.com/JonLangfordUK/template-game.git` repository is currently empty with no commits at the time of inspection.
+- The new `https://github.com/Perfect-Pixel-Games/template-game.git` repository is currently empty with no commits at the time of inspection.
 
 ## External Research
 No external online research was performed because the work is primarily repository restructuring and existing Cargo/GitHub Actions behavior is already known from the current project workflows.

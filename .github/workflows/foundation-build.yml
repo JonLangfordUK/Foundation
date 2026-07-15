@@ -85,7 +85,7 @@ jobs:
       - name: Check out TemplateGame reference project
         uses: actions/checkout@v4
         with:
-          repository: JonLangfordUK/template-game
+          repository: Perfect-Pixel-Games/template-game
           ref: dev
           path: external/template-game
 
