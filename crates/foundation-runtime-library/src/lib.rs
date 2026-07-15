@@ -75,8 +75,9 @@ pub struct FoundationActor {
 pub mod prelude {
     pub use crate::credits::{
         flatten_credits_document, header_font_size_for_depth, CreditPerson, CreditsDisplayRow,
-        CreditsDocument, CreditsGroup, FoundationCreditsPlugin, FoundationCreditsRoll,
-        FoundationCreditsRuntime, FoundationCreditsRuntimeSettings, FoundationGeneratedCreditsUi,
+        CreditsDocument, CreditsGroup, FoundationCreditsAssetRoots, FoundationCreditsPlugin,
+        FoundationCreditsRoll, FoundationCreditsRuntime, FoundationCreditsRuntimeSettings,
+        FoundationGeneratedCreditsUi,
     };
     pub use crate::game_settings::{
         FoundationGameSettings, FoundationGameSettingsIoError, FOUNDATION_GAME_SETTINGS_FILE_NAME,
@@ -86,7 +87,7 @@ pub mod prelude {
         FoundationExitRequested, FoundationGeneratedMenuUi, FoundationMenuButton,
         FoundationMenuPlugin, FoundationMenuRuntimeSettings, FoundationOptionsMenu,
         FoundationPauseOpener, FoundationPauseState, FoundationPlaceholderMenu,
-        FoundationResumeOnEscape, FoundationSimpleGameplayLevel, FoundationSpin, FoundationUiOrder,
+        FoundationResumeOnEscape, FoundationSimpleGameplayLevel, FoundationSpin,
     };
     pub use crate::scene_stack::{
         FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,

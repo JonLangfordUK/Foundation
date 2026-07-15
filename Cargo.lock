@@ -2575,7 +2575,6 @@ name = "foundation-editor-library"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "foundation-runtime-library",
 ]
 
 [[package]]

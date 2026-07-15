@@ -23,10 +23,16 @@ impl Plugin for FoundationSceneStackPlugin {
             .add_message::<SceneUnfocused>()
             .add_message::<SceneLoadRequested>()
             .register_type::<SceneOwner>()
-            // Cleanup runs after command processing so removed scene IDs are available first.
+            // Visibility sync and cleanup run after command processing so both
+            // observe the freshly recomputed stack flags and removed scene IDs.
             .add_systems(
                 PostUpdate,
-                (process_scene_commands, cleanup_removed_scene_entities).chain(),
+                (
+                    process_scene_commands,
+                    sync_scene_entity_visibility,
+                    cleanup_removed_scene_entities,
+                )
+                    .chain(),
             );
     }
 }
@@ -133,6 +139,11 @@ impl Default for ScenePresentation {
 }
 
 /// Derived runtime flags for a scene stack entry.
+///
+/// Foundation enforces these flags for scene-owned entities: `visible` drives
+/// [`Visibility`] on scene-root entities each frame, and Foundation gameplay
+/// systems skip entities whose scene is not `updating`. Game systems should
+/// consult [`SceneStack::is_updating`] for their own update gating.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
 pub struct SceneRuntimeFlags {
     /// True when this scene owns primary focus.
@@ -218,6 +229,22 @@ impl SceneStack {
     /// Returns the next id that will be assigned by command processing.
     pub fn next_scene_id(&self) -> SceneId {
         SceneId(self.next_id)
+    }
+
+    /// Returns true when the scene with this id should update/simulate.
+    ///
+    /// Unknown ids report false so entities owned by removed scenes never keep
+    /// running while their cleanup is pending.
+    pub fn is_updating(&self, id: SceneId) -> bool {
+        self.get(id).is_some_and(|entry| entry.flags.updating)
+    }
+
+    /// Returns true when the scene with this id should be visible.
+    ///
+    /// Unknown ids report false so entities owned by removed scenes never stay
+    /// visible while their cleanup is pending.
+    pub fn is_visible(&self, id: SceneId) -> bool {
+        self.get(id).is_some_and(|entry| entry.flags.visible)
     }
 
     fn allocate_id(&mut self) -> SceneId {
@@ -468,6 +495,9 @@ fn process_scene_commands(
 ) {
     // Drain commands before applying them so stack mutations cannot affect this read pass.
     let scene_commands = commands.read().cloned().collect::<Vec<_>>();
+    if scene_commands.is_empty() {
+        return;
+    }
 
     for command in scene_commands {
         apply_scene_command(
@@ -475,11 +505,13 @@ fn process_scene_commands(
             &mut stack,
             &mut added,
             &mut removed,
-            &mut focused,
-            &mut unfocused,
             &mut load_requested,
         );
     }
+
+    // Recompute focus and derived flags once per batch so callers observe only
+    // the net focus transition, never transient intermediate stack states.
+    update_runtime_flags(&mut stack, &mut focused, &mut unfocused);
 }
 
 fn apply_scene_command(
@@ -487,8 +519,6 @@ fn apply_scene_command(
     stack: &mut SceneStack,
     added: &mut MessageWriter<SceneAdded>,
     removed: &mut MessageWriter<SceneRemoved>,
-    focused: &mut MessageWriter<SceneFocused>,
-    unfocused: &mut MessageWriter<SceneUnfocused>,
     load_requested: &mut MessageWriter<SceneLoadRequested>,
 ) {
     match command {
@@ -509,9 +539,6 @@ fn apply_scene_command(
             open_scene(source, options, stack, added, load_requested);
         }
     }
-
-    // Recompute focus and visibility after every stack mutation batch.
-    update_runtime_flags(stack, focused, unfocused);
 }
 
 fn open_scene(
@@ -597,6 +624,33 @@ fn cleanup_removed_scene_entities(
 
         if !parent_is_removed_scene_owned {
             commands.entity(owned_entity).despawn();
+        }
+    }
+}
+
+fn sync_scene_entity_visibility(
+    stack: Res<SceneStack>,
+    mut owned_visibilities: Query<(&SceneOwner, Option<&ChildOf>, &mut Visibility)>,
+    owners: Query<&SceneOwner>,
+) {
+    for (scene_owner, parent_link, mut visibility) in &mut owned_visibilities {
+        // Drive only scene-root entities; owned children follow through Bevy's
+        // visibility inheritance, which keeps authored child visibility intact.
+        let parent_owned_by_same_scene = parent_link
+            .and_then(|parent_link| owners.get(parent_link.0).ok())
+            .is_some_and(|parent_owner| parent_owner.scene_id == scene_owner.scene_id);
+        if parent_owned_by_same_scene {
+            continue;
+        }
+
+        let scene_visibility = if stack.is_visible(scene_owner.scene_id) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        // Compare before writing so unchanged scenes do not trigger change detection.
+        if *visibility != scene_visibility {
+            *visibility = scene_visibility;
         }
     }
 }
@@ -854,16 +908,9 @@ mod tests {
         app.update();
 
         let log = app.world().resource::<LifecycleLog>();
-        assert_eq!(
-            log.0,
-            vec![
-                "added:1",
-                "added:2",
-                "unfocused:1",
-                "focused:1",
-                "focused:2"
-            ]
-        );
+        // One frame's command batch emits only the net focus transition, not
+        // transient focus flips for intermediate stack states.
+        assert_eq!(log.0, vec!["added:1", "added:2", "focused:2"]);
     }
 
     #[test]
@@ -920,6 +967,61 @@ mod tests {
         assert!(app.world().get_entity(gameplay_entity).is_ok());
         assert!(app.world().get_entity(menu_entity).is_err());
         assert!(app.world().get_entity(global_entity).is_ok());
+    }
+
+    #[test]
+    fn covered_scene_entities_are_hidden_until_uncovered() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.update();
+
+        let owned_entity = app
+            .world_mut()
+            .spawn((
+                SceneOwner {
+                    scene_id: SceneId(1),
+                },
+                Visibility::default(),
+            ))
+            .id();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.update();
+
+        assert_eq!(
+            app.world().get::<Visibility>(owned_entity),
+            Some(&Visibility::Hidden),
+            "entities in covered scenes should be hidden"
+        );
+
+        app.world_mut().write_message(SceneCommand::CloseCurrent);
+        app.update();
+
+        assert_eq!(
+            app.world().get::<Visibility>(owned_entity),
+            Some(&Visibility::Inherited),
+            "entities should become visible again once uncovered"
+        );
+    }
+
+    #[test]
+    fn scene_stack_reports_update_and_visibility_state_by_id() {
+        let mut app = test_app();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert!(!stack.is_updating(SceneId(1)));
+        assert!(!stack.is_visible(SceneId(1)));
+        assert!(stack.is_updating(SceneId(2)));
+        assert!(stack.is_visible(SceneId(2)));
+        // Unknown scenes are treated as inert so stale owners never keep running.
+        assert!(!stack.is_updating(SceneId(99)));
+        assert!(!stack.is_visible(SceneId(99)));
     }
 
     #[test]

@@ -8,4 +8,3 @@ description = "Reusable Foundation editor-time systems for Bevy games"
 
 [dependencies]
 bevy.workspace = true
-foundation-runtime-library.workspace = true

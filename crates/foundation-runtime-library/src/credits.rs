@@ -4,7 +4,10 @@
 //! flatten the group tree into display rows, and generate a scrolling Bevy UI roll
 //! beneath an authored [`FoundationCreditsRoll`] marker entity.
 
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -20,11 +23,23 @@ pub struct FoundationCreditsPlugin;
 impl Plugin for FoundationCreditsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FoundationCreditsRuntimeSettings>()
+            .init_resource::<FoundationCreditsAssetRoots>()
             .register_type::<FoundationCreditsRoll>()
             .register_type::<FoundationCreditsRuntime>()
             .register_type::<FoundationCreditsRuntimeSettings>()
             .add_systems(Update, (initialize_credits_rolls, scroll_credits_rolls));
     }
+}
+
+/// Directories searched, in order, for relative [`FoundationCreditsRoll`] paths.
+///
+/// Games should register their own asset directory here so the reusable credits
+/// systems stay game-agnostic. The process current directory and its `assets`
+/// subdirectory are always tried as final fallbacks.
+#[derive(Clone, Debug, Default, Resource)]
+pub struct FoundationCreditsAssetRoots {
+    /// Ordered directories to search for relative credits paths.
+    pub roots: Vec<PathBuf>,
 }
 
 /// Runtime policy for reusable Foundation credits systems.
@@ -263,6 +278,7 @@ type CreditsRuntimeQuery<'w, 's> = Query<
 fn initialize_credits_rolls(
     mut commands: Commands,
     settings: Res<FoundationCreditsRuntimeSettings>,
+    asset_roots: Res<FoundationCreditsAssetRoots>,
     asset_server: Res<AssetServer>,
     credits_rolls: CreditsRollInitQuery,
     scene_owners: Query<&SceneOwner>,
@@ -272,7 +288,7 @@ fn initialize_credits_rolls(
         if should_skip_credits_runtime_entity(&settings, credits_scene_owner.as_ref()) {
             continue;
         }
-        let display_rows = match load_credits_document(&credits_roll.credits_path) {
+        let display_rows = match load_credits_document(&credits_roll.credits_path, &asset_roots) {
             Ok(credits_document) => flatten_credits_document_with_default_margin(
                 &credits_document,
                 credits_roll.group_bottom_margin_pixels,
@@ -626,8 +642,19 @@ fn spawn_group_margin(
     spacer_entity
 }
 
-fn load_credits_document(credits_path: &str) -> Result<CreditsDocument, String> {
-    let credits_file_path = resolve_credits_file_path(credits_path)
+fn load_credits_document(
+    credits_path: &str,
+    asset_roots: &FoundationCreditsAssetRoots,
+) -> Result<CreditsDocument, String> {
+    // The current directory and its `assets` subdirectory are generic fallbacks;
+    // game-specific directories must come from the configured asset roots.
+    let mut search_roots = asset_roots.roots.clone();
+    if let Ok(current_directory) = std::env::current_dir() {
+        search_roots.push(current_directory.join("assets"));
+        search_roots.push(current_directory);
+    }
+
+    let credits_file_path = resolve_credits_file_path(credits_path, &search_roots)
         .ok_or_else(|| format!("could not resolve credits path `{credits_path}`"))?;
     let credits_json = fs::read_to_string(&credits_file_path)
         .map_err(|read_error| format!("{} ({read_error})", credits_file_path.display()))?;
@@ -635,27 +662,15 @@ fn load_credits_document(credits_path: &str) -> Result<CreditsDocument, String> 
         .map_err(|parse_error| format!("{} ({parse_error})", credits_file_path.display()))
 }
 
-fn resolve_credits_file_path(credits_path: &str) -> Option<PathBuf> {
-    let requested_credits_path = PathBuf::from(credits_path.trim());
+fn resolve_credits_file_path(credits_path: &str, search_roots: &[PathBuf]) -> Option<PathBuf> {
+    let requested_credits_path = Path::new(credits_path.trim());
     if requested_credits_path.is_absolute() && requested_credits_path.is_file() {
-        return Some(requested_credits_path);
+        return Some(requested_credits_path.to_path_buf());
     }
 
-    let current_directory = std::env::current_dir().ok()?;
-    let candidate_paths = [
-        current_directory.join(&requested_credits_path),
-        current_directory
-            .join("assets")
-            .join(&requested_credits_path),
-        current_directory
-            .join("games")
-            .join("template-game")
-            .join("assets")
-            .join(&requested_credits_path),
-    ];
-
-    candidate_paths
-        .into_iter()
+    search_roots
+        .iter()
+        .map(|search_root| search_root.join(requested_credits_path))
         .find(|candidate_path| candidate_path.is_file())
 }
 
@@ -884,6 +899,31 @@ mod tests {
         assert_eq!(header_font_size_for_depth(&credits_roll, 1), 40.0);
         assert_eq!(header_font_size_for_depth(&credits_roll, 2), 32.0);
         assert_eq!(header_font_size_for_depth(&credits_roll, 99), 28.0);
+    }
+
+    #[test]
+    fn relative_credits_paths_resolve_through_configured_asset_roots() {
+        let asset_root = std::env::temp_dir().join(format!(
+            "foundation-credits-roots-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&asset_root).expect("test asset root should be created");
+        let credits_file_path = asset_root.join("credits.json");
+        fs::write(&credits_file_path, "{}").expect("test credits file should be written");
+
+        let resolved_path =
+            resolve_credits_file_path("credits.json", std::slice::from_ref(&asset_root));
+
+        assert_eq!(resolved_path, Some(credits_file_path));
+        let _ = fs::remove_dir_all(asset_root);
+    }
+
+    #[test]
+    fn unresolvable_credits_paths_return_none() {
+        let resolved_path =
+            resolve_credits_file_path("foundation-definitely-missing-credits.json", &[]);
+
+        assert_eq!(resolved_path, None);
     }
 
     #[test]

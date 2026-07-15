@@ -29,7 +29,6 @@ impl Plugin for FoundationMenuPlugin {
             .register_type::<FoundationPauseOpener>()
             .register_type::<FoundationSimpleGameplayLevel>()
             .register_type::<FoundationSpin>()
-            .register_type::<FoundationUiOrder>()
             .register_type::<FoundationPauseState>()
             // Menu systems run together because generated UI and actions share scene ownership.
             .add_systems(
@@ -41,7 +40,13 @@ impl Plugin for FoundationMenuPlugin {
                     open_pause_menus,
                     spin_foundation_entities.run_if(foundation_is_not_paused),
                     update_foundation_menu_button_interactions,
-                    update_options_tab_button_interactions,
+                    // The refresh pass runs after interaction handling so it sees
+                    // active-tab changes made earlier in the same frame.
+                    (
+                        update_options_tab_button_interactions,
+                        refresh_options_tab_selection_colors,
+                    )
+                        .chain(),
                     inherit_scene_owner_to_generated_menu_ui,
                     close_on_escape,
                 ),
@@ -294,17 +299,6 @@ impl Default for FoundationSpin {
 #[derive(Component, Debug)]
 struct FoundationGeneratedGameplayLevel;
 
-/// Stable authored sibling order for UI entities loaded from BSN assets.
-///
-/// BSN-authored UI can include this component so runtime repair systems can
-/// rebuild Bevy `Children` lists without relying on ECS query or entity order.
-#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component)]
-pub struct FoundationUiOrder {
-    /// Zero-based order of this entity within the authored scene file.
-    pub order: u32,
-}
-
 #[derive(Component, Debug)]
 struct FoundationOptionsRuntime {
     active_tab: usize,
@@ -427,10 +421,30 @@ fn initialize_simple_gameplay_levels(
 
 fn spin_foundation_entities(
     time: Res<Time>,
-    mut spinners: Query<(&FoundationSpin, &mut Transform)>,
+    scene_stack: Option<Res<SceneStack>>,
+    mut spinners: Query<(
+        &FoundationSpin,
+        Option<&SceneOwner>,
+        Option<&ChildOf>,
+        &mut Transform,
+    )>,
+    scene_owners: Query<&SceneOwner>,
 ) {
     let delta_seconds = time.delta_secs();
-    for (spin, mut transform) in &mut spinners {
+    for (spin, scene_owner, parent_link, mut transform) in &mut spinners {
+        // Spinners owned by an update-blocked scene stay frozen even when the
+        // global pause state is clear, honoring `ScenePresentation` flags.
+        let spinner_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+        let scene_allows_update = match (scene_stack.as_deref(), spinner_scene_owner) {
+            (Some(scene_stack), Some(spinner_scene_owner)) => {
+                scene_stack.is_updating(spinner_scene_owner.scene_id)
+            }
+            _ => true,
+        };
+        if !scene_allows_update {
+            continue;
+        }
+
         // Use frame delta time so spin speed stays stable across frame rates.
         transform.rotate_y(spin.radians_per_second * delta_seconds);
     }
@@ -448,12 +462,7 @@ fn initialize_options_menus(
         if should_skip_menu_runtime_entity(&settings, scene_owner) {
             continue;
         }
-        if spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
-            .is_none()
-        {
-            // Skip runtime insertion if child generation fails to produce content.
-            continue;
-        }
+        spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied());
         commands
             .entity(menu_entity)
             .insert(FoundationOptionsRuntime { active_tab: 0 });
@@ -481,7 +490,7 @@ fn spawn_options_menu_children(
     parent_entity: Entity,
     menu: &FoundationOptionsMenu,
     scene_owner: Option<SceneOwner>,
-) -> Option<Entity> {
+) {
     // Build generated menu children once and attach them to the authored menu marker.
     let title_font_size = 48.0;
     let title_entity = spawn_text(commands, &menu.title, title_font_size, scene_owner);
@@ -541,8 +550,6 @@ fn spawn_options_menu_children(
         content_entity,
         back_button_entity,
     ]);
-
-    Some(content_entity)
 }
 
 fn spawn_placeholder_menu_children(
@@ -774,6 +781,12 @@ fn open_pause_menus(
         return;
     }
 
+    // Invariant: several systems react to the same Escape press (this opener,
+    // `close_on_escape`, and splash skipping). They avoid double-acting in one
+    // frame only because scene commands are processed in `PostUpdate`, so the
+    // stack's `interactive` flags stay stale for the rest of the frame. If
+    // command processing ever moves earlier, revisit these systems together.
+
     // Use the first active opener so scene-authored levels decide which pause menu opens.
     let Some((opener, _, _)) = pause_openers.iter().find(|(_, scene_owner, parent_link)| {
         let opener_scene_owner = effective_scene_owner(*scene_owner, *parent_link, &scene_owners);
@@ -979,22 +992,83 @@ fn update_options_tab_button_interactions(
         ) {
             continue;
         }
-        let mut selected = false;
         if *interaction == Interaction::Pressed {
-            // Updating all menu runtimes keeps generated labels in sync with the active tab.
-            for (mut runtime, scene_owner) in &mut menus {
-                runtime.active_tab = tab_button.tab;
-                selected = true;
-                update_setting_texts(tab_button.tab, scene_owner.copied(), &mut setting_texts);
+            // Only the menu that owns the pressed tab changes; other open options
+            // menus keep their own active tab and generated labels.
+            for (mut runtime, menu_scene_owner) in &mut menus {
+                if menu_scene_owner.copied() != tab_scene_owner {
+                    continue;
+                }
+                if runtime.active_tab != tab_button.tab {
+                    runtime.active_tab = tab_button.tab;
+                    update_setting_texts(
+                        tab_button.tab,
+                        menu_scene_owner.copied(),
+                        &mut setting_texts,
+                    );
+                }
             }
         }
 
         background.0 = match *interaction {
             Interaction::Pressed => PRESSED_BUTTON,
             Interaction::Hovered => HOVERED_BUTTON,
-            Interaction::None if selected => SELECTED_BUTTON,
-            Interaction::None => NORMAL_BUTTON,
+            Interaction::None => {
+                let is_active_tab = menus.iter().any(|(runtime, menu_scene_owner)| {
+                    menu_scene_owner.copied() == tab_scene_owner
+                        && runtime.active_tab == tab_button.tab
+                });
+                if is_active_tab {
+                    SELECTED_BUTTON
+                } else {
+                    NORMAL_BUTTON
+                }
+            }
         };
+    }
+}
+
+type OptionsTabColorQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static Interaction,
+        &'static FoundationOptionsTabButton,
+        &'static mut BackgroundColor,
+        Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
+    ),
+    With<Button>,
+>;
+
+/// Keeps tab highlight colors in sync when a menu's active tab changes.
+///
+/// The interaction system only touches buttons whose [`Interaction`] changed, so
+/// this pass restyles the previously selected tab after another tab takes over.
+fn refresh_options_tab_selection_colors(
+    menus: Query<
+        (&FoundationOptionsRuntime, Option<&SceneOwner>),
+        Changed<FoundationOptionsRuntime>,
+    >,
+    mut tab_buttons: OptionsTabColorQuery,
+    scene_owners: Query<&SceneOwner>,
+) {
+    for (runtime, menu_scene_owner) in &menus {
+        for (interaction, tab_button, mut background, scene_owner, parent_link) in &mut tab_buttons
+        {
+            let tab_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+            if menu_scene_owner.copied() != tab_scene_owner || *interaction != Interaction::None {
+                continue;
+            }
+            let tab_color = if tab_button.tab == runtime.active_tab {
+                SELECTED_BUTTON
+            } else {
+                NORMAL_BUTTON
+            };
+            if background.0 != tab_color {
+                background.0 = tab_color;
+            }
+        }
     }
 }
 
@@ -1233,6 +1307,165 @@ mod tests {
             Some(crate::scene_stack::SceneId(1))
         );
         assert!(!pause_state.paused);
+    }
+
+    #[test]
+    fn spinners_in_update_blocked_scenes_do_not_rotate() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.update();
+
+        let blocked_spinner = app
+            .world_mut()
+            .spawn((
+                FoundationSpin::default(),
+                Transform::default(),
+                SceneOwner {
+                    scene_id: crate::scene_stack::SceneId(1),
+                },
+            ))
+            .id();
+        let unblocked_spinner = app
+            .world_mut()
+            .spawn((FoundationSpin::default(), Transform::default()))
+            .id();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("pause")));
+        app.update();
+
+        // The covering scene takes effect in PostUpdate, so baseline rotation is
+        // captured after the frame that processed the open command.
+        let covered_rotation = app
+            .world()
+            .get::<Transform>(blocked_spinner)
+            .expect("blocked spinner should exist")
+            .rotation;
+        for _ in 0..3 {
+            app.update();
+        }
+
+        let blocked_rotation = app
+            .world()
+            .get::<Transform>(blocked_spinner)
+            .expect("blocked spinner should exist")
+            .rotation;
+        let unblocked_rotation = app
+            .world()
+            .get::<Transform>(unblocked_spinner)
+            .expect("unblocked spinner should exist")
+            .rotation;
+        assert_ne!(
+            unblocked_rotation,
+            Quat::IDENTITY,
+            "spinners outside the stack should keep rotating"
+        );
+        assert_eq!(
+            blocked_rotation, covered_rotation,
+            "spinners in update-blocked scenes should not rotate"
+        );
+    }
+
+    #[test]
+    fn pressed_tab_updates_only_its_owning_menu_and_stays_highlighted() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("menu-a")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("menu-b"),
+                OpenSceneOptions::default()
+                    .with_presentation(ScenePresentation::NON_BLOCKING_OVERLAY),
+            ));
+        let menu_a_entity = app
+            .world_mut()
+            .spawn((
+                FoundationOptionsMenu::default(),
+                SceneOwner {
+                    scene_id: crate::scene_stack::SceneId(1),
+                },
+            ))
+            .id();
+        let menu_b_entity = app
+            .world_mut()
+            .spawn((
+                FoundationOptionsMenu::default(),
+                SceneOwner {
+                    scene_id: crate::scene_stack::SceneId(2),
+                },
+            ))
+            .id();
+        app.update();
+        app.update();
+
+        let menu_b_owner = SceneOwner {
+            scene_id: crate::scene_stack::SceneId(2),
+        };
+        let menu_b_tab_one = find_tab_button(&mut app, menu_b_owner, 1);
+        set_interaction(&mut app, menu_b_tab_one, Interaction::Pressed);
+        app.update();
+
+        let menu_a_runtime = app
+            .world()
+            .get::<FoundationOptionsRuntime>(menu_a_entity)
+            .expect("menu A runtime should exist");
+        let menu_b_runtime = app
+            .world()
+            .get::<FoundationOptionsRuntime>(menu_b_entity)
+            .expect("menu B runtime should exist");
+        assert_eq!(
+            menu_a_runtime.active_tab, 0,
+            "pressing a tab in one menu must not change other menus"
+        );
+        assert_eq!(menu_b_runtime.active_tab, 1);
+
+        set_interaction(&mut app, menu_b_tab_one, Interaction::None);
+        app.update();
+
+        let menu_b_tab_zero = find_tab_button(&mut app, menu_b_owner, 0);
+        assert_eq!(
+            app.world()
+                .get::<BackgroundColor>(menu_b_tab_one)
+                .map(|background| background.0),
+            Some(SELECTED_BUTTON),
+            "the active tab should stay highlighted after the pointer leaves it"
+        );
+        assert_eq!(
+            app.world()
+                .get::<BackgroundColor>(menu_b_tab_zero)
+                .map(|background| background.0),
+            Some(NORMAL_BUTTON),
+            "inactive tabs should not keep the selected highlight"
+        );
+    }
+
+    fn find_tab_button(app: &mut App, owner: SceneOwner, tab: usize) -> Entity {
+        let mut tab_buttons = app
+            .world_mut()
+            .query::<(Entity, &FoundationOptionsTabButton, &SceneOwner)>();
+        tab_buttons
+            .iter(app.world())
+            .find(|(_, tab_button, tab_owner)| tab_button.tab == tab && **tab_owner == owner)
+            .map(|(tab_entity, _, _)| tab_entity)
+            .expect("tab button should be generated")
+    }
+
+    fn set_interaction(app: &mut App, button_entity: Entity, interaction: Interaction) {
+        *app.world_mut()
+            .get_mut::<Interaction>(button_entity)
+            .expect("button should have an interaction component") = interaction;
     }
 
     #[test]

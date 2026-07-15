@@ -9,17 +9,24 @@ mod manifest;
 
 use std::process::ExitCode;
 
-use launch::{launch_selected_game, FoundationLaunchArguments};
+use launch::{launch_selected_game, FoundationLaunchArguments, FoundationLaunchCommand};
+
+const USAGE: &str = "Usage: cargo run -p foundation -- --game <game-name> [--editor]";
 
 fn main() -> ExitCode {
     let interrupt_exit_code = 130;
     let _ = ctrlc::set_handler(move || std::process::exit(interrupt_exit_code));
 
     let launch_arguments = match FoundationLaunchArguments::parse(std::env::args().skip(1)) {
-        Ok(launch_arguments) => launch_arguments,
+        Ok(FoundationLaunchCommand::Launch(launch_arguments)) => launch_arguments,
+        Ok(FoundationLaunchCommand::ShowHelp) => {
+            println!("Foundation engine launcher.");
+            println!("{USAGE}");
+            return ExitCode::SUCCESS;
+        }
         Err(argument_error) => {
             eprintln!("{argument_error}");
-            eprintln!("Usage: cargo run -p foundation -- --game <game-name> [--editor]");
+            eprintln!("{USAGE}");
             return ExitCode::FAILURE;
         }
     };

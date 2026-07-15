@@ -10,8 +10,8 @@ use bevy::{
     asset::AssetPlugin,
     prelude::*,
     render::{
-        RenderPlugin,
         settings::{Backends, InstanceFlags, RenderCreation, WgpuSettings},
+        RenderPlugin,
     },
 };
 use foundation_editor_library::prelude::*;
@@ -102,16 +102,21 @@ pub struct TemplateGamePlugin;
 
 impl Plugin for TemplateGamePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<SpinningCube>()
-            .add_systems(Startup, scenes::open_initial_scene)
-            .add_systems(
-                Update,
-                (
-                    scenes::spawn_requested_template_game_scenes,
-                    exit_game_on_foundation_exit_request,
-                    spin_cube.run_if(foundation_is_not_paused),
-                ),
-            );
+        // Credits JSON lives under this game's asset directory; the reusable
+        // credits systems only search roots that games register here.
+        app.insert_resource(FoundationCreditsAssetRoots {
+            roots: vec![asset_root()],
+        })
+        .register_type::<SpinningCube>()
+        .add_systems(Startup, scenes::open_initial_scene)
+        .add_systems(
+            Update,
+            (
+                scenes::spawn_requested_template_game_scenes,
+                exit_game_on_foundation_exit_request,
+                spin_cube.run_if(foundation_is_not_paused),
+            ),
+        );
     }
 }
 
@@ -144,5 +149,19 @@ mod tests {
     #[test]
     fn game_name_matches_foundation_launch_argument() {
         assert_eq!(GAME_NAME, "template-game");
+    }
+
+    #[test]
+    fn template_game_registers_its_credits_asset_root() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(FoundationPlugin);
+        app.add_plugins(TemplateGamePlugin);
+
+        let credits_asset_roots = app.world().resource::<FoundationCreditsAssetRoots>();
+        assert!(
+            credits_asset_roots.roots.contains(&asset_root()),
+            "TemplateGame should search its own asset directory for credits JSON"
+        );
     }
 }

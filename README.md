@@ -46,6 +46,7 @@ games/template-game/src/scenes/main_menu.rs
 games/template-game/src/scenes/options_menu.rs
 games/template-game/src/scenes/pause_menu.rs
 games/template-game/src/scenes/gameplay.rs
+games/template-game/src/scenes/credits.rs
 ```
 
 Current required flow:
@@ -53,6 +54,7 @@ Current required flow:
 ```text
 splash_pixel_perfect -> splash_bevy -> main_menu -> gameplay_level
                                       \-> options_menu
+                                      \-> credits
 
 gameplay_level -- Escape --> pause_menu
 ```

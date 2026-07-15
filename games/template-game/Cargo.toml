@@ -1,8 +1,10 @@
 [package]
 name = "template-game"
-version = "0.1.0"
-edition = "2024"
-publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Example game built on the Foundation engine"
 
 [lib]
 crate-type = ["rlib"]
