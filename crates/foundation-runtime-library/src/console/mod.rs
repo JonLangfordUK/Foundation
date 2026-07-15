@@ -158,7 +158,7 @@ pub struct FoundationConsoleHistory {
 impl FoundationConsoleHistory {
     /// Returns the path used for persisted command history.
     pub fn history_file_path() -> PathBuf {
-        PathBuf::from(FOUNDATION_CONSOLE_SAVE_DIRECTORY).join(FOUNDATION_CONSOLE_HISTORY_FILE_NAME)
+        history_file_path_for_executable(std::env::current_exe().ok().as_deref())
     }
 
     /// Loads persisted command history from the default history path.
@@ -222,6 +222,16 @@ impl FoundationConsoleHistory {
             )
         })
     }
+}
+
+fn history_file_path_for_executable(executable_path: Option<&Path>) -> PathBuf {
+    let history_root_path = executable_path
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    history_root_path
+        .join(FOUNDATION_CONSOLE_SAVE_DIRECTORY)
+        .join(FOUNDATION_CONSOLE_HISTORY_FILE_NAME)
 }
 
 fn toggle_console_scene(
@@ -1172,10 +1182,24 @@ mod tests {
     }
 
     #[test]
-    fn history_file_path_uses_saved_console_directory() {
+    fn history_file_path_uses_saved_console_directory_beside_executable() {
+        let executable_path = PathBuf::from("target/debug/template-game.exe");
+
         assert_eq!(
-            FoundationConsoleHistory::history_file_path(),
-            PathBuf::from("saved/console").join("history.json")
+            history_file_path_for_executable(Some(&executable_path)),
+            PathBuf::from("target/debug")
+                .join("saved/console")
+                .join("history.json")
+        );
+    }
+
+    #[test]
+    fn history_file_path_falls_back_to_current_directory_without_executable_path() {
+        assert_eq!(
+            history_file_path_for_executable(None),
+            PathBuf::from(".")
+                .join("saved/console")
+                .join("history.json")
         );
     }
 
