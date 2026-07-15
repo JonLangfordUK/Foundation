@@ -1,0 +1,90 @@
+name: Foundation Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      game:
+        description: Foundation game name
+        required: true
+        default: template-game
+      configuration:
+        description: Build configuration
+        required: true
+        type: choice
+        options:
+          - debug
+          - test
+          - shipping
+        default: test
+      target-kind:
+        description: Build target kind
+        required: true
+        type: choice
+        options:
+          - game
+          - game-editor
+        default: game
+      publish-release:
+        description: Upload packages to the GitHub Release named by the ref tag
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  validate:
+    name: Validate workspace
+    runs-on: [self-hosted, Windows]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Rust workspace
+        shell: cmd
+        run: scripts\validate-project.cmd
+
+  package:
+    name: Package ${{ matrix.platform }}
+    needs: validate
+    runs-on: ${{ fromJson(matrix.runner) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: '["self-hosted", "Windows"]'
+          - platform: linux-x64
+            runner: '["self-hosted", "Linux"]'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install selected Rust target
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "windows-x64" ]; then
+            rustup target add x86_64-pc-windows-msvc
+          elif [ "${{ matrix.platform }}" = "linux-x64" ]; then
+            rustup target add x86_64-unknown-linux-gnu
+          fi
+
+      - name: Package Foundation game
+        shell: bash
+        run: |
+          cargo run -p foundation-build -- package \
+            --game "${{ inputs.game }}" \
+            --platform "${{ matrix.platform }}" \
+            --configuration "${{ inputs.configuration }}" \
+            --target-kind "${{ inputs.target-kind }}"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.game }}-${{ matrix.platform }}-${{ inputs.configuration }}-${{ inputs.target-kind }}
+          path: artifacts/packages/${{ inputs.game }}/${{ matrix.platform }}/${{ inputs.configuration }}/${{ inputs.target-kind }}*
+          if-no-files-found: error
+
+      - name: Upload release assets
+        if: inputs.publish-release && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/packages/${{ inputs.game }}/${{ matrix.platform }}/${{ inputs.configuration }}/*.tar.gz

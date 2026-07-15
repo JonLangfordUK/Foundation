@@ -1,0 +1,801 @@
+//! Foundation build and packaging orchestration.
+//!
+//! This crate owns the stable local command interface used by developers and CI
+//! agents. It deliberately reads game manifests from the workspace instead of
+//! depending on concrete game crates, so every Foundation game can share the same
+//! build flow.
+
+use std::{
+    ffi::OsStr,
+    fmt, fs, io,
+    path::{Path, PathBuf},
+    process::Command,
+};
+
+use serde::Deserialize;
+
+const GAME_MANIFEST_FILE_NAME: &str = "foundation.game.toml";
+const GAMES_DIRECTORY_NAME: &str = "games";
+const DEFAULT_OUTPUT_DIRECTORY: &str = "artifacts/packages";
+
+/// Runs the Foundation build command using already-split command-line arguments.
+pub fn run(arguments: impl IntoIterator<Item = String>) -> Result<(), String> {
+    let invocation = BuildInvocation::parse(arguments)?;
+    if invocation.help_requested {
+        print_usage();
+        return Ok(());
+    }
+
+    let workspace_root = find_workspace_root()?;
+    let game_manifest = find_game_manifest(&workspace_root, &invocation.game_name)?;
+    let build_request = BuildRequest::new(invocation, game_manifest)?;
+
+    if build_request.command == BuildCommand::Build
+        || build_request.command == BuildCommand::Package
+    {
+        build_game(&workspace_root, &build_request)?;
+    }
+
+    if build_request.command == BuildCommand::Package {
+        package_game(&workspace_root, &build_request)?;
+    }
+
+    Ok(())
+}
+
+fn print_usage() {
+    println!("Foundation build tool");
+    println!("Usage:");
+    println!("  cargo run -p foundation-build -- package --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor> [--output <directory>]");
+    println!("  cargo run -p foundation-build -- build   --game <name> --platform <alias> --configuration <debug|test|shipping> --target-kind <game|game-editor>");
+    println!("Examples:");
+    println!("  cargo run -p foundation-build -- package --game template-game --platform windows-x64 --configuration test --target-kind game");
+    println!("  cargo run -p foundation-build -- package --game template-game --platform linux-x64 --configuration shipping --target-kind game");
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BuildCommand {
+    Build,
+    Package,
+}
+
+impl BuildCommand {
+    fn parse(command_text: &str) -> Result<Self, String> {
+        match command_text {
+            "build" => Ok(Self::Build),
+            "package" => Ok(Self::Package),
+            unknown_command => Err(format!(
+                "Unknown Foundation build command `{unknown_command}`. Expected `build` or `package`."
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BuildConfiguration {
+    Debug,
+    Test,
+    Shipping,
+}
+
+impl BuildConfiguration {
+    fn parse(configuration_text: &str) -> Result<Self, String> {
+        match configuration_text.to_ascii_lowercase().as_str() {
+            "debug" => Ok(Self::Debug),
+            "test" => Ok(Self::Test),
+            "shipping" => Ok(Self::Shipping),
+            unknown_configuration => Err(format!(
+                "Unknown build configuration `{unknown_configuration}`. Expected `debug`, `test`, or `shipping`."
+            )),
+        }
+    }
+
+    fn as_output_segment(self) -> &'static str {
+        match self {
+            Self::Debug => "debug",
+            Self::Test => "test",
+            Self::Shipping => "shipping",
+        }
+    }
+
+    fn cargo_profile(self) -> Option<&'static str> {
+        match self {
+            Self::Debug => None,
+            Self::Test => Some("foundation-test"),
+            Self::Shipping => Some("foundation-shipping"),
+        }
+    }
+
+    fn enables_dev_tools(self) -> bool {
+        match self {
+            Self::Debug | Self::Test => true,
+            Self::Shipping => false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TargetKind {
+    Game,
+    GameEditor,
+}
+
+impl TargetKind {
+    fn parse(target_kind_text: &str) -> Result<Self, String> {
+        let normalized_target_kind = target_kind_text.to_ascii_lowercase().replace('_', "-");
+        match normalized_target_kind.as_str() {
+            "game" => Ok(Self::Game),
+            "game-editor" | "gameeditor" | "editor" => Ok(Self::GameEditor),
+            _ => Err(format!(
+                "Unknown target kind `{target_kind_text}`. Expected `game` or `game-editor`."
+            )),
+        }
+    }
+
+    fn as_output_segment(self) -> &'static str {
+        match self {
+            Self::Game => "game",
+            Self::GameEditor => "game-editor",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct TargetPlatform {
+    alias: String,
+    rust_target_triple: String,
+    executable_suffix: String,
+}
+
+impl TargetPlatform {
+    fn parse(platform_text: &str) -> Result<Self, String> {
+        let normalized_platform = platform_text.to_ascii_lowercase();
+        let (rust_target_triple, executable_suffix) = match normalized_platform.as_str() {
+            "windows" | "windows-x64" | "win64" => ("x86_64-pc-windows-msvc", ".exe"),
+            "linux" | "linux-x64" => ("x86_64-unknown-linux-gnu", ""),
+            _ if platform_text.contains('-') => {
+                (platform_text, executable_suffix_for_target(platform_text))
+            }
+            _ => {
+                return Err(format!(
+                    "Unknown platform `{platform_text}`. Expected `windows-x64`, `linux-x64`, or a Rust target triple."
+                ));
+            }
+        };
+
+        Ok(Self {
+            alias: normalized_platform,
+            rust_target_triple: rust_target_triple.to_string(),
+            executable_suffix: executable_suffix.to_string(),
+        })
+    }
+}
+
+fn executable_suffix_for_target(rust_target_triple: &str) -> &'static str {
+    if rust_target_triple.contains("windows") {
+        ".exe"
+    } else {
+        ""
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct BuildInvocation {
+    command: Option<BuildCommand>,
+    game_name: String,
+    platform_text: String,
+    configuration: Option<BuildConfiguration>,
+    target_kind: Option<TargetKind>,
+    output_directory: Option<PathBuf>,
+    help_requested: bool,
+}
+
+impl BuildInvocation {
+    fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
+        let mut invocation = Self::default();
+        let mut argument_iterator = arguments.into_iter();
+
+        let Some(command_or_help) = argument_iterator.next() else {
+            return Err("Expected `build` or `package`. Use `--help` for usage.".to_string());
+        };
+
+        if command_or_help == "--help" || command_or_help == "-h" {
+            invocation.help_requested = true;
+            return Ok(invocation);
+        }
+
+        invocation.command = Some(BuildCommand::parse(&command_or_help)?);
+
+        while let Some(argument_name) = argument_iterator.next() {
+            match argument_name.as_str() {
+                "--game" => {
+                    invocation.game_name = required_value("--game", &mut argument_iterator)?
+                }
+                "--platform" => {
+                    invocation.platform_text =
+                        required_value("--platform", &mut argument_iterator)?;
+                }
+                "--configuration" => {
+                    let configuration_text =
+                        required_value("--configuration", &mut argument_iterator)?;
+                    invocation.configuration =
+                        Some(BuildConfiguration::parse(&configuration_text)?);
+                }
+                "--target-kind" => {
+                    let target_kind_text = required_value("--target-kind", &mut argument_iterator)?;
+                    invocation.target_kind = Some(TargetKind::parse(&target_kind_text)?);
+                }
+                "--output" => {
+                    let output_directory_text = required_value("--output", &mut argument_iterator)?;
+                    invocation.output_directory = Some(PathBuf::from(output_directory_text));
+                }
+                "--help" | "-h" => {
+                    invocation.help_requested = true;
+                    return Ok(invocation);
+                }
+                unknown_argument => {
+                    return Err(format!(
+                        "Unknown Foundation build argument `{unknown_argument}`."
+                    ));
+                }
+            }
+        }
+
+        invocation.validate_required_arguments()?;
+        Ok(invocation)
+    }
+
+    fn validate_required_arguments(&self) -> Result<(), String> {
+        if self.game_name.trim().is_empty() {
+            return Err("Expected `--game <name>`.".to_string());
+        }
+        if self.platform_text.trim().is_empty() {
+            return Err("Expected `--platform <alias-or-target-triple>`.".to_string());
+        }
+        if self.configuration.is_none() {
+            return Err("Expected `--configuration <debug|test|shipping>`.".to_string());
+        }
+        if self.target_kind.is_none() {
+            return Err("Expected `--target-kind <game|game-editor>`.".to_string());
+        }
+        Ok(())
+    }
+}
+
+fn required_value(
+    argument_name: &str,
+    argument_iterator: &mut impl Iterator<Item = String>,
+) -> Result<String, String> {
+    argument_iterator
+        .next()
+        .filter(|argument_value| !argument_value.starts_with("--"))
+        .ok_or_else(|| format!("Expected a value after `{argument_name}`."))
+}
+
+#[derive(Clone, Debug)]
+struct BuildRequest {
+    command: BuildCommand,
+    game_name: String,
+    package_name: String,
+    executable_name: String,
+    asset_roots: Vec<PathBuf>,
+    platform: TargetPlatform,
+    configuration: BuildConfiguration,
+    target_kind: TargetKind,
+    output_directory: PathBuf,
+}
+
+impl BuildRequest {
+    fn new(
+        invocation: BuildInvocation,
+        game_manifest: FoundationGameManifest,
+    ) -> Result<Self, String> {
+        let command = invocation
+            .command
+            .expect("command is validated before request creation");
+        let configuration = invocation
+            .configuration
+            .expect("configuration is validated before request creation");
+        let target_kind = invocation
+            .target_kind
+            .expect("target kind is validated before request creation");
+
+        if configuration == BuildConfiguration::Shipping && target_kind == TargetKind::GameEditor {
+            return Err(
+                "Invalid Foundation build matrix: `shipping` cannot be combined with `game-editor`."
+                    .to_string(),
+            );
+        }
+
+        let platform = TargetPlatform::parse(&invocation.platform_text)?;
+        let package = game_manifest.launch.package;
+        let package_metadata = game_manifest.package.unwrap_or_default();
+        let executable_name = package_metadata
+            .executable_name
+            .unwrap_or_else(|| game_manifest.game.name.clone());
+        let asset_roots = package_metadata
+            .asset_roots
+            .unwrap_or_else(|| vec!["assets".to_string()])
+            .into_iter()
+            .map(PathBuf::from)
+            .collect::<Vec<_>>();
+        let output_directory = invocation
+            .output_directory
+            .unwrap_or_else(|| PathBuf::from(DEFAULT_OUTPUT_DIRECTORY));
+
+        Ok(Self {
+            command,
+            game_name: game_manifest.game.name,
+            package_name: package,
+            executable_name,
+            asset_roots,
+            platform,
+            configuration,
+            target_kind,
+            output_directory,
+        })
+    }
+
+    fn cargo_feature_arguments(&self) -> Vec<String> {
+        let mut feature_names = Vec::new();
+        if self.configuration.enables_dev_tools() {
+            feature_names.push("dev-tools");
+        }
+        if self.target_kind == TargetKind::GameEditor {
+            feature_names.push("editor");
+        }
+
+        if feature_names.is_empty() {
+            vec!["--no-default-features".to_string()]
+        } else {
+            vec![
+                "--no-default-features".to_string(),
+                "--features".to_string(),
+                feature_names.join(","),
+            ]
+        }
+    }
+
+    fn cargo_profile_directory(&self) -> &'static str {
+        match self.configuration {
+            BuildConfiguration::Debug => "debug",
+            BuildConfiguration::Test => "foundation-test",
+            BuildConfiguration::Shipping => "foundation-shipping",
+        }
+    }
+
+    fn package_directory(&self, workspace_root: &Path) -> PathBuf {
+        workspace_root
+            .join(&self.output_directory)
+            .join(&self.game_name)
+            .join(&self.platform.alias)
+            .join(self.configuration.as_output_segment())
+            .join(self.target_kind.as_output_segment())
+    }
+
+    fn built_executable_path(&self, workspace_root: &Path) -> PathBuf {
+        let executable_file_name =
+            format!("{}{}", self.package_name, self.platform.executable_suffix);
+        workspace_root
+            .join("target")
+            .join(&self.platform.rust_target_triple)
+            .join(self.cargo_profile_directory())
+            .join(executable_file_name)
+    }
+
+    fn packaged_executable_path(&self, package_directory: &Path) -> PathBuf {
+        let executable_file_name = format!(
+            "{}{}",
+            self.executable_name, self.platform.executable_suffix
+        );
+        package_directory.join(executable_file_name)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct FoundationGameManifest {
+    game: FoundationGameManifestGame,
+    launch: FoundationGameManifestLaunch,
+    package: Option<FoundationGameManifestPackage>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct FoundationGameManifestGame {
+    name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+struct FoundationGameManifestLaunch {
+    package: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+struct FoundationGameManifestPackage {
+    executable_name: Option<String>,
+    asset_roots: Option<Vec<String>>,
+}
+
+fn find_workspace_root() -> Result<PathBuf, String> {
+    let current_directory = std::env::current_dir()
+        .map_err(|error| format!("Failed to read current directory: {error}"))?;
+    current_directory
+        .ancestors()
+        .find(|candidate_directory| {
+            candidate_directory.join("Cargo.toml").is_file()
+                && candidate_directory.join(GAMES_DIRECTORY_NAME).is_dir()
+        })
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "Could not find a Foundation workspace root.".to_string())
+}
+
+fn find_game_manifest(
+    workspace_root: &Path,
+    requested_game_name: &str,
+) -> Result<FoundationGameManifest, String> {
+    let games_directory = workspace_root.join(GAMES_DIRECTORY_NAME);
+    let mut available_game_names = Vec::new();
+
+    for directory_entry_result in fs::read_dir(&games_directory)
+        .map_err(|error| format!("Failed to read {}: {error}", games_directory.display()))?
+    {
+        let directory_entry = directory_entry_result
+            .map_err(|error| format!("Failed to inspect game directory entry: {error}"))?;
+        let manifest_path = directory_entry.path().join(GAME_MANIFEST_FILE_NAME);
+        if !manifest_path.is_file() {
+            continue;
+        }
+
+        let manifest_text = fs::read_to_string(&manifest_path).map_err(|error| {
+            format!(
+                "Failed to read game manifest {}: {error}",
+                manifest_path.display()
+            )
+        })?;
+        let game_manifest =
+            toml::from_str::<FoundationGameManifest>(&manifest_text).map_err(|error| {
+                format!(
+                    "Failed to parse game manifest {}: {error}",
+                    manifest_path.display()
+                )
+            })?;
+        available_game_names.push(game_manifest.game.name.clone());
+        if game_manifest
+            .game
+            .name
+            .eq_ignore_ascii_case(requested_game_name)
+        {
+            return Ok(game_manifest);
+        }
+    }
+
+    available_game_names.sort();
+    Err(format!(
+        "Unknown Foundation game `{requested_game_name}`. Available games: {}",
+        available_game_names.join(", ")
+    ))
+}
+
+fn build_game(workspace_root: &Path, build_request: &BuildRequest) -> Result<(), String> {
+    let mut cargo_command = Command::new("cargo");
+    cargo_command.current_dir(workspace_root);
+    cargo_command.args([
+        "build",
+        "-p",
+        build_request.package_name.as_str(),
+        "--target",
+        build_request.platform.rust_target_triple.as_str(),
+    ]);
+
+    if let Some(cargo_profile) = build_request.configuration.cargo_profile() {
+        cargo_command.args(["--profile", cargo_profile]);
+    }
+
+    cargo_command.args(build_request.cargo_feature_arguments());
+
+    println!(
+        "Building {} for {} / {} / {}.",
+        build_request.game_name,
+        build_request.platform.alias,
+        build_request.configuration.as_output_segment(),
+        build_request.target_kind.as_output_segment()
+    );
+
+    let build_status = cargo_command
+        .status()
+        .map_err(|error| format!("Failed to start cargo build: {error}"))?;
+    if !build_status.success() {
+        return Err(format!("Cargo build failed with status {build_status}."));
+    }
+
+    Ok(())
+}
+
+fn package_game(workspace_root: &Path, build_request: &BuildRequest) -> Result<(), String> {
+    let package_directory = build_request.package_directory(workspace_root);
+    if package_directory.exists() {
+        fs::remove_dir_all(&package_directory).map_err(|error| {
+            format!(
+                "Failed to clean existing package directory {}: {error}",
+                package_directory.display()
+            )
+        })?;
+    }
+    fs::create_dir_all(&package_directory).map_err(|error| {
+        format!(
+            "Failed to create package directory {}: {error}",
+            package_directory.display()
+        )
+    })?;
+
+    let built_executable_path = build_request.built_executable_path(workspace_root);
+    let packaged_executable_path = build_request.packaged_executable_path(&package_directory);
+    copy_file(&built_executable_path, &packaged_executable_path)?;
+
+    let game_directory = workspace_root
+        .join(GAMES_DIRECTORY_NAME)
+        .join(&build_request.game_name);
+    for asset_root in &build_request.asset_roots {
+        let source_asset_root = game_directory.join(asset_root);
+        if !source_asset_root.exists() {
+            continue;
+        }
+        let destination_asset_root = package_directory.join(asset_root);
+        copy_directory(&source_asset_root, &destination_asset_root)?;
+    }
+
+    let manifest_source_path = game_directory.join(GAME_MANIFEST_FILE_NAME);
+    let manifest_destination_path = package_directory.join(GAME_MANIFEST_FILE_NAME);
+    copy_file(&manifest_source_path, &manifest_destination_path)?;
+    write_package_metadata(&package_directory, build_request)?;
+    create_archive(workspace_root, &package_directory, build_request)?;
+
+    println!("Packaged game at {}.", package_directory.display());
+    Ok(())
+}
+
+fn copy_file(source_file_path: &Path, destination_file_path: &Path) -> Result<(), String> {
+    let destination_parent = destination_file_path.parent().ok_or_else(|| {
+        format!(
+            "Destination file path {} has no parent directory.",
+            destination_file_path.display()
+        )
+    })?;
+    fs::create_dir_all(destination_parent).map_err(|error| {
+        format!(
+            "Failed to create destination directory {}: {error}",
+            destination_parent.display()
+        )
+    })?;
+    fs::copy(source_file_path, destination_file_path).map_err(|error| {
+        format!(
+            "Failed to copy {} to {}: {error}",
+            source_file_path.display(),
+            destination_file_path.display()
+        )
+    })?;
+    Ok(())
+}
+
+fn copy_directory(source_directory: &Path, destination_directory: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination_directory).map_err(|error| {
+        format!(
+            "Failed to create directory {}: {error}",
+            destination_directory.display()
+        )
+    })?;
+
+    for directory_entry_result in fs::read_dir(source_directory).map_err(|error| {
+        format!(
+            "Failed to read source directory {}: {error}",
+            source_directory.display()
+        )
+    })? {
+        let directory_entry = directory_entry_result
+            .map_err(|error| format!("Failed to inspect directory entry: {error}"))?;
+        let source_path = directory_entry.path();
+        let destination_path = destination_directory.join(directory_entry.file_name());
+        let file_type = directory_entry
+            .file_type()
+            .map_err(|error| format!("Failed to inspect {}: {error}", source_path.display()))?;
+
+        if file_type.is_dir() {
+            copy_directory(&source_path, &destination_path)?;
+        } else if file_type.is_file() {
+            copy_file(&source_path, &destination_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn write_package_metadata(
+    package_directory: &Path,
+    build_request: &BuildRequest,
+) -> Result<(), String> {
+    let metadata_path = package_directory.join("foundation.package.toml");
+    let metadata_text = format!(
+        "[package]\nname = \"{}\"\nconfiguration = \"{}\"\ntarget-kind = \"{}\"\nplatform = \"{}\"\nrust-target = \"{}\"\n",
+        build_request.game_name,
+        build_request.configuration.as_output_segment(),
+        build_request.target_kind.as_output_segment(),
+        build_request.platform.alias,
+        build_request.platform.rust_target_triple
+    );
+    fs::write(&metadata_path, metadata_text)
+        .map_err(|error| format!("Failed to write {}: {error}", metadata_path.display()))?;
+    Ok(())
+}
+
+fn create_archive(
+    workspace_root: &Path,
+    package_directory: &Path,
+    build_request: &BuildRequest,
+) -> Result<(), String> {
+    let archive_file_name = format!(
+        "{}-{}-{}-{}.tar.gz",
+        build_request.game_name,
+        build_request.platform.alias,
+        build_request.configuration.as_output_segment(),
+        build_request.target_kind.as_output_segment()
+    );
+    let archive_path = package_directory
+        .parent()
+        .ok_or_else(|| {
+            format!(
+                "Package directory {} has no parent.",
+                package_directory.display()
+            )
+        })?
+        .join(archive_file_name);
+
+    let package_parent = package_directory.parent().ok_or_else(|| {
+        format!(
+            "Package directory {} has no parent.",
+            package_directory.display()
+        )
+    })?;
+    let package_directory_name = package_directory
+        .file_name()
+        .and_then(OsStr::to_str)
+        .ok_or_else(|| {
+            format!(
+                "Package directory {} has no file name.",
+                package_directory.display()
+            )
+        })?;
+
+    let archive_status = Command::new("tar")
+        .current_dir(package_parent)
+        .args([
+            "-czf",
+            archive_path.as_os_str().to_string_lossy().as_ref(),
+            package_directory_name,
+        ])
+        .status();
+
+    match archive_status {
+        Ok(status) if status.success() => {
+            println!("Created archive {}.", archive_path.display());
+            Ok(())
+        }
+        Ok(status) => Err(format!("Archive creation failed with status {status}.")),
+        Err(error) if is_missing_executable(&error) => {
+            let relative_package_directory = package_directory
+                .strip_prefix(workspace_root)
+                .unwrap_or(package_directory)
+                .display();
+            Err(format!(
+                "Could not create package archive because `tar` is unavailable. Package directory is still available at {relative_package_directory}."
+            ))
+        }
+        Err(error) => Err(format!("Failed to start archive command: {error}")),
+    }
+}
+
+fn is_missing_executable(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::NotFound
+}
+
+impl fmt::Display for BuildConfiguration {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_output_segment())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shipping_game_editor_is_rejected() {
+        let invocation = BuildInvocation {
+            command: Some(BuildCommand::Package),
+            game_name: "template-game".to_string(),
+            platform_text: "windows-x64".to_string(),
+            configuration: Some(BuildConfiguration::Shipping),
+            target_kind: Some(TargetKind::GameEditor),
+            output_directory: None,
+            help_requested: false,
+        };
+        let manifest = template_game_manifest();
+
+        let request_error = BuildRequest::new(invocation, manifest)
+            .expect_err("shipping game-editor builds must be invalid");
+
+        assert!(request_error.contains("shipping"));
+        assert!(request_error.contains("game-editor"));
+    }
+
+    #[test]
+    fn test_game_editor_enables_dev_and_editor_features() {
+        let invocation = BuildInvocation {
+            command: Some(BuildCommand::Package),
+            game_name: "template-game".to_string(),
+            platform_text: "linux-x64".to_string(),
+            configuration: Some(BuildConfiguration::Test),
+            target_kind: Some(TargetKind::GameEditor),
+            output_directory: None,
+            help_requested: false,
+        };
+        let manifest = template_game_manifest();
+        let build_request = BuildRequest::new(invocation, manifest).expect("request should build");
+
+        assert_eq!(
+            build_request.cargo_feature_arguments(),
+            ["--no-default-features", "--features", "dev-tools,editor"]
+        );
+    }
+
+    #[test]
+    fn shipping_game_disables_default_features() {
+        let invocation = BuildInvocation {
+            command: Some(BuildCommand::Package),
+            game_name: "template-game".to_string(),
+            platform_text: "windows-x64".to_string(),
+            configuration: Some(BuildConfiguration::Shipping),
+            target_kind: Some(TargetKind::Game),
+            output_directory: None,
+            help_requested: false,
+        };
+        let manifest = template_game_manifest();
+        let build_request = BuildRequest::new(invocation, manifest).expect("request should build");
+
+        assert_eq!(
+            build_request.cargo_feature_arguments(),
+            ["--no-default-features"]
+        );
+    }
+
+    #[test]
+    fn platform_aliases_map_to_rust_targets() {
+        let windows_platform = TargetPlatform::parse("windows-x64").expect("windows alias parses");
+        let linux_platform = TargetPlatform::parse("linux-x64").expect("linux alias parses");
+
+        assert_eq!(
+            windows_platform.rust_target_triple,
+            "x86_64-pc-windows-msvc"
+        );
+        assert_eq!(windows_platform.executable_suffix, ".exe");
+        assert_eq!(
+            linux_platform.rust_target_triple,
+            "x86_64-unknown-linux-gnu"
+        );
+        assert_eq!(linux_platform.executable_suffix, "");
+    }
+
+    fn template_game_manifest() -> FoundationGameManifest {
+        FoundationGameManifest {
+            game: FoundationGameManifestGame {
+                name: "template-game".to_string(),
+            },
+            launch: FoundationGameManifestLaunch {
+                package: "template-game".to_string(),
+            },
+            package: Some(FoundationGameManifestPackage {
+                executable_name: Some("template-game".to_string()),
+                asset_roots: Some(vec!["assets".to_string()]),
+            }),
+        }
+    }
+}

@@ -9,8 +9,10 @@
 extern crate self as foundation_runtime_library;
 
 use bevy::prelude::*;
+#[cfg(feature = "dev-tools")]
 pub use foundation_console_macros::{console_command, ConsoleCommandInput};
 
+#[cfg(feature = "dev-tools")]
 pub mod console;
 pub mod credits;
 pub mod game_settings;
@@ -31,7 +33,6 @@ impl Plugin for FoundationPlugin {
         app.add_plugins((
             scene_stack::FoundationSceneStackPlugin,
             splash_screen::FoundationSplashScreenPlugin,
-            console::FoundationConsolePlugin,
             menu::FoundationMenuPlugin,
             credits::FoundationCreditsPlugin,
         ))
@@ -41,6 +42,23 @@ impl Plugin for FoundationPlugin {
         .register_type::<FoundationActor>()
         .init_resource::<game_settings::FoundationGameSettings>()
         .init_resource::<FoundationSettings>();
+
+        if cfg!(feature = "dev-tools") {
+            self.add_dev_tool_plugins(app);
+        }
+    }
+}
+
+impl FoundationPlugin {
+    #[cfg(feature = "dev-tools")]
+    fn add_dev_tool_plugins(&self, app: &mut App) {
+        // Debug console tooling is intentionally absent from shipping builds.
+        app.add_plugins(console::FoundationConsolePlugin);
+    }
+
+    #[cfg(not(feature = "dev-tools"))]
+    fn add_dev_tool_plugins(&self, _app: &mut App) {
+        // Shipping builds compile without Foundation dev tooling.
     }
 }
 
@@ -79,6 +97,7 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
+    #[cfg(feature = "dev-tools")]
     pub use crate::console::{
         ConsoleAutocompleteCandidate, ConsoleCommandArguments, ConsoleCommandDescriptor,
         ConsoleCommandError, ConsoleCommandInput, ConsoleCommandParameter, ConsoleCommandResult,
@@ -114,6 +133,7 @@ pub mod prelude {
         FoundationSplashText, FoundationSplashTimings, FoundationSplashUiParent,
         FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
     };
+    #[cfg(feature = "dev-tools")]
     pub use crate::{console_command, ConsoleCommandInput};
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }
