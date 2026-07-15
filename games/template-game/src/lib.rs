@@ -149,10 +149,16 @@ pub struct TemplateGameSayHelloInputs {
     pub name: String,
 }
 
-/// Example command that demonstrates overriding the in-console command name.
+/// Example command that demonstrates using an argument
 #[console_command(name = "example.say-hello")]
 pub fn say_hello(inputs: ConsoleInputs<TemplateGameSayHelloInputs>) {
     info!("Hello, {}!", inputs.name);
+}
+
+/// Example simple command that has no arguments
+#[console_command(name = "example.say-hello-world")]
+pub fn say_hello_world() {
+    info!("Hello World!");
 }
 
 /// Example gameplay component used by TemplateGame-specific systems.
