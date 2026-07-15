@@ -327,7 +327,7 @@ fn handle_console_keyboard_actions(
 }
 
 const FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP: usize = 3;
-const FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES: usize = 9;
+const FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES: usize = 14;
 
 fn refresh_console_text_nodes(
     console_ui_state: Res<FoundationConsoleUiState>,
@@ -532,7 +532,7 @@ fn spawn_console_overlay(
     console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> Entity {
-    let console_root_height = Val::Px(280.0);
+    let console_root_height = Val::Px(380.0);
     let console_padding = UiRect::all(Val::Px(10.0));
     let console_gap = Val::Px(8.0);
     let console_background = BackgroundColor(Color::srgba(0.02, 0.02, 0.025, 0.92));
@@ -573,7 +573,7 @@ fn spawn_console_overlay(
             Name::new("Foundation Debug Console Output Viewport"),
             Node {
                 width: Val::Percent(100.0),
-                height: Val::Px(190.0),
+                height: Val::Px(290.0),
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
                 flex_direction: FlexDirection::Column,
@@ -1247,7 +1247,7 @@ mod tests {
 
         assert_eq!(
             output_text,
-            "line 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12"
+            "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12"
         );
     }
 
