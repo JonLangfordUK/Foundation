@@ -63,21 +63,21 @@
 - Full validation wrapper: Pending
 
 ## Phase 2: Standalone TemplateGame Repository
-**Status:** In progress
+**Status:** Complete pending PR workflow
 **Goal:** Populate `https://github.com/JonLangfordUK/template-game.git` as the reference external Foundation game.
 
 ### Tasks
 - [x] Create initial repository structure with `engine/`, `game/`, `scripts/`, `docs/`, and workflow directories.
-  - Status: Awaiting commit/push
+  - Status: Complete
   - Notes: Created the standalone structure in `E:/GameDev/template-game`.
 - [x] Add Foundation as the default `engine/` submodule.
-  - Status: Awaiting commit/push
+  - Status: Complete
   - Notes: Added Foundation as an `engine/` submodule tracking `feature/external-template-game` for the initial integration branch.
 - [x] Move TemplateGame source, manifest, and assets into `game/`.
-  - Status: Awaiting commit/push
+  - Status: Complete
   - Notes: Copied the current TemplateGame source, manifest, and assets into `game/`, and converted `game/Cargo.toml` to standalone path dependencies through `../engine`.
 - [x] Add game-facing scripts for build, run, package, validation, and optional engine path association.
-  - Status: Awaiting commit/push
+  - Status: Complete
   - Notes: Added wrappers that default to `engine/` and allow `FOUNDATION_ENGINE_PATH` for alternate engine checkouts.
 - [x] Add `main` and `dev` branches and push them to the new repo.
   - Status: Complete
@@ -92,27 +92,27 @@
 - Workflow run: Pending after push/PR
 
 ## Phase 3: Workflows And Branch Protection Readiness
-**Status:** Planned
+**Status:** In progress
 **Goal:** Ensure both repositories can enforce PR-based changes with runner-backed checks.
 
 ### Tasks
-- [ ] Update Foundation workflow expectations for external TemplateGame or an intentional minimal fixture.
-  - Status: Planned
-  - Notes: Must account for branch-protection workflow changes if already merged.
-- [ ] Add template-game workflow for PR validation and packaging on the Windows self-hosted runner.
-  - Status: Planned
-  - Notes: Game workflow should not publish Foundation releases.
-- [ ] Add source-branch policy for template-game `main`, allowing `dev` and `hotfix/*` sources.
-  - Status: Planned
-  - Notes: Match the Foundation branch-protection model.
-- [ ] Document branch protection setup for both repositories.
-  - Status: Planned
-  - Notes: Required checks must be selected after first PR workflow runs expose check names.
+- [x] Update Foundation workflow expectations for external TemplateGame or an intentional minimal fixture.
+  - Status: Awaiting PR workflow
+  - Notes: Foundation workflow now checks out the external TemplateGame repository, replaces its `engine/` directory with a junction to the current Foundation checkout, and packages via `--project external\\template-game\\game`.
+- [x] Add template-game workflow for PR validation and packaging on the Windows self-hosted runner.
+  - Status: Awaiting PR workflow
+  - Notes: Added `.github/workflows/template-game-build.yml`; it validates and packages but does not publish Foundation releases.
+- [x] Add source-branch policy for template-game `main`, allowing `dev` and `hotfix/*` sources.
+  - Status: Awaiting PR workflow
+  - Notes: Added `Main source branch policy` matching the Foundation branch-protection model.
+- [x] Document branch protection setup for both repositories.
+  - Status: Awaiting PR workflow check names
+  - Notes: Added TemplateGame branch-protection docs and updated Foundation build docs. Required checks must be selected after first PR workflow runs expose check names.
 
 ### Validation
-- Foundation PR workflow: Pending
-- TemplateGame PR workflow: Pending
-- Branch protection setup walkthrough: Pending
+- Foundation PR workflow: Pending after opening PR
+- TemplateGame PR workflow: Pending after opening PR
+- Branch protection setup walkthrough: Ready to provide after PR checks expose names
 
 ## Phase 4: Documentation And Cleanup
 **Status:** Planned
@@ -147,6 +147,7 @@
 - `2026-07-15`: Added initial external `--project` support to `foundation-build`, updated Foundation scripts to work when called from outside the engine root, and validated with `cargo fmt --all` plus `cargo test -p foundation-build`.
 - `2026-07-15`: Removed `games/template-game` from the Foundation workspace, updated Foundation workflow packaging to use the external TemplateGame repository, and updated Foundation build documentation.
 - `2026-07-15`: Bootstrapped the new TemplateGame repository with `main`, `dev`, and `feature/external-template-game`; added Foundation as the default `engine/` submodule and copied TemplateGame into `game/`.
+- `2026-07-15`: Pushed TemplateGame implementation commit `c09e4b8 Add external Foundation TemplateGame` to `origin/feature/external-template-game`.
 
 ## Git And Push State
 - Foundation branch created from: `origin/dev`
@@ -154,6 +155,7 @@
 - Plan/tracker commit: `a6fdbe5 Add external TemplateGame plan`
 - Implementation start commit: `ae83014 Start external TemplateGame implementation`
 - Foundation external project support commit: `6c6ed8f Add external game project support`
-- Foundation move TemplateGame commit: Pending
-- Foundation push state: External project support pushed; move commit pending
-- TemplateGame repo state: `main` and `dev` bootstrapped and pushed; feature implementation commit pending on `feature/external-template-game`
+- Foundation move TemplateGame commit: `3d0c31f Move TemplateGame out of Foundation`
+- Foundation tracker update commit: Pending
+- Foundation push state: Move commit pushed; tracker update pending
+- TemplateGame repo state: `main` and `dev` bootstrapped and pushed; feature implementation commit `c09e4b8 Add external Foundation TemplateGame` pushed on `feature/external-template-game`
