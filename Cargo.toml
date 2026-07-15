@@ -1,8 +1,8 @@
 [workspace]
 members = [
+    "crates/foundation",
     "crates/foundation-editor-library",
     "crates/foundation-runtime-library",
-    "crates/jackdaw-editor",
     "games/template-game",
 ]
 resolver = "2"
@@ -14,20 +14,16 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [workspace.dependencies]
-bevy = { version = "0.18.1", features = [
+bevy = { version = "0.19.0", features = [
     "file_watcher",
     "reflect_documentation",
     "serialize",
-    "experimental_bevy_feathers",
 ] }
 ctrlc = "3"
-jackdaw = { version = "0.4.1", default-features = false }
-jackdaw_api = "0.4.1"
-jackdaw_runtime = "0.4.1"
-bevy_enhanced_input = "0.24.4"
+foundation-editor-library = { path = "crates/foundation-editor-library" }
+foundation-runtime-library = { path = "crates/foundation-runtime-library" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rfd = "0.15.4"
 toml = "0.9"
 
 [profile.dev]

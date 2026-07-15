@@ -3,15 +3,13 @@
 //! These components intentionally describe game-agnostic menu behavior: opening
 //! scenes, closing the current scene, requesting application exit, rendering a
 //! dummy options menu, and rendering placeholder stack scenes. Game crates can
-//! author these components in Jackdaw `.jsn` assets without duplicating menu
+//! author these components in Bevy BSN assets without duplicating menu
 //! systems in game-specific Rust code.
-
-use bevy::prelude::*;
-use jackdaw_runtime::prelude::*;
 
 use crate::scene_stack::{
     OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource, SceneStack,
 };
+use bevy::prelude::*;
 
 /// Installs reusable Foundation menu components and systems.
 #[derive(Default)]
@@ -27,10 +25,10 @@ impl Plugin for FoundationMenuPlugin {
             .register_type::<FoundationOptionsMenu>()
             .register_type::<FoundationPlaceholderMenu>()
             .register_type::<FoundationCloseOnEscape>()
+            .register_type::<FoundationResumeOnEscape>()
             .register_type::<FoundationPauseOpener>()
             .register_type::<FoundationSimpleGameplayLevel>()
             .register_type::<FoundationSpin>()
-            .register_type::<FoundationUiOrder>()
             .register_type::<FoundationPauseState>()
             // Menu systems run together because generated UI and actions share scene ownership.
             .add_systems(
@@ -42,7 +40,13 @@ impl Plugin for FoundationMenuPlugin {
                     open_pause_menus,
                     spin_foundation_entities.run_if(foundation_is_not_paused),
                     update_foundation_menu_button_interactions,
-                    update_options_tab_button_interactions,
+                    // The refresh pass runs after interaction handling so it sees
+                    // active-tab changes made earlier in the same frame.
+                    (
+                        update_options_tab_button_interactions,
+                        refresh_options_tab_selection_colors,
+                    )
+                        .chain(),
                     inherit_scene_owner_to_generated_menu_ui,
                     close_on_escape,
                 ),
@@ -103,14 +107,14 @@ pub struct FoundationExitRequested;
 /// - `resume`
 /// - `exit`
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationMenuButton {
     /// Action identifier. Use `open_scene`, `close_current`, `exit`, or `none`.
     pub action: String,
-    /// Jackdaw `.jsn` scene path used by the `open_scene` action.
-    pub scene_path: String,
-    /// Optional scene-stack key used by the `open_scene` action.
+    /// Bevy BSN scene key used by the `open_scene` action.
     pub scene_key: String,
+    /// Optional scene-stack key used by the `open_scene` action.
+    pub stack_key: String,
 }
 
 impl FoundationMenuButton {
@@ -119,41 +123,41 @@ impl FoundationMenuButton {
         // Empty scene fields keep inert buttons safe to author in placeholder menus.
         Self {
             action: "none".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 
-    /// Creates a button that opens a full-screen Jackdaw scene on the stack.
-    pub fn open_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
+    /// Creates a button that opens a full-screen Foundation scene on the stack.
+    pub fn open_scene(scene_key: impl Into<String>, stack_key: impl Into<String>) -> Self {
         // Full-screen opens cover earlier entries and become the focused scene.
         Self {
             action: "open_scene".to_string(),
-            scene_path: scene_path.into(),
             scene_key: scene_key.into(),
+            stack_key: stack_key.into(),
         }
     }
 
     /// Creates a button that opens an input-blocking overlay scene on the stack.
-    pub fn open_overlay_scene(scene_path: impl Into<String>, scene_key: impl Into<String>) -> Self {
+    pub fn open_overlay_scene(scene_key: impl Into<String>, stack_key: impl Into<String>) -> Self {
         // Overlay opens preserve lower scene visibility while blocking lower input.
         Self {
             action: "open_overlay_scene".to_string(),
-            scene_path: scene_path.into(),
             scene_key: scene_key.into(),
+            stack_key: stack_key.into(),
         }
     }
 
-    /// Creates a button that clears the stack and opens a Jackdaw scene.
+    /// Creates a button that clears the stack and opens a Foundation scene.
     pub fn clear_and_open_scene(
-        scene_path: impl Into<String>,
         scene_key: impl Into<String>,
+        stack_key: impl Into<String>,
     ) -> Self {
         // Clear-and-open is used by main menu flows that should discard old gameplay state.
         Self {
             action: "clear_and_open_scene".to_string(),
-            scene_path: scene_path.into(),
             scene_key: scene_key.into(),
+            stack_key: stack_key.into(),
         }
     }
 
@@ -161,8 +165,8 @@ impl FoundationMenuButton {
     pub fn close_current() -> Self {
         Self {
             action: "close_current".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 
@@ -171,8 +175,8 @@ impl FoundationMenuButton {
     pub fn resume() -> Self {
         Self {
             action: "resume".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 
@@ -180,8 +184,8 @@ impl FoundationMenuButton {
     pub fn exit() -> Self {
         Self {
             action: "exit".to_string(),
-            scene_path: String::new(),
             scene_key: String::new(),
+            stack_key: String::new(),
         }
     }
 }
@@ -194,7 +198,7 @@ impl Default for FoundationMenuButton {
 
 /// Marks an options menu root that should be populated with reusable dummy UI.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationOptionsMenu {
     /// Title shown above the tabs.
     pub title: String,
@@ -210,7 +214,7 @@ impl Default for FoundationOptionsMenu {
 
 /// Marks a placeholder menu root that should show title/body text and a Back button.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationPlaceholderMenu {
     /// Title shown at the top of the placeholder menu.
     pub title: String,
@@ -229,34 +233,42 @@ impl Default for FoundationPlaceholderMenu {
 
 /// Closes the current scene-stack entry when Escape is pressed.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationCloseOnEscape;
+
+/// Clears Foundation pause state when the same entity closes on Escape.
+///
+/// Add this next to [`FoundationCloseOnEscape`] on pause menus that should behave like
+/// the Resume button when Escape closes them.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationResumeOnEscape;
 
 /// Opens a pause menu scene when Escape is pressed while gameplay is unpaused.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Menu"))]
+#[reflect(Component)]
 pub struct FoundationPauseOpener {
-    /// Jackdaw `.jsn` scene path for the pause menu.
-    pub pause_scene_path: String,
-    /// Optional scene-stack key for the pause menu.
+    /// Bevy BSN scene key for the pause menu.
     pub pause_scene_key: String,
+    /// Optional scene-stack key for the pause menu entry.
+    pub pause_stack_key: String,
 }
 
 impl Default for FoundationPauseOpener {
     fn default() -> Self {
         Self {
-            pause_scene_path: String::new(),
-            pause_scene_key: "pause-menu".to_string(),
+            pause_scene_key: String::new(),
+            pause_stack_key: "pause-menu".to_string(),
         }
     }
 }
 
 /// Runtime-authored starter gameplay level with a centered cube and light.
 ///
-/// Add this component to a Jackdaw scene entity when a project needs a small
-/// placeholder level without hand-authoring mesh/material handles in `.jsn`.
+/// Add this component to a Foundation scene entity when a project needs a small
+/// placeholder level without hand-authoring mesh/material handles in BSN.
 #[derive(Clone, Copy, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Gameplay"))]
+#[reflect(Component)]
 pub struct FoundationSimpleGameplayLevel {
     /// Edge length of the generated cube in world units.
     pub cube_size: f32,
@@ -270,7 +282,7 @@ impl Default for FoundationSimpleGameplayLevel {
 
 /// Rotates an entity around its local Y axis while Foundation gameplay is not paused.
 #[derive(Clone, Copy, Debug, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/Gameplay"))]
+#[reflect(Component)]
 pub struct FoundationSpin {
     /// Rotation speed around the Y axis, in radians per second.
     pub radians_per_second: f32,
@@ -287,17 +299,6 @@ impl Default for FoundationSpin {
 #[derive(Component, Debug)]
 struct FoundationGeneratedGameplayLevel;
 
-/// Stable authored sibling order for UI entities loaded from `.jsn` assets.
-///
-/// Jackdaw-authored UI can include this component so runtime repair systems can
-/// rebuild Bevy `Children` lists without relying on ECS query or entity order.
-#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component, @EditorCategory::new("Foundation/UI"))]
-pub struct FoundationUiOrder {
-    /// Zero-based order of this entity within the authored scene file.
-    pub order: u32,
-}
-
 #[derive(Component, Debug)]
 struct FoundationOptionsRuntime {
     active_tab: usize,
@@ -306,7 +307,7 @@ struct FoundationOptionsRuntime {
 /// Marks UI entities generated by [`FoundationMenuPlugin`] systems.
 ///
 /// Game-specific authored-UI repair systems can use this marker to avoid
-/// treating Foundation-generated runtime UI as Jackdaw-authored scene data.
+/// treating Foundation-generated runtime UI as BSN-authored scene data.
 #[derive(Component, Debug)]
 pub struct FoundationGeneratedMenuUi;
 
@@ -353,7 +354,7 @@ fn initialize_simple_gameplay_levels(
         if should_skip_menu_runtime_entity(&settings, scene_owner.as_ref()) {
             continue;
         }
-        info!(
+        debug!(
             "Initializing FoundationSimpleGameplayLevel on {level_entity:?} with scene_owner={scene_owner:?}"
         );
 
@@ -387,7 +388,7 @@ fn initialize_simple_gameplay_levels(
             .spawn((
                 DirectionalLight {
                     illuminance: light_illuminance,
-                    shadows_enabled: true,
+                    shadow_maps_enabled: true,
                     ..default()
                 },
                 Transform::from_translation(light_position).looking_at(light_target, Vec3::Y),
@@ -420,10 +421,30 @@ fn initialize_simple_gameplay_levels(
 
 fn spin_foundation_entities(
     time: Res<Time>,
-    mut spinners: Query<(&FoundationSpin, &mut Transform)>,
+    scene_stack: Option<Res<SceneStack>>,
+    mut spinners: Query<(
+        &FoundationSpin,
+        Option<&SceneOwner>,
+        Option<&ChildOf>,
+        &mut Transform,
+    )>,
+    scene_owners: Query<&SceneOwner>,
 ) {
     let delta_seconds = time.delta_secs();
-    for (spin, mut transform) in &mut spinners {
+    for (spin, scene_owner, parent_link, mut transform) in &mut spinners {
+        // Spinners owned by an update-blocked scene stay frozen even when the
+        // global pause state is clear, honoring `ScenePresentation` flags.
+        let spinner_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+        let scene_allows_update = match (scene_stack.as_deref(), spinner_scene_owner) {
+            (Some(scene_stack), Some(spinner_scene_owner)) => {
+                scene_stack.is_updating(spinner_scene_owner.scene_id)
+            }
+            _ => true,
+        };
+        if !scene_allows_update {
+            continue;
+        }
+
         // Use frame delta time so spin speed stays stable across frame rates.
         transform.rotate_y(spin.radians_per_second * delta_seconds);
     }
@@ -441,12 +462,7 @@ fn initialize_options_menus(
         if should_skip_menu_runtime_entity(&settings, scene_owner) {
             continue;
         }
-        if spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied())
-            .is_none()
-        {
-            // Skip runtime insertion if child generation fails to produce content.
-            continue;
-        }
+        spawn_options_menu_children(&mut commands, menu_entity, menu, scene_owner.copied());
         commands
             .entity(menu_entity)
             .insert(FoundationOptionsRuntime { active_tab: 0 });
@@ -474,7 +490,7 @@ fn spawn_options_menu_children(
     parent_entity: Entity,
     menu: &FoundationOptionsMenu,
     scene_owner: Option<SceneOwner>,
-) -> Option<Entity> {
+) {
     // Build generated menu children once and attach them to the authored menu marker.
     let title_font_size = 48.0;
     let title_entity = spawn_text(commands, &menu.title, title_font_size, scene_owner);
@@ -534,8 +550,6 @@ fn spawn_options_menu_children(
         content_entity,
         back_button_entity,
     ]);
-
-    Some(content_entity)
 }
 
 fn spawn_placeholder_menu_children(
@@ -767,6 +781,12 @@ fn open_pause_menus(
         return;
     }
 
+    // Invariant: several systems react to the same Escape press (this opener,
+    // `close_on_escape`, and splash skipping). They avoid double-acting in one
+    // frame only because scene commands are processed in `PostUpdate`, so the
+    // stack's `interactive` flags stay stale for the rest of the frame. If
+    // command processing ever moves earlier, revisit these systems together.
+
     // Use the first active opener so scene-authored levels decide which pause menu opens.
     let Some((opener, _, _)) = pause_openers.iter().find(|(_, scene_owner, parent_link)| {
         let opener_scene_owner = effective_scene_owner(*scene_owner, *parent_link, &scene_owners);
@@ -778,9 +798,9 @@ fn open_pause_menus(
     }) else {
         return;
     };
-    let pause_scene_path = opener.pause_scene_path.trim();
-    if pause_scene_path.is_empty() {
-        warn!("FoundationPauseOpener has an empty pause_scene_path");
+    let pause_scene_key = opener.pause_scene_key.trim();
+    if pause_scene_key.is_empty() {
+        warn!("FoundationPauseOpener has an empty pause_scene_key");
         return;
     }
 
@@ -788,12 +808,12 @@ fn open_pause_menus(
     pause_state.paused = true;
     let mut options =
         OpenSceneOptions::default().with_presentation(ScenePresentation::PAUSE_OVERLAY);
-    let pause_scene_key = opener.pause_scene_key.trim();
-    if !pause_scene_key.is_empty() {
-        options = options.with_key(pause_scene_key);
+    let pause_stack_key = opener.pause_stack_key.trim();
+    if !pause_stack_key.is_empty() {
+        options = options.with_key(pause_stack_key);
     }
     scene_commands.write(SceneCommand::open_with_options(
-        SceneSource::jsn_level(pause_scene_path),
+        SceneSource::bsn_scene(pause_scene_key),
         options,
     ));
 }
@@ -878,32 +898,32 @@ fn open_configured_scene(
     should_clear_stack: bool,
     presentation: ScenePresentation,
 ) {
-    let scene_path = button.scene_path.trim();
-    if scene_path.is_empty() {
+    let scene_key = button.scene_key.trim();
+    if scene_key.is_empty() {
         warn!(
-            "FoundationMenuButton `{}` action has an empty scene_path",
+            "FoundationMenuButton `{}` action has an empty scene_key",
             button.action
         );
         return;
     }
     let mut options = OpenSceneOptions::default().with_presentation(presentation);
-    let scene_key = button.scene_key.trim();
-    if !scene_key.is_empty() {
-        options = options.with_key(scene_key);
+    let stack_key = button.stack_key.trim();
+    if !stack_key.is_empty() {
+        options = options.with_key(stack_key);
     }
-    info!(
-        "FoundationMenuButton `{}` opening scene `{scene_path}` (clear_stack={should_clear_stack})",
+    debug!(
+        "FoundationMenuButton `{}` opening scene `{scene_key}` (clear_stack={should_clear_stack})",
         button.action
     );
     if should_clear_stack {
         // Clear-and-open prevents previous gameplay/menu scenes from leaking into the new flow.
         scene_commands.write(SceneCommand::ClearAndOpen {
-            source: SceneSource::jsn_level(scene_path),
+            source: SceneSource::bsn_scene(scene_key),
             options,
         });
     } else {
         scene_commands.write(SceneCommand::open_with_options(
-            SceneSource::jsn_level(scene_path),
+            SceneSource::bsn_scene(scene_key),
             options,
         ));
     }
@@ -944,6 +964,17 @@ type OptionsSettingTextQuery<'w, 's> = Query<
     )>,
 >;
 
+type CloseOnEscapeQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
+        Option<&'static FoundationResumeOnEscape>,
+    ),
+    With<FoundationCloseOnEscape>,
+>;
+
 fn update_options_tab_button_interactions(
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
@@ -961,22 +992,83 @@ fn update_options_tab_button_interactions(
         ) {
             continue;
         }
-        let mut selected = false;
         if *interaction == Interaction::Pressed {
-            // Updating all menu runtimes keeps generated labels in sync with the active tab.
-            for (mut runtime, scene_owner) in &mut menus {
-                runtime.active_tab = tab_button.tab;
-                selected = true;
-                update_setting_texts(tab_button.tab, scene_owner.copied(), &mut setting_texts);
+            // Only the menu that owns the pressed tab changes; other open options
+            // menus keep their own active tab and generated labels.
+            for (mut runtime, menu_scene_owner) in &mut menus {
+                if menu_scene_owner.copied() != tab_scene_owner {
+                    continue;
+                }
+                if runtime.active_tab != tab_button.tab {
+                    runtime.active_tab = tab_button.tab;
+                    update_setting_texts(
+                        tab_button.tab,
+                        menu_scene_owner.copied(),
+                        &mut setting_texts,
+                    );
+                }
             }
         }
 
         background.0 = match *interaction {
             Interaction::Pressed => PRESSED_BUTTON,
             Interaction::Hovered => HOVERED_BUTTON,
-            Interaction::None if selected => SELECTED_BUTTON,
-            Interaction::None => NORMAL_BUTTON,
+            Interaction::None => {
+                let is_active_tab = menus.iter().any(|(runtime, menu_scene_owner)| {
+                    menu_scene_owner.copied() == tab_scene_owner
+                        && runtime.active_tab == tab_button.tab
+                });
+                if is_active_tab {
+                    SELECTED_BUTTON
+                } else {
+                    NORMAL_BUTTON
+                }
+            }
         };
+    }
+}
+
+type OptionsTabColorQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static Interaction,
+        &'static FoundationOptionsTabButton,
+        &'static mut BackgroundColor,
+        Option<&'static SceneOwner>,
+        Option<&'static ChildOf>,
+    ),
+    With<Button>,
+>;
+
+/// Keeps tab highlight colors in sync when a menu's active tab changes.
+///
+/// The interaction system only touches buttons whose [`Interaction`] changed, so
+/// this pass restyles the previously selected tab after another tab takes over.
+fn refresh_options_tab_selection_colors(
+    menus: Query<
+        (&FoundationOptionsRuntime, Option<&SceneOwner>),
+        Changed<FoundationOptionsRuntime>,
+    >,
+    mut tab_buttons: OptionsTabColorQuery,
+    scene_owners: Query<&SceneOwner>,
+) {
+    for (runtime, menu_scene_owner) in &menus {
+        for (interaction, tab_button, mut background, scene_owner, parent_link) in &mut tab_buttons
+        {
+            let tab_scene_owner = effective_scene_owner(scene_owner, parent_link, &scene_owners);
+            if menu_scene_owner.copied() != tab_scene_owner || *interaction != Interaction::None {
+                continue;
+            }
+            let tab_color = if tab_button.tab == runtime.active_tab {
+                SELECTED_BUTTON
+            } else {
+                NORMAL_BUTTON
+            };
+            if background.0 != tab_color {
+                background.0 = tab_color;
+            }
+        }
     }
 }
 
@@ -1033,24 +1125,37 @@ fn close_on_escape(
     keyboard: Res<ButtonInput<KeyCode>>,
     settings: Res<FoundationMenuRuntimeSettings>,
     scene_stack: Option<Res<SceneStack>>,
-    close_markers: Query<(Option<&SceneOwner>, Option<&ChildOf>), With<FoundationCloseOnEscape>>,
+    close_markers: CloseOnEscapeQuery,
     scene_owners: Query<&SceneOwner>,
+    mut pause_state: ResMut<FoundationPauseState>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
     if !keyboard.just_pressed(KeyCode::Escape) {
         return;
     }
 
-    let has_close_marker = close_markers.iter().any(|(scene_owner, parent_link)| {
-        let close_marker_scene_owner =
-            effective_scene_owner(scene_owner, parent_link, &scene_owners);
-        !should_skip_scene_stack_menu_input(
-            &settings,
-            scene_stack.as_deref(),
-            close_marker_scene_owner.as_ref(),
-        )
-    });
+    let mut should_resume_gameplay = false;
+    let has_close_marker =
+        close_markers
+            .iter()
+            .any(|(scene_owner, parent_link, resume_on_escape)| {
+                let close_marker_scene_owner =
+                    effective_scene_owner(scene_owner, parent_link, &scene_owners);
+                let should_skip = should_skip_scene_stack_menu_input(
+                    &settings,
+                    scene_stack.as_deref(),
+                    close_marker_scene_owner.as_ref(),
+                );
+                if !should_skip && resume_on_escape.is_some() {
+                    // Escape should match the Resume button for pause menus, not leave gameplay frozen.
+                    should_resume_gameplay = true;
+                }
+                !should_skip
+            });
     if has_close_marker {
+        if should_resume_gameplay {
+            pause_state.paused = false;
+        }
         scene_commands.write(SceneCommand::CloseCurrent);
     }
 }
@@ -1092,19 +1197,18 @@ mod tests {
     #[test]
     fn menu_button_constructors_set_expected_actions() {
         assert_eq!(FoundationMenuButton::none().action, "none");
-        let open = FoundationMenuButton::open_scene("options_menu.jsn", "options-menu");
+        let open = FoundationMenuButton::open_scene("options_menu", "options-menu");
         assert_eq!(open.action, "open_scene");
-        assert_eq!(open.scene_path, "options_menu.jsn");
-        assert_eq!(open.scene_key, "options-menu");
-        let overlay = FoundationMenuButton::open_overlay_scene("options_menu.jsn", "options-menu");
+        assert_eq!(open.scene_key, "options_menu");
+        assert_eq!(open.stack_key, "options-menu");
+        let overlay = FoundationMenuButton::open_overlay_scene("options_menu", "options-menu");
         assert_eq!(overlay.action, "open_overlay_scene");
-        assert_eq!(overlay.scene_path, "options_menu.jsn");
-        assert_eq!(overlay.scene_key, "options-menu");
-        let clear =
-            FoundationMenuButton::clear_and_open_scene("gameplay_level.jsn", "gameplay-level");
+        assert_eq!(overlay.scene_key, "options_menu");
+        assert_eq!(overlay.stack_key, "options-menu");
+        let clear = FoundationMenuButton::clear_and_open_scene("gameplay_level", "gameplay-level");
         assert_eq!(clear.action, "clear_and_open_scene");
-        assert_eq!(clear.scene_path, "gameplay_level.jsn");
-        assert_eq!(clear.scene_key, "gameplay-level");
+        assert_eq!(clear.scene_key, "gameplay_level");
+        assert_eq!(clear.stack_key, "gameplay-level");
         assert_eq!(
             FoundationMenuButton::close_current().action,
             "close_current"
@@ -1158,6 +1262,210 @@ mod tests {
             Some(scene_stack),
             Some(&focused_credits_owner),
         ));
+    }
+
+    #[test]
+    fn escape_resume_marker_closes_pause_and_unpauses_gameplay() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("pause"),
+                OpenSceneOptions::default()
+                    .with_key("pause-menu")
+                    .with_presentation(ScenePresentation::PAUSE_OVERLAY),
+            ));
+        app.update();
+
+        app.world_mut().spawn((
+            FoundationCloseOnEscape,
+            FoundationResumeOnEscape,
+            SceneOwner {
+                scene_id: crate::scene_stack::SceneId(2),
+            },
+        ));
+        app.world_mut()
+            .resource_mut::<FoundationPauseState>()
+            .paused = true;
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+
+        let scene_stack = app.world().resource::<SceneStack>();
+        let pause_state = app.world().resource::<FoundationPauseState>();
+        assert_eq!(scene_stack.len(), 1);
+        assert_eq!(
+            scene_stack.current().map(|entry| entry.id),
+            Some(crate::scene_stack::SceneId(1))
+        );
+        assert!(!pause_state.paused);
+    }
+
+    #[test]
+    fn spinners_in_update_blocked_scenes_do_not_rotate() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
+        app.update();
+
+        let blocked_spinner = app
+            .world_mut()
+            .spawn((
+                FoundationSpin::default(),
+                Transform::default(),
+                SceneOwner {
+                    scene_id: crate::scene_stack::SceneId(1),
+                },
+            ))
+            .id();
+        let unblocked_spinner = app
+            .world_mut()
+            .spawn((FoundationSpin::default(), Transform::default()))
+            .id();
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("pause")));
+        app.update();
+
+        // The covering scene takes effect in PostUpdate, so baseline rotation is
+        // captured after the frame that processed the open command.
+        let covered_rotation = app
+            .world()
+            .get::<Transform>(blocked_spinner)
+            .expect("blocked spinner should exist")
+            .rotation;
+        for _ in 0..3 {
+            app.update();
+        }
+
+        let blocked_rotation = app
+            .world()
+            .get::<Transform>(blocked_spinner)
+            .expect("blocked spinner should exist")
+            .rotation;
+        let unblocked_rotation = app
+            .world()
+            .get::<Transform>(unblocked_spinner)
+            .expect("unblocked spinner should exist")
+            .rotation;
+        assert_ne!(
+            unblocked_rotation,
+            Quat::IDENTITY,
+            "spinners outside the stack should keep rotating"
+        );
+        assert_eq!(
+            blocked_rotation, covered_rotation,
+            "spinners in update-blocked scenes should not rotate"
+        );
+    }
+
+    #[test]
+    fn pressed_tab_updates_only_its_owning_menu_and_stays_highlighted() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("menu-a")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("menu-b"),
+                OpenSceneOptions::default()
+                    .with_presentation(ScenePresentation::NON_BLOCKING_OVERLAY),
+            ));
+        let menu_a_entity = app
+            .world_mut()
+            .spawn((
+                FoundationOptionsMenu::default(),
+                SceneOwner {
+                    scene_id: crate::scene_stack::SceneId(1),
+                },
+            ))
+            .id();
+        let menu_b_entity = app
+            .world_mut()
+            .spawn((
+                FoundationOptionsMenu::default(),
+                SceneOwner {
+                    scene_id: crate::scene_stack::SceneId(2),
+                },
+            ))
+            .id();
+        app.update();
+        app.update();
+
+        let menu_b_owner = SceneOwner {
+            scene_id: crate::scene_stack::SceneId(2),
+        };
+        let menu_b_tab_one = find_tab_button(&mut app, menu_b_owner, 1);
+        set_interaction(&mut app, menu_b_tab_one, Interaction::Pressed);
+        app.update();
+
+        let menu_a_runtime = app
+            .world()
+            .get::<FoundationOptionsRuntime>(menu_a_entity)
+            .expect("menu A runtime should exist");
+        let menu_b_runtime = app
+            .world()
+            .get::<FoundationOptionsRuntime>(menu_b_entity)
+            .expect("menu B runtime should exist");
+        assert_eq!(
+            menu_a_runtime.active_tab, 0,
+            "pressing a tab in one menu must not change other menus"
+        );
+        assert_eq!(menu_b_runtime.active_tab, 1);
+
+        set_interaction(&mut app, menu_b_tab_one, Interaction::None);
+        app.update();
+
+        let menu_b_tab_zero = find_tab_button(&mut app, menu_b_owner, 0);
+        assert_eq!(
+            app.world()
+                .get::<BackgroundColor>(menu_b_tab_one)
+                .map(|background| background.0),
+            Some(SELECTED_BUTTON),
+            "the active tab should stay highlighted after the pointer leaves it"
+        );
+        assert_eq!(
+            app.world()
+                .get::<BackgroundColor>(menu_b_tab_zero)
+                .map(|background| background.0),
+            Some(NORMAL_BUTTON),
+            "inactive tabs should not keep the selected highlight"
+        );
+    }
+
+    fn find_tab_button(app: &mut App, owner: SceneOwner, tab: usize) -> Entity {
+        let mut tab_buttons = app
+            .world_mut()
+            .query::<(Entity, &FoundationOptionsTabButton, &SceneOwner)>();
+        tab_buttons
+            .iter(app.world())
+            .find(|(_, tab_button, tab_owner)| tab_button.tab == tab && **tab_owner == owner)
+            .map(|(tab_entity, _, _)| tab_entity)
+            .expect("tab button should be generated")
+    }
+
+    fn set_interaction(app: &mut App, button_entity: Entity, interaction: Interaction) {
+        *app.world_mut()
+            .get_mut::<Interaction>(button_entity)
+            .expect("button should have an interaction component") = interaction;
     }
 
     #[test]

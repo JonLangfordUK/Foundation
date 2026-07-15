@@ -1,6 +1,0 @@
-[[run]]
-bin = "template-game"
-# name = "Play"
-# features = []
-# env = { KEY = "value" }
-# instances = 1

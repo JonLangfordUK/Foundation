@@ -1,0 +1,5 @@
+[game]
+name = "template-game"
+
+[launch]
+package = "template-game"

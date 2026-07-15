@@ -2,13 +2,31 @@
   "groups": [
     {
       "name": "Pixel Perfect",
-      "people": [
+      "people": [],
+      "groups": [
         {
-          "name": "Jon Langford",
-          "role": "Project Lead"
+          "name": "Team",
+          "people": [
+            {
+              "name": "Jon Langford",
+              "role": "Project Lead"
+            }
+          ]
+        },
+        {
+          "name": "Special Thanks",
+          "people": [
+            {
+              "name": "Sky Stanley",
+              "role": ""
+            },
+            {
+              "name": "Armani Gentles-Williams",
+              "role": ""
+            }
+          ]
         }
-      ],
-      "groups": []
+      ]
     },
     {
       "name": "Bevy",
@@ -270,85 +288,6 @@
           "groups": []
         }
       ]
-    },
-    {
-      "name": "Jackdaw",
-      "top_margin_pixels": 100.0,
-      "people": [
-        {
-          "name": "Joe Buehler",
-          "role": "Project Lead"
-        },
-        {
-          "name": "Abht",
-          "role": ""
-        },
-        {
-          "name": "Cookie",
-          "role": ""
-        },
-        {
-          "name": "Freyja-Moth",
-          "role": ""
-        },
-        {
-          "name": "HoNile",
-          "role": ""
-        },
-        {
-          "name": "Immoloiser",
-          "role": ""
-        },
-        {
-          "name": "Jan Hohenheim",
-          "role": ""
-        },
-        {
-          "name": "Jonas",
-          "role": ""
-        },
-        {
-          "name": "Joona Aalto",
-          "role": ""
-        },
-        {
-          "name": "Kristoffer Søholm",
-          "role": ""
-        },
-        {
-          "name": "Menko",
-          "role": ""
-        },
-        {
-          "name": "Okhai",
-          "role": ""
-        },
-        {
-          "name": "Ray Redondo",
-          "role": ""
-        },
-        {
-          "name": "Theotherphil",
-          "role": ""
-        },
-        {
-          "name": "Thierry Berger",
-          "role": ""
-        },
-        {
-          "name": "TimJentzsch",
-          "role": ""
-        },
-        {
-          "name": "Tyler Scheffler",
-          "role": ""
-        },
-        {
-          "name": "Wells Crosby",
-          "role": ""
-        }
-      ],
-      "groups": []
     },
     {
       "name": "Thank You!",

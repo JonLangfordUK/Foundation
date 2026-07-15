@@ -1,7 +1,7 @@
 //! Project-level settings shared by Foundation runtime and editor integrations.
 //!
 //! The runtime crate owns the plain data and persistence helpers so standalone
-//! games can read settings without depending on Jackdaw editor APIs.
+//! games can read settings without depending on external editor APIs.
 
 use std::{
     fmt, fs, io,
