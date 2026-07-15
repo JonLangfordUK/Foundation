@@ -399,8 +399,7 @@ impl BuildRequest {
     fn built_executable_path(&self, workspace_root: &Path) -> PathBuf {
         let executable_file_name =
             format!("{}{}", self.package_name, self.platform.executable_suffix);
-        workspace_root
-            .join("target")
+        cargo_target_directory(workspace_root)
             .join(&self.platform.rust_target_triple)
             .join(self.cargo_profile_directory())
             .join(executable_file_name)
@@ -437,6 +436,13 @@ struct FoundationGameManifestLaunch {
 struct FoundationGameManifestPackage {
     executable_name: Option<String>,
     asset_roots: Option<Vec<String>>,
+}
+
+fn cargo_target_directory(workspace_root: &Path) -> PathBuf {
+    match std::env::var_os("CARGO_TARGET_DIR") {
+        Some(cargo_target_directory) => PathBuf::from(cargo_target_directory),
+        None => workspace_root.join("target"),
+    }
 }
 
 fn find_workspace_root() -> Result<PathBuf, String> {
@@ -873,6 +879,51 @@ mod tests {
 
         assert_eq!(invocation.command, Some(BuildCommand::Run));
         assert_eq!(invocation.runtime_arguments, ["--custom-game-argument"]);
+    }
+
+    #[test]
+    fn built_executable_path_respects_cargo_target_dir() {
+        let invocation = BuildInvocation {
+            command: Some(BuildCommand::Package),
+            game_name: "template-game".to_string(),
+            platform_text: "windows-x64".to_string(),
+            configuration: Some(BuildConfiguration::Test),
+            target_kind: Some(TargetKind::Game),
+            output_directory: None,
+            runtime_arguments: Vec::new(),
+            help_requested: false,
+        };
+        let manifest = template_game_manifest();
+        let build_request = BuildRequest::new(invocation, manifest).expect("request should build");
+        let workspace_root = Path::new("C:/workspace/Foundation");
+        let previous_cargo_target_directory = std::env::var_os("CARGO_TARGET_DIR");
+
+        unsafe {
+            std::env::set_var(
+                "CARGO_TARGET_DIR",
+                "C:/actions-runner/cargo-target/Foundation",
+            );
+        }
+        let built_executable_path = build_request.built_executable_path(workspace_root);
+        restore_cargo_target_directory(previous_cargo_target_directory);
+
+        assert_eq!(
+            built_executable_path,
+            PathBuf::from(
+                "C:/actions-runner/cargo-target/Foundation/x86_64-pc-windows-msvc/foundation-test/template-game.exe"
+            )
+        );
+    }
+
+    fn restore_cargo_target_directory(previous_cargo_target_directory: Option<std::ffi::OsString>) {
+        unsafe {
+            match previous_cargo_target_directory {
+                Some(cargo_target_directory) => {
+                    std::env::set_var("CARGO_TARGET_DIR", cargo_target_directory);
+                }
+                None => std::env::remove_var("CARGO_TARGET_DIR"),
+            }
+        }
     }
 
     #[test]

@@ -217,3 +217,4 @@
 - `2026-07-15`: Fixed first workflow failure from the Windows runner: `pwsh: command not found`. Replaced PowerShell Core steps with `cmd` shell commands and existing `.cmd` validation wrapper.
 - `2026-07-15`: Second workflow failure showed `cargo` was not on the runner service PATH. Removed hard-coded runner paths; workflow now verifies `cargo` and `rustup` with `where` so runner environment issues fail clearly and can be fixed on the agent.
 - `2026-07-15`: Added workflow-only `CARGO_TARGET_DIR` under `C:\actions-runner\cargo-target\Foundation` so self-hosted CI can reuse compiled Cargo artifacts across checkouts without changing local developer target directories.
+- `2026-07-15`: Fixed package failure caused by the new CI target directory. The build tool now resolves built executables from `CARGO_TARGET_DIR` when it is set, falling back to the workspace `target` directory for local developer builds.
