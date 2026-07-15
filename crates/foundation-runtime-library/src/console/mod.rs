@@ -17,7 +17,10 @@ use bevy::{
     text::{EditableText, TextCursorStyle, TextEdit, TextLayout},
 };
 use bevy_feathers::FeathersPlugins;
-use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus, FocusCause, InputFocus};
+use bevy_input_focus::{
+    tab_navigation::{TabGroup, TabIndex},
+    AutoFocus, FocusCause, InputFocus,
+};
 use linkme::distributed_slice;
 use serde::{Deserialize, Serialize};
 
@@ -375,9 +378,8 @@ fn editable_text_value(editable_text: &EditableText) -> String {
 
 fn replace_console_input(editable_text: &mut EditableText, replacement: &str) {
     editable_text.clear();
-    if !replacement.is_empty() {
-        editable_text.queue_edit(TextEdit::Insert(replacement.into()));
-    }
+    editable_text.editor.set_text(replacement);
+    editable_text.queue_edit(TextEdit::TextEnd(false));
 }
 
 fn autocomplete_console_input(
@@ -501,6 +503,7 @@ fn spawn_console_overlay(
             console_background,
             console_border,
             GlobalZIndex(10_000),
+            TabGroup::new(0),
             SceneOwner { scene_id },
             FoundationConsoleRoot,
         ))
