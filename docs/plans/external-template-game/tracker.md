@@ -152,6 +152,7 @@
 - `2026-07-15`: User reported Foundation PR workflow failure in `external_project_uses_game_target_directory_by_default` when `CARGO_TARGET_DIR` was set by CI. Updated the test to call `built_executable_path_with_target_directory(None)` so it verifies the default external game target directory without being affected by CI's environment override. Verified with `CARGO_TARGET_DIR='C:/actions-runner/cargo-target/Foundation' cargo test -p foundation-build`.
 - `2026-07-15`: Updated local Foundation `origin` remote to `https://github.com/Perfect-Pixel-Games/Foundation-Engine.git` after repository move.
 - `2026-07-15`: Updated Foundation workflow and planning docs to use `Perfect-Pixel-Games/template-game` after the TemplateGame repository move.
+- `2026-07-15`: User decided Foundation should no longer produce GitHub releases now that games are external. Removed Foundation release jobs and changed workflow permissions from `contents: write` to `contents: read`; package artifacts remain available as workflow artifacts only.
 
 ## Git And Push State
 - Foundation branch created from: `origin/dev`
@@ -163,6 +164,7 @@
 - Foundation tracker update commit: `e11e9fc Update external TemplateGame tracker`
 - Foundation validation tracker commit: `a8c6336 Record external TemplateGame validation`
 - Foundation CI test fix commit: `0126ade Fix external project target directory test`
-- Foundation repository URL update commit: Pending
-- Foundation push state: CI test fix pushed; repository URL update pending
+- Foundation repository URL update commit: `476beb7 Update TemplateGame repository references`
+- Foundation release removal commit: Pending
+- Foundation push state: Repository URL update pushed; release removal pending
 - TemplateGame repo state: `main` and `dev` bootstrapped and pushed; feature implementation commit `c09e4b8 Add external Foundation TemplateGame` pushed on `feature/external-template-game`
