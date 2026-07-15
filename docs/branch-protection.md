@@ -45,11 +45,14 @@ For a solo-maintained public repository, use these as a practical baseline:
 
 After the first pull request run, GitHub will expose the exact check names. Require the checks from the `Foundation Build` workflow, including:
 
+- `Main source branch policy`
 - `Validate workspace on Windows`
 - `Package windows-x64 test on Windows`
 - `Package windows-x64 shipping on Windows`
 
 If GitHub displays matrix job names with extra suffixes, select the exact names shown in the pull request checks list.
+
+The `Main source branch policy` check enforces that pull requests into `main` come only from `dev` or `hotfix/*` branches. Pull requests into `dev` are allowed from normal feature branches.
 
 ## Self-hosted runner caution
 
@@ -75,4 +78,5 @@ Recommended policy:
 5. Merge the pull request into `dev`.
 6. The push to `dev` runs packaging again and creates the next `0.0.#` prerelease.
 7. Promote `dev` to `main` through a pull request when ready.
-8. The push to `main` creates the next `0.#.0` release.
+8. Use `hotfix/*` pull requests into `main` only for urgent release fixes.
+9. The push to `main` creates the next `0.#.0` release.

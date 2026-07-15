@@ -40,9 +40,10 @@ No external online research was performed because the required behavior follows 
 ## Proposed Implementation Approach
 1. Add a `pull_request` trigger for branches `dev` and `main` to `.github/workflows/foundation-build.yml`.
 2. Keep release jobs guarded by push-only conditions so pull requests validate/package but do not tag or publish releases.
-3. Consider whether package artifacts should still upload for PR runs. The default plan keeps uploads because they prove packaging output exists and help inspection.
-4. Update docs with the exact GitHub branch protection/ruleset settings and expected required check names.
-5. Validate the workflow syntax and run the standard project validation wrapper if practical.
+3. Add a pull request source-branch policy check so `main` accepts pull requests only from `dev` or `hotfix/*` branches.
+4. Consider whether package artifacts should still upload for PR runs. The default plan keeps uploads because they prove packaging output exists and help inspection.
+5. Update docs with the exact GitHub branch protection/ruleset settings and expected required check names.
+6. Validate the workflow syntax and run the standard project validation wrapper if practical.
 
 ## Alternatives Considered
 - Separate PR validation workflow: More explicit but duplicates the existing validation/package matrix and can drift from release packaging behavior.
@@ -73,12 +74,14 @@ No external online research was performed because the required behavior follows 
 ## Optional Review Focus Areas
 - Use `gpt-5.5` for review.
 - Confirm pull request events cannot create tags/releases.
+- Confirm `main` pull requests from branches other than `dev` or `hotfix/*` fail the source-branch policy check.
 - Confirm branch protection setup instructions match the actual workflow job names.
 
 ## Success Criteria
 - Pull requests targeting `dev` or `main` trigger the Foundation Build workflow.
 - Pull request checks validate and package via the Windows self-hosted runner.
 - Pull request checks do not create tags, prereleases, or releases.
+- Pull requests into `main` are allowed only from `dev` or `hotfix/*` branches.
 - Pushes to `dev` still create `0.0.#` prereleases after successful packaging.
 - Pushes to `main` still create `0.#.0` releases after successful packaging.
 - GitHub branch protection can require pull requests and successful runner checks before merging to `dev` or `main`.

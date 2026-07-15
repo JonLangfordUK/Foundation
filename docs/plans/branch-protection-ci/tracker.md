@@ -18,6 +18,7 @@
 - Phase complete only after required validation passes, documentation generation is recorded, and required user confirmation is recorded.
 - Never use Anthropic models.
 - Pull request validation must not create Git tags, prereleases, or releases.
+- Pull requests into `main` must come only from `dev` or `hotfix/*` branches.
 
 ## Phase 1: Pull Request Workflow Support
 **Status:** Awaiting validation
@@ -33,6 +34,9 @@
 - [ ] Validate workflow behavior with inspection and, ideally, a test PR.
   - Status: Awaiting PR run
   - Notes: GitHub branch protection check names should be copied from the first successful PR run.
+- [x] Add source-branch policy for pull requests into `main`.
+  - Status: Awaiting validation
+  - Notes: Added `Main source branch policy`, allowing `dev` and `hotfix/*` sources for `main` while allowing normal feature PRs into `dev`.
 
 ### Validation
 - Format: Passed via `scripts/format-project.cmd` on 2026-07-15
@@ -69,11 +73,13 @@
 ## Progress Log
 - `2026-07-15`: Created planning documents for `feature/branch-protection-ci`. Identified that project changes are needed because the existing workflow only triggers on pushes to `dev`/`main` and manual dispatch, not pull requests.
 - `2026-07-15`: User approved implementation. Added pull request workflow triggers for `dev` and `main`, preserved push-only release jobs, and documented GitHub branch protection setup.
+- `2026-07-15`: Added a `Main source branch policy` workflow job so `main` pull requests must come from `dev` or `hotfix/*`.
 
 ## Git And Push State
 - Branch created from: `origin/dev`
 - Branch: `feature/branch-protection-ci`
 - Plan/tracker commit: `0de1e45 Add branch protection CI plan`
 - Implementation commit: `d64677f Add pull request branch checks`
-- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`
+- Source policy commit: Pending
+- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`; source policy push pending
 - Validation note: `scripts/format-project.cmd` passed locally after workflow/docs edits; heavier Rust validation waived because this feature only changes GitHub workflow triggers and Markdown documentation.
