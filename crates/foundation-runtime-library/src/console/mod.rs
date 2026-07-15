@@ -311,8 +311,20 @@ fn refresh_console_text_nodes(
     console_ui_state: Res<FoundationConsoleUiState>,
     console_history: Res<FoundationConsoleHistory>,
     console_registry: Res<FoundationConsoleRegistry>,
-    mut console_outputs: Query<&mut Text, With<FoundationConsoleOutput>>,
-    mut console_suggestions: Query<&mut Text, With<FoundationConsoleSuggestion>>,
+    mut console_outputs: Query<
+        &mut Text,
+        (
+            With<FoundationConsoleOutput>,
+            Without<FoundationConsoleSuggestion>,
+        ),
+    >,
+    mut console_suggestions: Query<
+        &mut Text,
+        (
+            With<FoundationConsoleSuggestion>,
+            Without<FoundationConsoleOutput>,
+        ),
+    >,
 ) {
     if console_ui_state.is_changed() || console_history.is_changed() {
         let output_text = console_output_text(&console_history, &console_ui_state);
