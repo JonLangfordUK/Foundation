@@ -14,6 +14,7 @@ use bevy::{
         RenderPlugin,
     },
 };
+#[cfg(feature = "editor")]
 use foundation_editor_library::prelude::*;
 use foundation_runtime_library::prelude::*;
 
@@ -26,7 +27,23 @@ pub const GAME_NAME: &str = "template-game";
 ///
 /// Foundation uses this when launching TemplateGame as a statically registered game.
 pub fn asset_root() -> PathBuf {
+    if let Ok(explicit_asset_root) = std::env::var("FOUNDATION_ASSET_ROOT") {
+        return PathBuf::from(explicit_asset_root);
+    }
+
+    if let Some(packaged_asset_root) = packaged_asset_root() {
+        return packaged_asset_root;
+    }
+
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
+}
+
+fn packaged_asset_root() -> Option<PathBuf> {
+    let executable_directory = std::env::current_exe()
+        .ok()
+        .and_then(|executable_path| executable_path.parent().map(std::path::Path::to_path_buf))?;
+    let packaged_asset_root = executable_directory.join("assets");
+    packaged_asset_root.is_dir().then_some(packaged_asset_root)
 }
 
 /// Runs TemplateGame with Foundation runtime systems installed.
@@ -34,7 +51,8 @@ pub fn asset_root() -> PathBuf {
 /// This is shared by the thin Cargo binary wrapper and future packaged launchers.
 pub fn run() -> AppExit {
     let asset_root = asset_root().to_string_lossy().to_string();
-    let editor_enabled = std::env::args().any(|argument| argument == "--editor");
+    let editor_enabled =
+        cfg!(feature = "editor") && std::env::args().any(|argument| argument == "--editor");
 
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::BLACK))
@@ -44,11 +62,7 @@ pub fn run() -> AppExit {
         .add_plugins(TemplateGamePlugin)
         .add_systems(Startup, spawn_default_camera);
 
-    if editor_enabled {
-        app.add_plugins(FoundationEditorPlugin);
-        app.insert_resource(FoundationEditorMode { enabled: true });
-        debug!("Foundation editor mode enabled for TemplateGame.");
-    }
+    add_editor_plugins(&mut app, editor_enabled);
 
     app.run()
 }
@@ -129,7 +143,24 @@ fn exit_game_on_foundation_exit_request(
     }
 }
 
+#[cfg(feature = "editor")]
+fn add_editor_plugins(app: &mut App, editor_enabled: bool) {
+    if editor_enabled {
+        app.add_plugins(FoundationEditorPlugin);
+        app.insert_resource(FoundationEditorMode { enabled: true });
+        debug!("Foundation editor mode enabled for TemplateGame.");
+    }
+}
+
+#[cfg(not(feature = "editor"))]
+fn add_editor_plugins(_app: &mut App, editor_enabled: bool) {
+    if editor_enabled {
+        warn!("TemplateGame was built without editor support; ignoring `--editor`.");
+    }
+}
+
 /// Inputs for TemplateGame's example console greeting command.
+#[cfg(feature = "dev-tools")]
 #[derive(Clone, Debug, ConsoleCommandInput)]
 pub struct TemplateGameConsoleGreetingInputs {
     /// Name that should appear in the console greeting.
@@ -137,25 +168,29 @@ pub struct TemplateGameConsoleGreetingInputs {
 }
 
 /// Example TemplateGame-authored console command.
+#[cfg(feature = "dev-tools")]
 #[console_command]
 pub fn template_game_greeting(inputs: ConsoleInputs<TemplateGameConsoleGreetingInputs>) {
     info!("TemplateGame console greeting for {}.", inputs.name);
 }
 
 /// Inputs for TemplateGame's user-facing `example.say-hello` console command.
+#[cfg(feature = "dev-tools")]
 #[derive(Clone, Debug, ConsoleCommandInput)]
 pub struct TemplateGameSayHelloInputs {
     /// Name that should be greeted by the example command.
     pub name: String,
 }
 
-/// Example command that demonstrates using an argument
+/// Example command that demonstrates using an argument.
+#[cfg(feature = "dev-tools")]
 #[console_command(name = "example.say-hello")]
 pub fn say_hello(inputs: ConsoleInputs<TemplateGameSayHelloInputs>) {
     info!("Hello, {}!", inputs.name);
 }
 
-/// Example simple command that has no arguments
+/// Example simple command that has no arguments.
+#[cfg(feature = "dev-tools")]
 #[console_command(name = "example.say-hello-world")]
 pub fn say_hello_world() {
     info!("Hello World!");
@@ -198,6 +233,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dev-tools")]
     fn template_game_console_command_is_linked_into_template_game_binary() {
         let registry = FoundationConsoleRegistry::default();
 
@@ -208,6 +244,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dev-tools")]
     fn say_hello_console_command_uses_overridden_name() {
         let registry = FoundationConsoleRegistry::default();
         let say_hello_command = registry
