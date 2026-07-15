@@ -82,6 +82,6 @@
 - Plan/tracker commit: `0de1e45 Add branch protection CI plan`
 - Implementation commit: `d64677f Add pull request branch checks`
 - Source policy commit: `b58ce4c Restrict main pull request sources`
-- Fail-fast policy commit: Pending
-- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`; fail-fast policy push pending
+- Fail-fast policy commit: `39b8a3e Fail fast on invalid main PR sources`
+- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`
 - Validation note: `scripts/format-project.cmd` passed locally after workflow/docs edits; heavier Rust validation waived because this feature only changes GitHub workflow triggers and Markdown documentation.
