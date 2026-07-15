@@ -1082,7 +1082,7 @@ mod tests {
             .expect("request should build");
 
         assert_eq!(
-            build_request.built_executable_path(),
+            build_request.built_executable_path_with_target_directory(None),
             PathBuf::from(
                 "C:/workspace/template-game/game/target/x86_64-pc-windows-msvc/foundation-test/template-game.exe"
             )
