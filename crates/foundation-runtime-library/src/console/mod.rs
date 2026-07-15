@@ -599,25 +599,13 @@ fn spawn_console_overlay(
 }
 
 fn console_output_text(
-    console_history: &FoundationConsoleHistory,
+    _console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> String {
-    let mut output_lines = Vec::new();
-    output_lines.extend(console_ui_state.output_lines.iter().cloned());
-    output_lines.extend(
-        console_history
-            .commands
-            .iter()
-            .rev()
-            .take(8)
-            .rev()
-            .map(|command_line| format!("> {command_line}")),
-    );
-
-    if output_lines.is_empty() {
+    if console_ui_state.output_lines.is_empty() {
         "Foundation debug console ready.".to_string()
     } else {
-        output_lines.join("\n")
+        console_ui_state.output_lines.join("\n")
     }
 }
 
@@ -1061,6 +1049,29 @@ mod tests {
         assert!(!console_state.mark_closed_if_scene_matches(unrelated_scene_id));
         assert!(console_state.is_open);
         assert_eq!(console_state.scene_id, Some(console_scene_id));
+    }
+
+    #[test]
+    fn console_output_uses_execution_log_without_reappending_navigation_history() {
+        let console_history = FoundationConsoleHistory {
+            commands: vec!["example.say-hello name=Jon".to_string()],
+        };
+        let console_ui_state = FoundationConsoleUiState {
+            input: String::new(),
+            output_lines: vec![
+                "> example.say-hello name=Jon\nCommand completed.".to_string(),
+                "> hello world\nError: Expected console argument `world` to use name=value syntax."
+                    .to_string(),
+            ],
+            history_cursor: None,
+        };
+
+        let output_text = console_output_text(&console_history, &console_ui_state);
+
+        assert_eq!(
+            output_text,
+            "> example.say-hello name=Jon\nCommand completed.\n> hello world\nError: Expected console argument `world` to use name=value syntax."
+        );
     }
 
     #[test]
