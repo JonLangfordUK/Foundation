@@ -5,7 +5,7 @@
 - Feature area: `multi-area`
 - Primary area: `engine`
 - Branch: `feature/foundation-build-packaging`
-- Overall status: `Awaiting user confirmation`
+- Overall status: `Implemented and pushed; awaiting user confirmation`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
@@ -164,9 +164,9 @@
 - [x] Run full project validation.
   - Status: Complete
   - Notes: Validation passed; see validation section below.
-- [ ] Commit completed tasks/phases and push to `origin` where available.
-  - Status: Awaiting commit
-  - Notes: Implementation changes are ready to commit and push after this tracker update.
+- [x] Commit completed tasks/phases and push to `origin` where available.
+  - Status: Complete
+  - Notes: Implementation committed as `787d0ef Add Foundation build packaging system` and pushed to `origin/feature/foundation-build-packaging`.
 
 ### Validation
 - Format: Passed via `scripts/format-project.cmd` on 2026-07-15
@@ -178,7 +178,7 @@
 - User confirmation: Pending final user acceptance
 
 ### Notes
-- Final phase awaits commit/push and user acceptance.
+- Final phase awaits user acceptance.
 
 ## Implementation / Review Handoff Notes
 - Use `gpt-5.4` for implementation.
@@ -201,3 +201,4 @@
 - `2026-07-15`: Implementation approved by user. Active branch verified as `feature/foundation-build-packaging`; `origin/dev` is an ancestor of `HEAD`, so the branch base is verified against the current local remote-tracking `dev` state. User clarified that this build workflow should become the preferred path going forward instead of `cargo run -p foundation -- --game template-game`.
 - `2026-07-15`: Implemented Foundation build/package crate, manifest package metadata, feature-gated dev/editor tooling, package scripts, documentation, and GitHub workflow template.
 - `2026-07-15`: Validation passed: format, lint, tests, compile, docs, full validation wrapper, no-default-features shipping checks, invalid matrix smoke test, and Windows debug/shipping package smoke tests.
+- `2026-07-15`: Implementation commit `787d0ef Add Foundation build packaging system` pushed to `origin/feature/foundation-build-packaging`.
