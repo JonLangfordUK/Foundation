@@ -1,0 +1,196 @@
+name: Foundation Build
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+    inputs:
+      game:
+        description: Foundation game name
+        required: true
+        default: template-game
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: foundation-build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FOUNDATION_GAME: ${{ inputs.game || 'template-game' }}
+  CARGO_TARGET_DIR: C:\actions-runner\cargo-target\Foundation
+
+jobs:
+  validate:
+    name: Validate workspace on Windows
+    runs-on: [self-hosted, Windows]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify Rust tools
+        shell: cmd
+        run: |
+          where cargo
+          where rustup
+
+      - name: Validate Rust workspace
+        shell: cmd
+        run: scripts\validate-project.cmd
+
+  package:
+    name: Package windows-x64 ${{ matrix.configuration }} on Windows
+    needs: validate
+    runs-on: [self-hosted, Windows]
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - test
+          - shipping
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify Rust tools
+        shell: cmd
+        run: |
+          where cargo
+          where rustup
+
+      - name: Install selected Rust target
+        shell: cmd
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - name: Package Foundation game
+        shell: cmd
+        run: >-
+          cargo run -p foundation-build -- package
+          --game "%FOUNDATION_GAME%"
+          --platform windows-x64
+          --configuration "${{ matrix.configuration }}"
+          --target game
+
+      - name: Stage release assets
+        shell: cmd
+        run: |
+          if not exist artifacts\release-assets mkdir artifacts\release-assets
+          copy "artifacts\packages\%FOUNDATION_GAME%\windows-x64\${{ matrix.configuration }}\*.tar.gz" artifacts\release-assets\
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FOUNDATION_GAME }}-windows-x64-${{ matrix.configuration }}
+          path: artifacts/release-assets/*.tar.gz
+          if-no-files-found: error
+
+  dev-release:
+    name: Publish tagged dev release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: package
+    runs-on: [self-hosted, Windows]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/release-downloads
+          merge-multiple: true
+
+      - name: Calculate next dev version tag
+        id: next-version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const devPatches = tags
+              .map((tag) => tag.name.match(/^0\.0\.(\d+)$/))
+              .filter(Boolean)
+              .map((match) => Number(match[1]))
+              .sort((left, right) => left - right);
+            const latestPatch = devPatches.at(-1);
+            const nextPatch = latestPatch === undefined ? 0 : latestPatch + 1;
+            core.setOutput('tag', `0.0.${nextPatch}`);
+
+      - name: Create release tag
+        shell: cmd
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.next-version.outputs.tag }}" "%GITHUB_SHA%"
+          git push origin "${{ steps.next-version.outputs.tag }}"
+
+      - name: Publish GitHub prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.next-version.outputs.tag }}
+          name: Foundation Dev ${{ steps.next-version.outputs.tag }}
+          draft: false
+          prerelease: true
+          files: artifacts/release-downloads/*.tar.gz
+
+  main-release:
+    name: Publish tagged main release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: package
+    runs-on: [self-hosted, Windows]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/release-downloads
+          merge-multiple: true
+
+      - name: Calculate next main version tag
+        id: next-version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const mainMinors = tags
+              .map((tag) => tag.name.match(/^0\.(\d+)\.0$/))
+              .filter(Boolean)
+              .map((match) => Number(match[1]))
+              .filter((minor) => minor > 0)
+              .sort((left, right) => left - right);
+            const latestMinor = mainMinors.at(-1);
+            const nextMinor = latestMinor === undefined ? 1 : latestMinor + 1;
+            core.setOutput('tag', `0.${nextMinor}.0`);
+
+      - name: Create release tag
+        shell: cmd
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.next-version.outputs.tag }}" "%GITHUB_SHA%"
+          git push origin "${{ steps.next-version.outputs.tag }}"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.next-version.outputs.tag }}
+          name: Foundation ${{ steps.next-version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: artifacts/release-downloads/*.tar.gz

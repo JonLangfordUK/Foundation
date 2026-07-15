@@ -3,3 +3,7 @@ name = "template-game"
 
 [launch]
 package = "template-game"
+
+[package]
+executable-name = "template-game"
+asset-roots = ["assets"]

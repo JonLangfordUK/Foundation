@@ -6,7 +6,14 @@
 //! Game crates should add [`FoundationPlugin`] before their game-specific plugin
 //! so shared resources, systems, and reflected types are available first.
 
+extern crate self as foundation_runtime_library;
+
 use bevy::prelude::*;
+#[cfg(feature = "dev-tools")]
+pub use foundation_console_macros::{console_command, ConsoleCommandInput};
+
+#[cfg(feature = "dev-tools")]
+pub mod console;
 pub mod credits;
 pub mod game_settings;
 pub mod menu;
@@ -35,6 +42,23 @@ impl Plugin for FoundationPlugin {
         .register_type::<FoundationActor>()
         .init_resource::<game_settings::FoundationGameSettings>()
         .init_resource::<FoundationSettings>();
+
+        if cfg!(feature = "dev-tools") {
+            self.add_dev_tool_plugins(app);
+        }
+    }
+}
+
+impl FoundationPlugin {
+    #[cfg(feature = "dev-tools")]
+    fn add_dev_tool_plugins(&self, app: &mut App) {
+        // Debug console tooling is intentionally absent from shipping builds.
+        app.add_plugins(console::FoundationConsolePlugin);
+    }
+
+    #[cfg(not(feature = "dev-tools"))]
+    fn add_dev_tool_plugins(&self, _app: &mut App) {
+        // Shipping builds compile without Foundation dev tooling.
     }
 }
 
@@ -73,6 +97,15 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
+    #[cfg(feature = "dev-tools")]
+    pub use crate::console::{
+        ConsoleAutocompleteCandidate, ConsoleCommandArguments, ConsoleCommandDescriptor,
+        ConsoleCommandError, ConsoleCommandInput, ConsoleCommandParameter, ConsoleCommandResult,
+        ConsoleInputs, FoundationConsoleHistory, FoundationConsoleHistorySizeInputs,
+        FoundationConsolePlugin, FoundationConsoleRegistry, FoundationConsoleState,
+        FOUNDATION_CONSOLE_HISTORY_FILE_NAME, FOUNDATION_CONSOLE_SAVE_DIRECTORY,
+        FOUNDATION_CONSOLE_SCENE_KEY,
+    };
     pub use crate::credits::{
         flatten_credits_document, header_font_size_for_depth, CreditPerson, CreditsDisplayRow,
         CreditsDocument, CreditsGroup, FoundationCreditsAssetRoots, FoundationCreditsPlugin,
@@ -100,6 +133,8 @@ pub mod prelude {
         FoundationSplashText, FoundationSplashTimings, FoundationSplashUiParent,
         FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
     };
+    #[cfg(feature = "dev-tools")]
+    pub use crate::{console_command, ConsoleCommandInput};
     pub use crate::{FoundationActor, FoundationPlugin, FoundationSettings};
 }
 

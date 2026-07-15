@@ -9,7 +9,13 @@ description = "Example game built on the Foundation engine"
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default = ["dev-tools", "editor"]
+dev-tools = ["dep:linkme", "foundation-runtime-library/dev-tools"]
+editor = ["dep:foundation-editor-library"]
+
 [dependencies]
 bevy.workspace = true
-foundation-editor-library.workspace = true
-foundation-runtime-library.workspace = true
+foundation-editor-library = { workspace = true, optional = true }
+foundation-runtime-library = { workspace = true, default-features = false }
+linkme = { workspace = true, optional = true }
