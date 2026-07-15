@@ -55,12 +55,12 @@
   - Notes: Added tests for `--project` parsing, `--game`/`--project` conflicts, external default target directory behavior, and `CARGO_TARGET_DIR` override behavior. Local package validation covered absolute external project path and asset copy behavior.
 
 ### Validation
-- Format: Passed via `cargo fmt --all` on 2026-07-15
-- Lint: Pending full wrapper
-- Tests: Passed `cargo test --workspace --all-features` on 2026-07-15
-- Build: Passed external shipping package build via `scripts/foundation-build.cmd package --project E:/GameDev/template-game/game --platform windows-x64 --configuration shipping --target game` on 2026-07-15
-- Documentation generation: Pending full wrapper
-- Full validation wrapper: Pending
+- Format: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Lint: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Tests: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Build: Passed via `scripts/validate-project.cmd` on 2026-07-15; external shipping package build also passed via `scripts/foundation-build.cmd package --project E:/GameDev/template-game/game --platform windows-x64 --configuration shipping --target game`
+- Documentation generation: Passed via `scripts/validate-project.cmd` on 2026-07-15
+- Full validation wrapper: Passed `scripts/validate-project.cmd` on 2026-07-15
 
 ## Phase 2: Standalone TemplateGame Repository
 **Status:** Complete pending PR workflow
@@ -148,6 +148,7 @@
 - `2026-07-15`: Removed `games/template-game` from the Foundation workspace, updated Foundation workflow packaging to use the external TemplateGame repository, and updated Foundation build documentation.
 - `2026-07-15`: Bootstrapped the new TemplateGame repository with `main`, `dev`, and `feature/external-template-game`; added Foundation as the default `engine/` submodule and copied TemplateGame into `game/`.
 - `2026-07-15`: Pushed TemplateGame implementation commit `c09e4b8 Add external Foundation TemplateGame` to `origin/feature/external-template-game`.
+- `2026-07-15`: Ran full Foundation validation with `scripts/validate-project.cmd`; formatting, linting, tests, build, and documentation generation all passed.
 
 ## Git And Push State
 - Foundation branch created from: `origin/dev`
@@ -156,6 +157,7 @@
 - Implementation start commit: `ae83014 Start external TemplateGame implementation`
 - Foundation external project support commit: `6c6ed8f Add external game project support`
 - Foundation move TemplateGame commit: `3d0c31f Move TemplateGame out of Foundation`
-- Foundation tracker update commit: Pending
-- Foundation push state: Move commit pushed; tracker update pending
+- Foundation tracker update commit: `e11e9fc Update external TemplateGame tracker`
+- Foundation validation tracker commit: Pending
+- Foundation push state: Move and tracker commits pushed; validation tracker update pending
 - TemplateGame repo state: `main` and `dev` bootstrapped and pushed; feature implementation commit `c09e4b8 Add external Foundation TemplateGame` pushed on `feature/external-template-game`
