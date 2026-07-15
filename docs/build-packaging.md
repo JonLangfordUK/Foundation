@@ -119,11 +119,26 @@ A package contains:
 
 ## CI Usage
 
-GitHub workflows should call the same local command as developers. Self-hosted runners need:
+GitHub workflows call the same local command as developers. Self-hosted runners need:
 
 - Rust toolchain installed,
 - target triples installed through `rustup target add`,
 - platform linkers and SDKs required by the selected targets,
 - `tar` available for archive creation.
 
-The workflow in `.github/workflows/foundation-build.yml` provides a starting matrix for validation, packaging, artifact upload, and optional GitHub Release upload.
+The workflow in `.github/workflows/foundation-build.yml` runs on pushes to `dev` and `main`, plus manual dispatch.
+
+Pushes to `dev`:
+
+- validate the workspace on both Windows and Linux self-hosted runners,
+- build package artifacts for `windows-x64` and `linux-x64`,
+- always produce `test` and `shipping` game packages,
+- publish untagged workflow artifacts for the commit SHA.
+
+Pushes to `main`:
+
+- perform the same validation and package matrix,
+- create the next semantic version tag using `major.minor.patch` format such as `0.0.0`,
+- publish a non-prerelease GitHub Release containing the `test` and `shipping` package artifacts.
+
+The current release matrix uses native platform runners: Windows runners produce `windows-x64` packages and Linux runners produce `linux-x64` packages. The package command and artifact layout are shared so outputs follow the same structure on either host. Full cross-host builds for every target remain dependent on installed platform SDKs, linkers, and Bevy/wgpu native requirements.

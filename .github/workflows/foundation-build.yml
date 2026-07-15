@@ -1,58 +1,74 @@
 name: Foundation Build
 
 on:
+  push:
+    branches:
+      - main
+      - dev
   workflow_dispatch:
     inputs:
       game:
         description: Foundation game name
         required: true
         default: template-game
-      configuration:
-        description: Build configuration
-        required: true
-        type: choice
-        options:
-          - debug
-          - test
-          - shipping
-        default: test
-      target:
-        description: Build target
-        required: true
-        type: choice
-        options:
-          - game
-          - game-editor
-        default: game
-      publish-release:
-        description: Upload packages to the GitHub Release named by the ref tag
-        required: true
-        type: boolean
-        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: foundation-build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FOUNDATION_GAME: ${{ inputs.game || 'template-game' }}
 
 jobs:
   validate:
-    name: Validate workspace
-    runs-on: [self-hosted, Windows]
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Validate Rust workspace
-        shell: cmd
-        run: scripts\validate-project.cmd
-
-  package:
-    name: Package ${{ matrix.platform }}
-    needs: validate
+    name: Validate workspace on ${{ matrix.host }}
     runs-on: ${{ fromJson(matrix.runner) }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          - host: windows
+            runner: '["self-hosted", "Windows"]'
+          - host: linux
+            runner: '["self-hosted", "Linux"]'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Rust workspace
+        shell: bash
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace --all-features
+          cargo build --workspace --all-features
+          cargo doc --workspace --all-features --no-deps
+
+  package:
+    name: Package ${{ matrix.platform }} ${{ matrix.configuration }} on ${{ matrix.host }}
+    needs: validate
+    runs-on: ${{ fromJson(matrix.runner) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - test
+          - shipping
+        platform:
+          - windows-x64
+          - linux-x64
+        include:
           - platform: windows-x64
+            host: windows
+            rust-target: x86_64-pc-windows-msvc
             runner: '["self-hosted", "Windows"]'
           - platform: linux-x64
+            host: linux
+            rust-target: x86_64-unknown-linux-gnu
             runner: '["self-hosted", "Linux"]'
     steps:
       - name: Check out repository
@@ -60,31 +76,108 @@ jobs:
 
       - name: Install selected Rust target
         shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "windows-x64" ]; then
-            rustup target add x86_64-pc-windows-msvc
-          elif [ "${{ matrix.platform }}" = "linux-x64" ]; then
-            rustup target add x86_64-unknown-linux-gnu
-          fi
+        run: rustup target add "${{ matrix.rust-target }}"
 
       - name: Package Foundation game
         shell: bash
         run: |
           cargo run -p foundation-build -- package \
-            --game "${{ inputs.game }}" \
+            --game "${FOUNDATION_GAME}" \
             --platform "${{ matrix.platform }}" \
-            --configuration "${{ inputs.configuration }}" \
-            --target "${{ inputs.target }}"
+            --configuration "${{ matrix.configuration }}" \
+            --target game
+
+      - name: Stage release assets
+        shell: bash
+        run: |
+          mkdir -p artifacts/release-assets
+          cp artifacts/packages/${FOUNDATION_GAME}/${{ matrix.platform }}/${{ matrix.configuration }}/*.tar.gz artifacts/release-assets/
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.game }}-${{ matrix.platform }}-${{ inputs.configuration }}-${{ inputs.target }}
-          path: artifacts/packages/${{ inputs.game }}/${{ matrix.platform }}/${{ inputs.configuration }}/${{ inputs.target }}*
+          name: ${{ env.FOUNDATION_GAME }}-${{ matrix.platform }}-${{ matrix.configuration }}
+          path: artifacts/release-assets/*.tar.gz
           if-no-files-found: error
 
-      - name: Upload release assets
-        if: inputs.publish-release && startsWith(github.ref, 'refs/tags/')
+  main-release:
+    name: Publish tagged main release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: package
+    runs-on: [self-hosted, Linux]
+    outputs:
+      release-tag: ${{ steps.next-version.outputs.tag }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/release-downloads
+          merge-multiple: true
+
+      - name: Calculate next semantic version tag
+        id: next-version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const versions = tags
+              .map((tag) => tag.name.match(/^(\d+)\.(\d+)\.(\d+)$/))
+              .filter(Boolean)
+              .map((match) => ({
+                major: Number(match[1]),
+                minor: Number(match[2]),
+                patch: Number(match[3]),
+              }))
+              .sort((left, right) =>
+                left.major - right.major || left.minor - right.minor || left.patch - right.patch
+              );
+            const latest = versions.at(-1);
+            const next = latest
+              ? `${latest.major}.${latest.minor}.${latest.patch + 1}`
+              : '0.0.0';
+            core.setOutput('tag', next);
+
+      - name: Create release tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.next-version.outputs.tag }}" "${GITHUB_SHA}"
+          git push origin "${{ steps.next-version.outputs.tag }}"
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/packages/${{ inputs.game }}/${{ matrix.platform }}/${{ inputs.configuration }}/*.tar.gz
+          tag_name: ${{ steps.next-version.outputs.tag }}
+          name: Foundation ${{ steps.next-version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: artifacts/release-downloads/*.tar.gz
+
+  dev-artifacts:
+    name: Publish untagged dev artifacts
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: package
+    runs-on: [self-hosted, Linux]
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/dev-downloads
+          merge-multiple: true
+
+      - name: Upload combined dev artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FOUNDATION_GAME }}-dev-${{ github.sha }}
+          path: artifacts/dev-downloads/*.tar.gz
+          if-no-files-found: error
