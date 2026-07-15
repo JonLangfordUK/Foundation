@@ -12,7 +12,10 @@ use crate::scene_stack::{
     ScenePresentation, SceneRemoved, SceneSource, SceneTarget,
 };
 use bevy::{
-    input::keyboard::Key,
+    input::{
+        keyboard::Key,
+        mouse::{MouseScrollUnit, MouseWheel},
+    },
     prelude::*,
     text::{EditableText, TextCursorStyle, TextEdit, TextLayout},
 };
@@ -70,6 +73,7 @@ impl Plugin for FoundationConsolePlugin {
                     update_console_input_state,
                     handle_console_keyboard_actions,
                     refresh_console_text_nodes,
+                    scroll_console_output,
                 ),
             );
     }
@@ -310,6 +314,8 @@ fn handle_console_keyboard_actions(
     }
 }
 
+const FOUNDATION_CONSOLE_SCROLL_LINE_HEIGHT: f32 = 21.0;
+
 fn refresh_console_text_nodes(
     console_ui_state: Res<FoundationConsoleUiState>,
     console_history: Res<FoundationConsoleHistory>,
@@ -341,6 +347,47 @@ fn refresh_console_text_nodes(
         for mut text in &mut console_suggestions {
             text.0 = suggestion_text.clone();
         }
+    }
+}
+
+fn scroll_console_output(
+    mut mouse_wheel_messages: MessageReader<MouseWheel>,
+    console_state: Res<FoundationConsoleState>,
+    mut console_outputs: Query<
+        (&mut ScrollPosition, &Node, &ComputedNode),
+        With<FoundationConsoleOutput>,
+    >,
+) {
+    if !console_state.is_open {
+        mouse_wheel_messages.clear();
+        return;
+    }
+
+    let scroll_delta = mouse_wheel_messages
+        .read()
+        .map(|mouse_wheel| {
+            let unit_scale = match mouse_wheel.unit {
+                MouseScrollUnit::Line => FOUNDATION_CONSOLE_SCROLL_LINE_HEIGHT,
+                MouseScrollUnit::Pixel => 1.0,
+            };
+            -mouse_wheel.y * unit_scale
+        })
+        .sum::<f32>();
+
+    if scroll_delta == 0.0 {
+        return;
+    }
+
+    for (mut scroll_position, node, computed_node) in &mut console_outputs {
+        if node.overflow.y != OverflowAxis::Scroll {
+            continue;
+        }
+
+        let max_scroll_offset = (computed_node.content_size().y - computed_node.size().y)
+            * computed_node.inverse_scale_factor();
+        let clamped_max_scroll_offset = max_scroll_offset.max(0.0);
+        scroll_position.y =
+            (scroll_position.y + scroll_delta).clamp(0.0, clamped_max_scroll_offset);
     }
 }
 
@@ -514,10 +561,13 @@ fn spawn_console_overlay(
             Name::new("Foundation Debug Console Output"),
             Node {
                 width: Val::Percent(100.0),
+                height: Val::Px(190.0),
                 flex_grow: 1.0,
-                overflow: Overflow::clip_y(),
+                flex_shrink: 1.0,
+                overflow: Overflow::scroll_y(),
                 ..default()
             },
+            ScrollPosition::default(),
             Text::new(output_text),
             TextFont {
                 font_size: 14.0.into(),
