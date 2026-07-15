@@ -5,11 +5,11 @@
 - Feature area: `multi-area`
 - Primary area: `engine`
 - Branch: `feature/external-template-game`
-- Overall status: `Planned; awaiting user approval to implement`
+- Overall status: `Implementation in progress`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for gpt-5.4 implementation after user approval`
+- Current handoff state: `Implementation in progress with gpt-5.4`
 - Created: `2026-07-15`
 - Last updated: `2026-07-15`
 
@@ -21,16 +21,16 @@
 - Push after each completed commit when `origin` is configured.
 
 ## Phase 0: Branch Protection Dependency
-**Status:** Planned
+**Status:** In progress
 **Goal:** Ensure the branch-protection workflow feature is either merged first or its changes are preserved before this feature updates workflows.
 
 ### Tasks
-- [ ] Confirm status of `feature/branch-protection-ci`.
-  - Status: Planned
-  - Notes: That feature adds PR triggers and `Main source branch policy`; this feature should not accidentally overwrite it.
+- [x] Confirm status of `feature/branch-protection-ci`.
+  - Status: Complete
+  - Notes: The branch exists on `origin` and includes PR triggers plus `Main source branch policy`. It is not merged into `origin/dev` at implementation start.
 - [ ] Decide whether to merge branch protection first or rebase/cherry-pick compatible workflow changes.
-  - Status: Planned
-  - Notes: Preferred path is to merge branch protection first, then rebase this feature onto updated `dev`.
+  - Status: In progress
+  - Notes: Because implementation is proceeding before that feature is merged to `dev`, this feature will merge `origin/feature/branch-protection-ci` into `feature/external-template-game` to preserve workflow behavior.
 
 ### Validation
 - Git state inspection: Pending
@@ -143,6 +143,7 @@
 - `2026-07-15`: Created planning documents for moving TemplateGame into `https://github.com/JonLangfordUK/template-game.git` and adding external Foundation game project support.
 - `2026-07-15`: Inspected the new template-game repository and found it empty with no commits.
 - `2026-07-15`: Noted dependency on unmerged `feature/branch-protection-ci` workflow changes.
+- `2026-07-15`: User approved implementation. Confirmed active branch is `feature/external-template-game`, matching the tracker. Branch was created from `origin/dev`; branch-protection changes are still on a separate feature branch and will be incorporated before workflow edits.
 
 ## Git And Push State
 - Foundation branch created from: `origin/dev`
