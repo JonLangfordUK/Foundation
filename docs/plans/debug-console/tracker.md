@@ -178,7 +178,7 @@
 - Answered: Opening the console should not pause gameplay. The debug console should be treated as a Foundation scene-stack scene.
 - Answered: The first macro version should aim for full Bevy-system-style command functions, including access to resources, `World`, and entity queries where appropriate.
 - Answered: Macro-declared command functions should separate Bevy-filled parameters from user-provided command inputs by using a named input struct wrapped in a dedicated input parameter such as `ConsoleInputs<T>`.
-- Answered: Console command history should persist to disk under `saved/console/`. Up/Down should cycle through history, and pressing Down after the newest history entry should clear the input.
+- Answered: Console command history persists to disk under `saved/console/history.json`. Up/Down cycles through history, and pressing Down after the newest history entry clears the input.
 - Answered: Command names should default to the Rust function name, with an option to override the command name in the macro.
 
 ## Progress Log
@@ -209,4 +209,5 @@
 - `2026-07-15`: User reported Up/Down history navigation only cycled the most recent command. Fixed `EditableText` change synchronization so programmatic history replacements do not immediately clear the history cursor, and added a test covering full history traversal and clear-input behavior.
 - `2026-07-15`: User confirmed history navigation works and requested a larger history/output box that fills more of the console vertically. Increased console height, output viewport height, and visible output line count.
 - `2026-07-15`: User confirmed the larger history area looks good and requested two additional visible output lines. Increased visible output line count from 14 to 16.
+- `2026-07-15`: User reported command history was not available between game runs. Implemented loading history from `saved/console/history.json` when the console plugin starts and saving history after each submitted command, including failed command attempts, so Up/Down navigation persists across runs.
 - `2026-07-15`: Added TemplateGame `say_hello` example command registered as `example.say-hello`, demonstrating macro command-name override with named `name` input metadata.

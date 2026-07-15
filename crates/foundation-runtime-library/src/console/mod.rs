@@ -5,7 +5,11 @@
 //! crates that are not compiled into the current binary cannot contribute
 //! command descriptors.
 
-use std::{collections::BTreeMap, fmt, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    fmt, fs,
+    path::{Path, PathBuf},
+};
 
 use crate::scene_stack::{
     OpenSceneOptions, SceneAdded, SceneCommand, SceneId, SceneKey, SceneLoadRequested, SceneOwner,
@@ -56,7 +60,7 @@ impl Plugin for FoundationConsolePlugin {
         }
 
         app.init_resource::<FoundationConsoleState>()
-            .init_resource::<FoundationConsoleHistory>()
+            .insert_resource(FoundationConsoleHistory::load_from_disk())
             .init_resource::<FoundationConsoleRegistry>()
             .init_resource::<FoundationConsoleUiState>()
             .register_type::<FoundationConsoleRoot>()
@@ -157,12 +161,66 @@ impl FoundationConsoleHistory {
         PathBuf::from(FOUNDATION_CONSOLE_SAVE_DIRECTORY).join(FOUNDATION_CONSOLE_HISTORY_FILE_NAME)
     }
 
+    /// Loads persisted command history from the default history path.
+    pub fn load_from_disk() -> Self {
+        match Self::load_from_path(Self::history_file_path()) {
+            Ok(console_history) => console_history,
+            Err(load_error) => {
+                warn!("Failed to load Foundation console history: {load_error}");
+                Self::default()
+            }
+        }
+    }
+
+    /// Saves command history to the default history path.
+    pub fn save_to_disk(&self) -> Result<(), String> {
+        self.save_to_path(Self::history_file_path())
+    }
+
     /// Adds a non-empty command line to history.
     pub fn push_command(&mut self, command_line: impl Into<String>) {
         let command_line = command_line.into();
         if !command_line.trim().is_empty() {
             self.commands.push(command_line);
         }
+    }
+
+    fn load_from_path(history_file_path: impl AsRef<Path>) -> Result<Self, String> {
+        let history_file_path = history_file_path.as_ref();
+        if !history_file_path.exists() {
+            return Ok(Self::default());
+        }
+
+        let history_document = fs::read_to_string(history_file_path).map_err(|io_error| {
+            format!("could not read {}: {io_error}", history_file_path.display())
+        })?;
+        serde_json::from_str(&history_document).map_err(|parse_error| {
+            format!(
+                "could not parse {}: {parse_error}",
+                history_file_path.display()
+            )
+        })
+    }
+
+    fn save_to_path(&self, history_file_path: impl AsRef<Path>) -> Result<(), String> {
+        let history_file_path = history_file_path.as_ref();
+        if let Some(history_directory_path) = history_file_path.parent() {
+            fs::create_dir_all(history_directory_path).map_err(|io_error| {
+                format!(
+                    "could not create {}: {io_error}",
+                    history_directory_path.display()
+                )
+            })?;
+        }
+
+        let history_document = serde_json::to_string_pretty(self)
+            .map_err(|serialize_error| format!("could not serialize history: {serialize_error}"))?;
+        fs::write(history_file_path, history_document).map_err(|io_error| {
+            format!(
+                "could not write {}: {io_error}",
+                history_file_path.display()
+            )
+        })
     }
 }
 
@@ -412,12 +470,19 @@ fn execute_console_command_from_ui(world: &mut World, submitted_command_line: St
     match execution_result {
         Ok(()) => {
             output_line.push_str("\nCommand completed.");
-            let mut console_history = world.resource_mut::<FoundationConsoleHistory>();
-            console_history.push_command(submitted_command_line);
         }
         Err(command_error) => {
             output_line.push_str(&format!("\nError: {command_error}"));
         }
+    }
+
+    let history_save_result = {
+        let mut console_history = world.resource_mut::<FoundationConsoleHistory>();
+        console_history.push_command(submitted_command_line);
+        console_history.save_to_disk()
+    };
+    if let Err(history_save_error) = history_save_result {
+        output_line.push_str(&format!("\nHistory save error: {history_save_error}"));
     }
 
     let mut console_ui_state = world.resource_mut::<FoundationConsoleUiState>();
@@ -1112,6 +1177,45 @@ mod tests {
             FoundationConsoleHistory::history_file_path(),
             PathBuf::from("saved/console").join("history.json")
         );
+    }
+
+    #[test]
+    fn console_history_round_trips_through_json_file() {
+        let history_file_path = unique_test_history_file_path("round_trip");
+        let console_history = FoundationConsoleHistory {
+            commands: vec![
+                "example.say-hello name=Jon".to_string(),
+                "hello world".to_string(),
+            ],
+        };
+
+        console_history
+            .save_to_path(&history_file_path)
+            .expect("history should save");
+        let loaded_history = FoundationConsoleHistory::load_from_path(&history_file_path)
+            .expect("history should load");
+
+        assert_eq!(loaded_history.commands, console_history.commands);
+        let _ = fs::remove_file(history_file_path);
+    }
+
+    #[test]
+    fn missing_console_history_file_loads_empty_history() {
+        let history_file_path = unique_test_history_file_path("missing");
+        let _ = fs::remove_file(&history_file_path);
+
+        let loaded_history = FoundationConsoleHistory::load_from_path(history_file_path)
+            .expect("missing history should load as empty");
+
+        assert!(loaded_history.commands.is_empty());
+    }
+
+    fn unique_test_history_file_path(test_name: &str) -> PathBuf {
+        let process_id = std::process::id();
+        let thread_id = format!("{:?}", std::thread::current().id());
+        std::env::temp_dir().join(format!(
+            "foundation-console-history-{test_name}-{process_id}-{thread_id}.json"
+        ))
     }
 
     #[test]
