@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - dev
+  pull_request:
+    branches:
+      - main
+      - dev
   workflow_dispatch:
     inputs:
       game:
@@ -25,8 +29,24 @@ env:
   CARGO_TARGET_DIR: C:\actions-runner\cargo-target\Foundation
 
 jobs:
+  main-source-branch-policy:
+    name: Main source branch policy
+    runs-on: [self-hosted, Windows]
+    steps:
+      - name: Require dev or hotfix source for main
+        shell: cmd
+        run: |
+          if not "%GITHUB_EVENT_NAME%"=="pull_request" exit /b 0
+          if not "%GITHUB_BASE_REF%"=="main" exit /b 0
+          if "%GITHUB_HEAD_REF%"=="dev" exit /b 0
+          if "%GITHUB_HEAD_REF:~0,7%"=="hotfix/" exit /b 0
+          echo Pull requests into main must come from dev or hotfix/*.
+          echo Actual source branch: %GITHUB_HEAD_REF%
+          exit /b 1
+
   validate:
     name: Validate workspace on Windows
+    needs: main-source-branch-policy
     runs-on: [self-hosted, Windows]
     steps:
       - name: Check out repository
