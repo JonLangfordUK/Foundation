@@ -74,6 +74,6 @@
 - Branch created from: `origin/dev`
 - Branch: `feature/branch-protection-ci`
 - Plan/tracker commit: `0de1e45 Add branch protection CI plan`
-- Implementation commit: Pending
-- Push state: Planning branch pushed; implementation push pending
+- Implementation commit: `d64677f Add pull request branch checks`
+- Push state: Feature branch pushed to `origin/feature/branch-protection-ci`
 - Validation note: `scripts/format-project.cmd` passed locally after workflow/docs edits; heavier Rust validation waived because this feature only changes GitHub workflow triggers and Markdown documentation.
