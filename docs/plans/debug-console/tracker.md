@@ -6,11 +6,11 @@
 - Primary area: `engine`
 - Branch: `feature/debug-console`
 - Branch status: `Created from dev on 2026-07-15`
-- Overall status: `Planned`
+- Overall status: `In progress`
 - Planning model: `gpt-5.5`
 - Preferred implementation model: `gpt-5.4`
 - Optional final review model: `gpt-5.5`
-- Current handoff state: `Ready for user review before gpt-5.4 implementation`
+- Current handoff state: `Implementation in progress with gpt-5.4`
 - Created: `2026-07-15`
 - Last updated: `2026-07-15`
 
@@ -21,37 +21,38 @@
 - Every completed task and phase must be committed on `feature/debug-console` and pushed to `origin` when available.
 
 ## Phase 1: Console Architecture And Command Core
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** Establish the runtime module, command metadata model, command parser/dispatcher, and automatic linked-crate command registry.
 
 ### Tasks
-- [ ] Add the console module and plugin skeleton to `foundation-runtime-library`.
-  - Status: Planned
-  - Notes: Install through `FoundationPlugin` after confirming scheduling requirements.
-- [ ] Define command metadata, parameter metadata, command output/result, command context, history entry, and autocomplete candidate types.
-  - Status: Planned
-  - Notes: Public game-facing types require Rustdoc.
-- [ ] Choose and integrate distributed registration dependency, preferring `linkme` if it supports the final descriptor design.
-  - Status: Planned
-  - Notes: Preserve the requirement that only linked Foundation/current-game crates contribute commands.
-- [ ] Add the macro crate or macro module needed for ergonomic command declaration.
-  - Status: Planned
-  - Notes: Attribute macro likely needs a new proc-macro crate.
-- [ ] Implement command parsing and dispatch for the initial named-parameter grammar.
-  - Status: Planned
-  - Notes: Avoid overbuilding shell-like parsing unless required.
+- [x] Add the console module and plugin skeleton to `foundation-runtime-library`.
+  - Status: Complete
+  - Notes: Added `console` module, `FoundationConsolePlugin`, console resources, and installation through `FoundationPlugin`.
+- [x] Define command metadata, parameter metadata, command output/result, command context, history entry, and autocomplete candidate types.
+  - Status: Complete
+  - Notes: Added command descriptors, parameter metadata, result/error types, `ConsoleInputs<T>`, persisted history resource, registry resource, and autocomplete candidate type with Rustdoc.
+- [x] Choose and integrate distributed registration dependency, preferring `linkme` if it supports the final descriptor design.
+  - Status: Complete
+  - Notes: Integrated `linkme` distributed slices. Only crates linked into the running binary contribute descriptors. Command-author crates currently need `linkme` available as a direct dependency because the `linkme` attribute macro expands with that crate name.
+- [x] Add the macro crate or macro module needed for ergonomic command declaration.
+  - Status: Complete
+  - Notes: Added `foundation-console-macros` with `#[console_command]` and `#[derive(ConsoleCommandInput)]`. Command names default to the function name with optional override support.
+- [x] Implement command parsing and dispatch for the initial named-parameter grammar.
+  - Status: Complete
+  - Notes: Implemented whitespace-separated `command name=value` parsing and dispatch through Bevy one-shot systems using `RunSystemOnce`.
 
 ### Validation
-- Format: Pending
-- Lint: Pending
-- Tests: Pending
-- Build: Pending
-- Documentation generation: Pending
+- Format: Passed via `scripts/format-project.cmd` on 2026-07-15
+- Lint: Passed via `scripts/lint-project.cmd` on 2026-07-15
+- Tests: Passed via `scripts/test-project.cmd` on 2026-07-15
+- Build: Passed via `scripts/compile-project.cmd` on 2026-07-15
+- Documentation generation: Passed via `scripts/doc-project.cmd` on 2026-07-15
 - Full validation wrapper: Pending / Not required yet
-- User confirmation: Pending before implementation starts
+- User confirmation: User approved implementation start on 2026-07-15
 
 ### Notes
 - Commands from other games should not be runtime-filtered; they should be absent because those game crates are not compiled/linked into the running game binary.
+- TemplateGame now has a macro-registered command and a test proving it is linked into the TemplateGame binary's registry.
 
 ## Phase 2: Feathers Console UI And Input Focus
 **Status:** Planned  
@@ -159,7 +160,7 @@
 - Do not mark the feature complete until validation and documentation generation pass or a user-approved waiver is recorded.
 
 ## Implementation / Review Handoff Notes
-- Planning is complete and waiting for user approval to begin implementation.
+- User approved implementation after plan review. Implementation has started with `gpt-5.4`.
 - Implementation must use `gpt-5.4`; review must use `gpt-5.5`; never use Anthropic models.
 - Before implementation edits, read the plan and tracker, confirm branch `feature/debug-console`, and update this tracker to record implementation start/resume.
 - Required skills before implementation: `feature-tracker-update`, `feature-plan-docs`, `foundation-architecture`, `rust-workspace-dev`, `rust-coding-standards`, and `gitflow-workflow`.
@@ -185,3 +186,7 @@
 - `2026-07-15`: User preferred full Bevy-system-style command functions and raised the need to distinguish Bevy-filled parameters from user-provided command inputs.
 - `2026-07-15`: User approved named input structs for command inputs and requested persisted command history under `saved/console/` with Up/Down navigation and clear-input behavior after the newest entry.
 - `2026-07-15`: User requested command names default to the Rust function name, with an optional macro override.
+- `2026-07-15`: Committed and pushed planning documents in commit `4857290` on `feature/debug-console`.
+- `2026-07-15`: Verified active branch `feature/debug-console`; `dev` is an ancestor of `HEAD` before implementation edits. Started implementation with `gpt-5.4`.
+- `2026-07-15`: Implemented Phase 1 command core: console runtime module, plugin/resource registration, linked command registry, procedural macros, built-in Foundation command, TemplateGame example command, parser/dispatch tests, and linked-game registry test.
+- `2026-07-15`: Phase 1 validation passed: `scripts/format-project.cmd`, `scripts/lint-project.cmd`, `scripts/test-project.cmd`, `scripts/compile-project.cmd`, and `scripts/doc-project.cmd`.

@@ -77,6 +77,7 @@ The feature adds a reusable Foundation runtime debug-console subsystem: a toggle
 - Rust attribute macros cannot make arbitrary function signatures callable without generated adapter code; command function signature constraints must be documented.
 - Command functions should support full Bevy-system-style parameters where practical. User-provided command values should be separated from Bevy-filled system parameters through a named input struct wrapped in a dedicated console input parameter.
 - Distributed registration relies on final binary linking behavior. The selected-game-only requirement is satisfied only if the launcher continues compiling/running the selected game package rather than linking all games into one binary.
+- `linkme` command registration currently requires command-author crates to have `linkme` available as a direct dependency because the `linkme` attribute macro expands with that crate name.
 - The first implementation may need a focused command argument grammar; complex shell-like parsing should be avoided unless explicitly needed.
 - Console focus should not accidentally trigger gameplay hotkeys while the console is open.
 - Opening the console should not pause gameplay, but the console should still be represented as a Foundation scene-stack scene.
@@ -98,6 +99,7 @@ The feature adds a reusable Foundation runtime debug-console subsystem: a toggle
 - Do not add dependencies on concrete game crates from `crates/foundation` or `foundation-runtime-library`.
 - Preserve the selected-game-only compile model: commands from non-selected games should be absent because their crates are not linked into the current binary.
 - Keep command APIs ergonomic but explicit enough that parameter names and placeholder text can be generated reliably.
+- Note that command-author crates currently require a direct `linkme` dependency when using `#[console_command]`; TemplateGame has been updated accordingly.
 
 ## Optional Review Focus Areas
 - Use `gpt-5.5` for review.

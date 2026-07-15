@@ -129,6 +129,19 @@ fn exit_game_on_foundation_exit_request(
     }
 }
 
+/// Inputs for TemplateGame's example console greeting command.
+#[derive(Clone, Debug, ConsoleCommandInput)]
+pub struct TemplateGameConsoleGreetingInputs {
+    /// Name that should appear in the console greeting.
+    pub name: String,
+}
+
+/// Example TemplateGame-authored console command.
+#[console_command]
+pub fn template_game_greeting(inputs: ConsoleInputs<TemplateGameConsoleGreetingInputs>) {
+    info!("TemplateGame console greeting for {}.", inputs.name);
+}
+
 /// Example gameplay component used by TemplateGame-specific systems.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
@@ -163,5 +176,15 @@ mod tests {
             credits_asset_roots.roots.contains(&asset_root()),
             "TemplateGame should search its own asset directory for credits JSON"
         );
+    }
+
+    #[test]
+    fn template_game_console_command_is_linked_into_template_game_binary() {
+        let registry = FoundationConsoleRegistry::default();
+
+        assert!(registry
+            .commands()
+            .iter()
+            .any(|command| command.name == "template_game_greeting"));
     }
 }

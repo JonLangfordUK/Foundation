@@ -13,3 +13,4 @@ crate-type = ["rlib"]
 bevy.workspace = true
 foundation-editor-library.workspace = true
 foundation-runtime-library.workspace = true
+linkme.workspace = true
