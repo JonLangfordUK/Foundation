@@ -88,7 +88,7 @@
 - Manual runtime testing will be necessary because UI focus behavior is hard to prove with unit tests alone.
 - User reported missing predictive text, Enter doing nothing, TemplateGame warning for `foundation/debug-console`, and Bevy scene-component errors from direct Feathers scene-component spawning.
 - Addressed by adding focused keyboard action handling, suggestion text refresh, queued command execution, Escape close, Up/Down history navigation, Tab completion, ignoring Foundation runtime scenes in TemplateGame scene loading, and removing direct spawning of Feathers scene components that Bevy expects to be spawned through scene syntax.
-- Output containment issue addressed by setting the output area to a fixed-height `Overflow::scroll_y()` node with `ScrollPosition` and mouse-wheel scrolling.
+- Output containment issue addressed by setting the output area to a fixed-height `Overflow::scroll_y()` viewport with `ScrollPosition`, mouse-wheel scrolling, and bottom-aligned child text so recent output stays just above the input.
 - Remaining Phase 2 work: stronger runtime/focus validation and persisted history disk I/O.
 
 ## Phase 3: Autocomplete, Placeholder Text, And Example Commands
@@ -204,4 +204,5 @@
 - `2026-07-15`: User reported a Tab crash with a Bevy tab-navigation warning and a Parley char-boundary assertion. Added a `TabGroup` to the console root and changed Tab/autocomplete replacement to set the `EditableText` buffer directly before moving the cursor to the end, instead of queueing an insert after clearing.
 - `2026-07-15`: User reported output/history ordering looked wrong after running a successful command followed by a failing command. Fixed the output panel so it displays the execution log only, without appending command-navigation history entries again.
 - `2026-07-15`: User reported long console output/history text overflowed past the output box and overlapped the input. Constrained the output area to a fixed scrollable region and added mouse-wheel scrolling while the console is open.
+- `2026-07-15`: User clarified output should grow upward, with the newest command just above the input box. Split the output area into a scrollable viewport and a child text node, bottom-aligning the output text inside the viewport while preserving mouse-wheel scrolling.
 - `2026-07-15`: Added TemplateGame `say_hello` example command registered as `example.say-hello`, demonstrating macro command-name override with named `name` input metadata.

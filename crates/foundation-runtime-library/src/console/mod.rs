@@ -61,6 +61,7 @@ impl Plugin for FoundationConsolePlugin {
             .init_resource::<FoundationConsoleUiState>()
             .register_type::<FoundationConsoleRoot>()
             .register_type::<FoundationConsoleInput>()
+            .register_type::<FoundationConsoleOutputViewport>()
             .register_type::<FoundationConsoleOutput>()
             .register_type::<FoundationConsoleSuggestion>()
             .add_systems(
@@ -125,6 +126,11 @@ pub struct FoundationConsoleRoot;
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct FoundationConsoleInput;
+
+/// Marker component for the scrollable console history/output viewport.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleOutputViewport;
 
 /// Marker component for the console history and output text entity.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
@@ -355,7 +361,7 @@ fn scroll_console_output(
     console_state: Res<FoundationConsoleState>,
     mut console_outputs: Query<
         (&mut ScrollPosition, &Node, &ComputedNode),
-        With<FoundationConsoleOutput>,
+        With<FoundationConsoleOutputViewport>,
     >,
 ) {
     if !console_state.is_open {
@@ -556,18 +562,33 @@ fn spawn_console_overlay(
         ))
         .id();
 
-    let output_entity = commands
+    let output_viewport_entity = commands
         .spawn((
-            Name::new("Foundation Debug Console Output"),
+            Name::new("Foundation Debug Console Output Viewport"),
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(190.0),
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
             ScrollPosition::default(),
+            SceneOwner { scene_id },
+            FoundationConsoleOutputViewport,
+        ))
+        .id();
+
+    let output_entity = commands
+        .spawn((
+            Name::new("Foundation Debug Console Output"),
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
             Text::new(output_text),
             TextFont {
                 font_size: 14.0.into(),
@@ -637,10 +658,13 @@ fn spawn_console_overlay(
         .id();
 
     commands
+        .entity(output_viewport_entity)
+        .add_child(output_entity);
+    commands
         .entity(input_container_entity)
         .add_child(input_entity);
     commands.entity(root_entity).add_children(&[
-        output_entity,
+        output_viewport_entity,
         suggestion_entity,
         input_container_entity,
     ]);
