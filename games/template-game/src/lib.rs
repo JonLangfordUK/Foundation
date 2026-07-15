@@ -142,6 +142,19 @@ pub fn template_game_greeting(inputs: ConsoleInputs<TemplateGameConsoleGreetingI
     info!("TemplateGame console greeting for {}.", inputs.name);
 }
 
+/// Inputs for TemplateGame's user-facing `example.say-hello` console command.
+#[derive(Clone, Debug, ConsoleCommandInput)]
+pub struct TemplateGameSayHelloInputs {
+    /// Name that should be greeted by the example command.
+    pub name: String,
+}
+
+/// Example command that demonstrates overriding the in-console command name.
+#[console_command(name = "example.say-hello")]
+pub fn say_hello(inputs: ConsoleInputs<TemplateGameSayHelloInputs>) {
+    info!("Hello, {}!", inputs.name);
+}
+
 /// Example gameplay component used by TemplateGame-specific systems.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
@@ -186,5 +199,19 @@ mod tests {
             .commands()
             .iter()
             .any(|command| command.name == "template_game_greeting"));
+    }
+
+    #[test]
+    fn say_hello_console_command_uses_overridden_name() {
+        let registry = FoundationConsoleRegistry::default();
+        let say_hello_command = registry
+            .commands()
+            .iter()
+            .find(|command| command.name == "example.say-hello")
+            .expect("say_hello should register with its overridden console name");
+        let parameters = (say_hello_command.parameters)();
+
+        assert_eq!(parameters[0].name, "name");
+        assert_eq!(parameters[0].type_name, "String");
     }
 }
