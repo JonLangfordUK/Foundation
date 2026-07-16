@@ -139,14 +139,18 @@ jobs:
               repo: context.repo.repo,
               per_page: 100,
             });
-            const devPatches = tags
-              .map((tag) => tag.name.match(/^0\.0\.(\d+)$/))
+            const versions = tags
+              .map((tag) => tag.name.match(/^0\.(\d+)\.(\d+)$/))
               .filter(Boolean)
-              .map((match) => Number(match[1]))
-              .sort((left, right) => left - right);
-            const latestPatch = devPatches.at(-1);
-            const nextPatch = latestPatch === undefined ? 0 : latestPatch + 1;
-            core.setOutput('tag', `0.0.${nextPatch}`);
+              .map((match) => ({
+                minor: Number(match[1]),
+                patch: Number(match[2]),
+              }))
+              .sort((left, right) => left.minor - right.minor || left.patch - right.patch);
+            const latestVersion = versions.at(-1);
+            const nextMinor = latestVersion === undefined ? 0 : latestVersion.minor;
+            const nextPatch = latestVersion === undefined ? 0 : latestVersion.patch + 1;
+            core.setOutput('tag', `0.${nextMinor}.${nextPatch}`);
 
       - name: Create version tag
         shell: cmd
@@ -177,14 +181,16 @@ jobs:
               repo: context.repo.repo,
               per_page: 100,
             });
-            const mainMinors = tags
-              .map((tag) => tag.name.match(/^0\.(\d+)\.0$/))
+            const versions = tags
+              .map((tag) => tag.name.match(/^0\.(\d+)\.(\d+)$/))
               .filter(Boolean)
-              .map((match) => Number(match[1]))
-              .filter((minor) => minor > 0)
-              .sort((left, right) => left - right);
-            const latestMinor = mainMinors.at(-1);
-            const nextMinor = latestMinor === undefined ? 1 : latestMinor + 1;
+              .map((match) => ({
+                minor: Number(match[1]),
+                patch: Number(match[2]),
+              }))
+              .sort((left, right) => left.minor - right.minor || left.patch - right.patch);
+            const latestVersion = versions.at(-1);
+            const nextMinor = latestVersion === undefined ? 1 : latestVersion.minor + 1;
             core.setOutput('tag', `0.${nextMinor}.0`);
 
       - name: Create version tag
