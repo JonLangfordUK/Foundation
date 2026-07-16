@@ -25,24 +25,34 @@ env:
   CARGO_TARGET_DIR: C:\actions-runner\cargo-target\Foundation
 
 jobs:
-  main-source-branch-policy:
-    name: Main source branch policy
+  source-branch-policy:
+    name: Source branch policy
     runs-on: [self-hosted, Windows]
     steps:
-      - name: Require dev or hotfix source for main
+      - name: Require approved pull request source branches
         shell: cmd
         run: |
           if not "%GITHUB_EVENT_NAME%"=="pull_request" exit /b 0
-          if not "%GITHUB_BASE_REF%"=="main" exit /b 0
-          if "%GITHUB_HEAD_REF%"=="dev" exit /b 0
-          if "%GITHUB_HEAD_REF:~0,7%"=="hotfix/" exit /b 0
-          echo Pull requests into main must come from dev or hotfix/*.
-          echo Actual source branch: %GITHUB_HEAD_REF%
-          exit /b 1
+
+          if "%GITHUB_BASE_REF%"=="dev" (
+            if "%GITHUB_HEAD_REF%"=="main" exit /b 0
+            if "%GITHUB_HEAD_REF:~0,8%"=="feature/" exit /b 0
+            echo Pull requests into dev must come from main or feature/*.
+            echo Actual source branch: %GITHUB_HEAD_REF%
+            exit /b 1
+          )
+
+          if "%GITHUB_BASE_REF%"=="main" (
+            if "%GITHUB_HEAD_REF%"=="dev" exit /b 0
+            if "%GITHUB_HEAD_REF:~0,7%"=="hotfix/" exit /b 0
+            echo Pull requests into main must come from dev or hotfix/*.
+            echo Actual source branch: %GITHUB_HEAD_REF%
+            exit /b 1
+          )
 
   validate:
     name: Validate workspace on Windows
-    needs: main-source-branch-policy
+    needs: source-branch-policy
     runs-on: [self-hosted, Windows]
     steps:
       - name: Check out repository
