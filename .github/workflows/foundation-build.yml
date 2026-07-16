@@ -117,8 +117,9 @@ jobs:
           path: artifacts/release-assets/*.tar.gz
           if-no-files-found: error
 
-  dev-release:
-    name: Publish tagged dev release
+
+  dev-tag:
+    name: Create tagged dev checkpoint
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     needs: package
     runs-on: [self-hosted, Windows]
@@ -127,12 +128,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/release-downloads
-          merge-multiple: true
 
       - name: Calculate next dev version tag
         id: next-version
@@ -153,7 +148,7 @@ jobs:
             const nextPatch = latestPatch === undefined ? 0 : latestPatch + 1;
             core.setOutput('tag', `0.0.${nextPatch}`);
 
-      - name: Create release tag
+      - name: Create version tag
         shell: cmd
         run: |
           git config user.name "github-actions[bot]"
@@ -161,17 +156,8 @@ jobs:
           git tag "${{ steps.next-version.outputs.tag }}" "%GITHUB_SHA%"
           git push origin "${{ steps.next-version.outputs.tag }}"
 
-      - name: Publish GitHub prerelease
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.next-version.outputs.tag }}
-          name: Foundation Dev ${{ steps.next-version.outputs.tag }}
-          draft: false
-          prerelease: true
-          files: artifacts/release-downloads/*.tar.gz
-
-  main-release:
-    name: Publish tagged main release
+  main-tag:
+    name: Create tagged main checkpoint
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: package
     runs-on: [self-hosted, Windows]
@@ -180,12 +166,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/release-downloads
-          merge-multiple: true
 
       - name: Calculate next main version tag
         id: next-version
@@ -207,19 +187,10 @@ jobs:
             const nextMinor = latestMinor === undefined ? 1 : latestMinor + 1;
             core.setOutput('tag', `0.${nextMinor}.0`);
 
-      - name: Create release tag
+      - name: Create version tag
         shell: cmd
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "${{ steps.next-version.outputs.tag }}" "%GITHUB_SHA%"
           git push origin "${{ steps.next-version.outputs.tag }}"
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.next-version.outputs.tag }}
-          name: Foundation ${{ steps.next-version.outputs.tag }}
-          draft: false
-          prerelease: false
-          files: artifacts/release-downloads/*.tar.gz

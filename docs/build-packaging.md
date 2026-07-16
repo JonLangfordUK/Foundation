@@ -135,6 +135,6 @@ GitHub workflows call the same local command as developers. Self-hosted runners 
 - platform linkers and SDKs required by the selected targets,
 - `tar` available for archive creation.
 
-The Foundation workflow validates the engine workspace and packages the external TemplateGame reference project on pushes and pull requests for `dev` and `main`. Release publication remains limited to push events on protected branches.
+The Foundation workflow validates the engine workspace and packages the external TemplateGame reference project on pushes and pull requests for `dev` and `main`. Foundation no longer publishes GitHub Releases because game packages belong to game repositories. It still creates version tags on protected branch pushes after validation and packaging pass. Package artifacts remain available from workflow runs as integration evidence.
 
 Linux runner jobs are currently disabled because no Linux self-hosted runner is available. The workflow can be expanded back to a Windows/Linux matrix when a Linux runner is online.
