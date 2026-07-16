@@ -5,7 +5,6 @@ members = [
     "crates/foundation-editor-library",
     "crates/foundation-runtime-library",
     "crates/foundation-build",
-    "games/template-game",
 ]
 resolver = "2"
 

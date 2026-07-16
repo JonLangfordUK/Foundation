@@ -1,5 +1,6 @@
 @echo off
 setlocal
 
-cargo run -p foundation-build -- package %*
+set "FOUNDATION_ROOT=%~dp0.."
+cargo run --manifest-path "%FOUNDATION_ROOT%\Cargo.toml" -p foundation-build -- package %*
 exit /b %ERRORLEVEL%
