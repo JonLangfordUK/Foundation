@@ -22,6 +22,27 @@ scripts\foundation-build.cmd run --project <game> --configuration test --target 
 Shipping builds ignore `--log` for visible log output. This keeps public builds
 from exposing development logging windows even if a user passes the flag.
 
+Visible log lines use Foundation's readable terminal formatter:
+
+```text
+INFO  [Bevy              ] bevy_render::renderer │ AdapterInfo { ... }
+WARN  [Foundation Runtime] foundation_runtime_library::scene_stack │ Missing scene key ...
+ERROR [Last Beacon       ] last_beacon::scenes │ Failed to load scene ...
+```
+
+The formatter adds severity colors and source-category colors with ANSI terminal
+roles instead of hard-coded RGB values. In PowerShell or Windows Terminal, those
+colors and the font come from the current terminal profile/theme. On Windows,
+Foundation first tries to attach to the parent PowerShell/Windows Terminal
+console before allocating a fallback console. Foundation does not set a custom
+GUI font for logs; when no parent terminal exists on Windows, `--log` may fall
+back to a normal Windows console.
+
+Foundation derives categories from tracing targets, so Bevy logs are wrapped as
+`Bevy` without changing the Bevy codebase. Foundation runtime, Foundation engine,
+Foundation editor, Last Beacon, TemplateGame, Rust, and third-party targets get
+separate labels where their crate/module targets are identifiable.
+
 ## Log files
 
 Non-shipping builds write a normal run log beside the executable:
