@@ -386,22 +386,24 @@ impl BsnAst {
 
                 let template_type_registration =
                     type_registry.get(resolved_symbol.template_type_id).unwrap();
-                let field_infos = if let Ok(tuple_struct) =
-                    template_type_registration.type_info().as_tuple_struct()
-                {
-                    tuple_struct.iter()
-                } else if let Ok(enumeration) = template_type_registration.type_info().as_enum() {
+                let template_type_info = template_type_registration.type_info();
+                let is_tuple_struct = template_type_info.as_tuple_struct().is_ok();
+                let field_infos = if let Ok(tuple_struct) = template_type_info.as_tuple_struct() {
+                    tuple_struct.iter().collect::<Vec<_>>()
+                } else if let Ok(enumeration) = template_type_info.as_enum() {
                     enumeration
                         .variant(&symbol.1)
                         .unwrap()
                         .as_tuple_variant()?
                         .iter()
+                        .collect::<Vec<_>>()
                 } else {
                     return Err(DynamicBsnLoaderError::TypeNotNamedTuple);
                 };
 
                 let mut dynamic_tuple_struct = DynamicTupleStruct::default();
-                for (field, field_info) in fields.iter().zip(field_infos) {
+                dynamic_tuple_struct.set_represented_type(Some(template_type_info));
+                for (field, field_info) in fields.iter().zip(field_infos.iter()) {
                     let reflect = self.convert_bsn_expr_to_reflect(
                         *field,
                         app_type_registry,
@@ -410,56 +412,64 @@ impl BsnAst {
                     dynamic_tuple_struct.insert_boxed(reflect);
                 }
 
-                let app_type_registry = app_type_registry.clone();
+                let has_all_tuple_struct_fields =
+                    is_tuple_struct && fields.len() == field_infos.len();
+                if has_all_tuple_struct_fields {
+                    Box::new(DirectErasedTemplatePatch {
+                        template: Box::new(dynamic_tuple_struct),
+                    }) as Box<dyn Scene>
+                } else {
+                    let app_type_registry = app_type_registry.clone();
 
-                Box::new(ErasedTemplatePatch {
-                    template_type_id: resolved_symbol.template_type_id,
-                    app_type_registry: app_type_registry.clone(),
-                    fun: move |reflect, _context| {
-                        // This could be an enum variant
-                        // (`some_crate::Enum::Variant`) or a tuple struct.
-                        // First, look for a struct.
-                        let struct_type_path = symbol.as_path();
-                        if !resolved_symbol.template_is_enum {
-                            // This is a tuple struct. Rebuild the target as a fresh
-                            // `DynamicTupleStruct` from its current (default) fields, replacing the
-                            // leading fields with the specified values. Replacing rather than
-                            // `apply`-ing avoids the reflection kind/variant check that would reject
-                            // e.g. a `HandleTemplate`/asset value destined for a `Handle` field.
-                            let ReflectRef::TupleStruct(current) = reflect.reflect_ref() else {
-                                error!("Expected a tuple struct: `{}`", struct_type_path);
+                    Box::new(ErasedTemplatePatch {
+                        template_type_id: resolved_symbol.template_type_id,
+                        app_type_registry: app_type_registry.clone(),
+                        fun: move |reflect, _context| {
+                            // This could be an enum variant
+                            // (`some_crate::Enum::Variant`) or a tuple struct.
+                            // First, look for a struct.
+                            let struct_type_path = symbol.as_path();
+                            if !resolved_symbol.template_is_enum {
+                                // This is a tuple struct. Rebuild the target as a fresh
+                                // `DynamicTupleStruct` from its current (default) fields, replacing the
+                                // leading fields with the specified values. Replacing rather than
+                                // `apply`-ing avoids the reflection kind/variant check that would reject
+                                // e.g. a `HandleTemplate`/asset value destined for a `Handle` field.
+                                let ReflectRef::TupleStruct(current) = reflect.reflect_ref() else {
+                                    error!("Expected a tuple struct: `{}`", struct_type_path);
+                                    return;
+                                };
+                                let mut rebuilt = DynamicTupleStruct::default();
+                                rebuilt.set_represented_type(current.get_represented_type_info());
+                                for i in 0..current.field_len() {
+                                    let value = if i < dynamic_tuple_struct.field_len() {
+                                        dynamic_tuple_struct.field(i).unwrap().to_dynamic()
+                                    } else {
+                                        current.field(i).unwrap().to_dynamic()
+                                    };
+                                    rebuilt.insert_boxed(value);
+                                }
+                                *reflect = Box::new(rebuilt);
+                                return;
+                            }
+
+                            // Enum tuple variant: wrap DynamicTupleStruct in DynamicEnum and apply
+                            let dynamic_tuple = DynamicTuple::from_iter(
+                                (0..dynamic_tuple_struct.field_len())
+                                    .map(|i| dynamic_tuple_struct.field(i).unwrap().to_dynamic()),
+                            );
+                            let dynamic_enum = DynamicEnum::new(
+                                symbol.1.clone(),
+                                DynamicVariant::Tuple(dynamic_tuple),
+                            );
+                            let ReflectMut::Enum(reflect_enum) = reflect.reflect_mut() else {
+                                error!("Expected an enum: `{}`", struct_type_path);
                                 return;
                             };
-                            let mut rebuilt = DynamicTupleStruct::default();
-                            rebuilt.set_represented_type(current.get_represented_type_info());
-                            for i in 0..current.field_len() {
-                                let value = if i < dynamic_tuple_struct.field_len() {
-                                    dynamic_tuple_struct.field(i).unwrap().to_dynamic()
-                                } else {
-                                    current.field(i).unwrap().to_dynamic()
-                                };
-                                rebuilt.insert_boxed(value);
-                            }
-                            *reflect = Box::new(rebuilt);
-                            return;
-                        }
-
-                        // Enum tuple variant: wrap DynamicTupleStruct in DynamicEnum and apply
-                        let dynamic_tuple = DynamicTuple::from_iter(
-                            (0..dynamic_tuple_struct.field_len())
-                                .map(|i| dynamic_tuple_struct.field(i).unwrap().to_dynamic()),
-                        );
-                        let dynamic_enum = DynamicEnum::new(
-                            symbol.1.clone(),
-                            DynamicVariant::Tuple(dynamic_tuple),
-                        );
-                        let ReflectMut::Enum(reflect_enum) = reflect.reflect_mut() else {
-                            error!("Expected an enum: `{}`", struct_type_path);
-                            return;
-                        };
-                        reflect_enum.apply(&dynamic_enum);
-                    },
-                }) as Box<dyn Scene>
+                            reflect_enum.apply(&dynamic_enum);
+                        },
+                    }) as Box<dyn Scene>
+                }
             }
 
             BsnPatch::Relation(BsnRelation(ref relation_symbol, ref patches)) => {
@@ -1005,6 +1015,21 @@ where
 /// Instead, dynamic fields are *replaced wholesale*; the handle fields are then resolved to concrete
 /// `Handle<T>` values in [`build_handle_template_fields`] before `insert_reflect` materializes the
 /// component via `FromReflect`.
+struct DirectErasedTemplatePatch {
+    template: Box<dyn PartialReflect>,
+}
+
+impl Scene for DirectErasedTemplatePatch {
+    fn resolve(
+        self,
+        _context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        scene.push_template_erased(Box::new(DefaultDynamicErasedTemplate(self.template)));
+        Ok(())
+    }
+}
+
 struct DefaultDynamicErasedTemplate(Box<dyn PartialReflect>);
 
 impl<F> Scene for ErasedTemplatePatch<F>
@@ -1026,7 +1051,10 @@ where
                 return Err(ResolveSceneError::MissingScene);
             };
             let Some(reflect_default) = template_type_registration.data::<ReflectDefault>() else {
-                error!("Dynamic BSN type does not reflect Default.");
+                error!(
+                    "Dynamic BSN type `{}` does not reflect Default.",
+                    template_type_registration.type_info().type_path()
+                );
                 return Err(ResolveSceneError::MissingScene);
             };
 

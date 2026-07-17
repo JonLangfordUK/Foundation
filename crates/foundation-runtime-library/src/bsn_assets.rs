@@ -9,8 +9,10 @@ use bevy::{
     asset::{AssetEvent, AssetPath, AssetServer, Handle},
     ecs::hierarchy::ChildOf,
     prelude::*,
-    scene::{ScenePatch, ScenePatchInstance},
+    scene::{ResolvedSceneRoot, ScenePatch},
 };
+
+use std::sync::Arc;
 
 use crate::{
     dynamic_bsn::DynamicBsnLoader,
@@ -32,13 +34,13 @@ impl Plugin for FoundationBsnAssetPlugin {
         // intentionally registered from one isolated Foundation plugin.
         app.init_asset_loader::<DynamicBsnLoader>()
             .init_resource::<FoundationBsnSceneRegistry>()
-            .init_resource::<FoundationBsnInstances>()
             .register_type::<FoundationBsnInstance>()
             .add_systems(
                 Update,
                 (
                     spawn_requested_bsn_scenes,
-                    track_loaded_bsn_instances,
+                    apply_pending_bsn_instances,
+                    propagate_loaded_bsn_scene_owners,
                     replace_reloaded_bsn_instances,
                 )
                     .chain(),
@@ -87,13 +89,14 @@ pub struct FoundationBsnInstance {
     /// Parent entity to reattach to during hot reload, when one exists.
     #[reflect(ignore)]
     pub parent: Option<Entity>,
+    /// Loaded scene patch handle used by the temporary Foundation apply path.
+    #[reflect(ignore)]
+    pub scene_handle: Handle<ScenePatch>,
 }
 
-/// Resource used to defer owner propagation until Bevy has applied the scene patch.
-#[derive(Debug, Default, Resource)]
-struct FoundationBsnInstances {
-    pending_owner_propagation: Vec<Entity>,
-}
+/// Marks a tracked BSN root whose loaded scene patch has not been applied yet.
+#[derive(Clone, Copy, Debug, Component)]
+struct FoundationBsnApplyPending;
 
 /// Extension methods for spawning `.bsn` prefab or level assets from commands.
 pub trait FoundationBsnCommandsExt {
@@ -162,12 +165,13 @@ fn spawn_bsn_instance_with_asset_server(
     let scene_handle: Handle<ScenePatch> = asset_server.load(asset_path.clone());
     let mut scene_entity = commands.spawn((
         Name::new(format!("BSN {asset_path}")),
-        ScenePatchInstance(scene_handle),
         FoundationBsnInstance {
             asset_path,
             scene_owner,
             parent,
+            scene_handle,
         },
+        FoundationBsnApplyPending,
     ));
 
     if let Some(scene_owner) = scene_owner {
@@ -181,16 +185,85 @@ fn spawn_bsn_instance_with_asset_server(
     scene_entity.id()
 }
 
-fn track_loaded_bsn_instances(
-    mut instance_tracker: ResMut<FoundationBsnInstances>,
-    instances: Query<Entity, Added<ScenePatchInstance>>,
-) {
-    for instance_entity in &instances {
-        // ScenePatchInstance is applied by Bevy's scene spawner after this point
-        // in the frame; defer owner propagation to a later pass.
-        instance_tracker
-            .pending_owner_propagation
-            .push(instance_entity);
+fn apply_pending_bsn_instances(world: &mut World) {
+    let pending_instances = {
+        let mut pending_query = world
+            .query_filtered::<(Entity, &FoundationBsnInstance), With<FoundationBsnApplyPending>>();
+        pending_query
+            .iter(world)
+            .map(|(instance_entity, bsn_instance)| {
+                (instance_entity, bsn_instance.scene_handle.clone())
+            })
+            .collect::<Vec<_>>()
+    };
+
+    for (instance_entity, scene_handle) in pending_instances {
+        let scene_patch_id = scene_handle.id();
+        let scene_is_ready = world.resource_scope(
+            |world, mut scene_patches: Mut<Assets<ScenePatch>>| -> bool {
+                let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
+                    return false;
+                };
+
+                if scene_patch.resolved.is_some() {
+                    return true;
+                }
+
+                let scene = scene_patches
+                    .get_mut(scene_patch_id)
+                    .and_then(|mut scene_patch| scene_patch.scene.take());
+                let Some(scene) = scene else {
+                    return false;
+                };
+
+                let asset_server = world.resource::<AssetServer>();
+                match ResolvedSceneRoot::resolve(scene, asset_server, &scene_patches) {
+                    Ok(resolved_scene_root) => {
+                        if let Some(mut scene_patch) = scene_patches.get_mut(scene_patch_id) {
+                            scene_patch.resolved = Some(Arc::new(resolved_scene_root));
+                        }
+                        true
+                    }
+                    Err(resolve_error) => {
+                        error!(
+                            "Failed to resolve Foundation BSN scene {scene_patch_id}: {resolve_error}"
+                        );
+                        false
+                    }
+                }
+            },
+        );
+
+        if !scene_is_ready {
+            continue;
+        }
+
+        let scene_applied = world.resource_scope(
+            |world, scene_patches: Mut<Assets<ScenePatch>>| -> bool {
+                let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
+                    return false;
+                };
+                let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) else {
+                    return false;
+                };
+
+                match scene_patch.apply(&mut instance_entity_mut) {
+                    Ok(()) => true,
+                    Err(apply_error) => {
+                        error!(
+                            "Failed to apply Foundation BSN scene {scene_patch_id} to {instance_entity}: {apply_error}"
+                        );
+                        false
+                    }
+                }
+            },
+        );
+
+        if scene_applied {
+            if let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) {
+                instance_entity_mut.remove::<FoundationBsnApplyPending>();
+            }
+        }
     }
 }
 
@@ -198,22 +271,8 @@ fn replace_reloaded_bsn_instances(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut scene_events: MessageReader<AssetEvent<ScenePatch>>,
-    mut instance_tracker: ResMut<FoundationBsnInstances>,
-    scene_instances: Query<(
-        Entity,
-        &FoundationBsnInstance,
-        &ScenePatchInstance,
-        Option<&ChildOf>,
-    )>,
-    children: Query<&Children>,
+    scene_instances: Query<(Entity, &FoundationBsnInstance, Option<&ChildOf>)>,
 ) {
-    propagate_pending_scene_owners(
-        &mut commands,
-        &mut instance_tracker,
-        &scene_instances,
-        &children,
-    );
-
     let reloaded_asset_ids = scene_events
         .read()
         .filter_map(|asset_event| match asset_event {
@@ -227,8 +286,8 @@ fn replace_reloaded_bsn_instances(
         return;
     }
 
-    for (instance_entity, bsn_instance, scene_patch_instance, parent_link) in &scene_instances {
-        if !reloaded_asset_ids.contains(&scene_patch_instance.id()) {
+    for (instance_entity, bsn_instance, parent_link) in &scene_instances {
+        if !reloaded_asset_ids.contains(&bsn_instance.scene_handle.id()) {
             continue;
         }
 
@@ -250,42 +309,55 @@ fn replace_reloaded_bsn_instances(
     }
 }
 
-fn propagate_pending_scene_owners(
-    commands: &mut Commands,
-    instance_tracker: &mut FoundationBsnInstances,
-    scene_instances: &Query<(
-        Entity,
-        &FoundationBsnInstance,
-        &ScenePatchInstance,
-        Option<&ChildOf>,
-    )>,
-    children: &Query<&Children>,
+fn propagate_loaded_bsn_scene_owners(
+    mut commands: Commands,
+    scene_instances: Query<(Entity, &FoundationBsnInstance)>,
+    children: Query<&Children>,
+    scene_owners: Query<&SceneOwner>,
 ) {
-    let pending_entities = std::mem::take(&mut instance_tracker.pending_owner_propagation);
-
-    for root_entity in pending_entities {
-        let Ok((_, bsn_instance, _, _)) = scene_instances.get(root_entity) else {
-            continue;
-        };
+    for (root_entity, bsn_instance) in &scene_instances {
         let Some(scene_owner) = bsn_instance.scene_owner else {
             continue;
         };
 
-        insert_scene_owner_recursively(commands, children, root_entity, scene_owner);
+        // Foundation applies pending BSN scene content before this propagation pass so authored
+        // roots and children participate in scene cleanup, visibility, and scene-scoped runtime
+        // systems such as splashes.
+        insert_scene_owner_recursively(
+            &mut commands,
+            &children,
+            &scene_owners,
+            root_entity,
+            scene_owner,
+        );
     }
 }
 
 fn insert_scene_owner_recursively(
     commands: &mut Commands,
     children: &Query<&Children>,
+    scene_owners: &Query<&SceneOwner>,
     entity: Entity,
     scene_owner: SceneOwner,
 ) {
-    commands.entity(entity).insert(scene_owner);
+    let should_insert_owner = scene_owners
+        .get(entity)
+        .map(|current_owner| *current_owner != scene_owner)
+        .unwrap_or(true);
+
+    if should_insert_owner {
+        commands.entity(entity).insert(scene_owner);
+    }
 
     if let Ok(child_entities) = children.get(entity) {
         for child_entity in child_entities.iter() {
-            insert_scene_owner_recursively(commands, children, child_entity, scene_owner);
+            insert_scene_owner_recursively(
+                commands,
+                children,
+                scene_owners,
+                child_entity,
+                scene_owner,
+            );
         }
     }
 }
@@ -311,7 +383,6 @@ mod tests {
         });
         app.init_asset::<ScenePatch>();
         app.add_message::<AssetEvent<ScenePatch>>();
-        app.init_resource::<FoundationBsnInstances>();
         app.add_systems(Update, replace_reloaded_bsn_instances);
 
         let scene_handle = app
@@ -325,14 +396,12 @@ mod tests {
         let scene_asset_id = scene_handle.id();
         let root_entity = app
             .world_mut()
-            .spawn((
-                FoundationBsnInstance {
-                    asset_path: "scenes/reload-test.bsn".to_string(),
-                    scene_owner: None,
-                    parent: None,
-                },
-                ScenePatchInstance(scene_handle),
-            ))
+            .spawn((FoundationBsnInstance {
+                asset_path: "scenes/reload-test.bsn".to_string(),
+                scene_owner: None,
+                parent: None,
+                scene_handle,
+            },))
             .with_child(())
             .id();
         let child_entity = app.world().get::<Children>(root_entity).unwrap()[0];
