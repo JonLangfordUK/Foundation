@@ -20,10 +20,16 @@ bevy.workspace = true
 bevy_feathers = { workspace = true, optional = true }
 bevy_input_focus = { workspace = true, optional = true }
 foundation-console-macros = { workspace = true, optional = true }
+lalrpop-util.workspace = true
 linkme = { workspace = true, optional = true }
+nom.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 toml.workspace = true
+
+[build-dependencies]
+lalrpop.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_System_Console"] }

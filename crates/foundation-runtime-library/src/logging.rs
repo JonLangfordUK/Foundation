@@ -7,6 +7,7 @@
 //! a timestamped panic log when a Rust panic reaches the panic hook.
 
 use std::{
+    fmt as std_fmt,
     fs::{self, File, OpenOptions},
     io::{self, Write},
     panic,
@@ -17,7 +18,12 @@ use std::{
 
 use bevy::{
     log::{
-        tracing_subscriber::{fmt::MakeWriter, Layer},
+        tracing::{Event, Level, Subscriber},
+        tracing_subscriber::{
+            fmt::{format::Writer, FmtContext, FormatEvent, FormatFields, MakeWriter},
+            registry::LookupSpan,
+            Layer,
+        },
         BoxedFmtLayer, BoxedLayer, LogPlugin,
     },
     prelude::*,
@@ -25,6 +31,9 @@ use bevy::{
 
 /// Runtime argument that requests a visible Foundation log window.
 pub const FOUNDATION_LOG_ARGUMENT: &str = "--log";
+
+/// Runtime argument that writes visible Foundation logs into the parent terminal.
+pub const FOUNDATION_LOG_INLINE_ARGUMENT: &str = "--log-inline";
 
 /// Directory below the executable root where Foundation stores runtime logs.
 pub const FOUNDATION_LOG_DIRECTORY: &str = "saved/logs";
@@ -76,12 +85,26 @@ pub fn foundation_log_window_requested(arguments: impl IntoIterator<Item = Strin
         .any(|argument| argument == FOUNDATION_LOG_ARGUMENT)
 }
 
+/// Returns true when the provided arguments request parent-terminal log output.
+pub fn foundation_inline_log_requested(arguments: impl IntoIterator<Item = String>) -> bool {
+    arguments
+        .into_iter()
+        .any(|argument| argument == FOUNDATION_LOG_INLINE_ARGUMENT)
+}
+
 /// Returns true when Foundation should emit visible formatted log output.
 pub fn foundation_should_show_log_window(
     arguments: impl IntoIterator<Item = String>,
     file_logging_enabled: bool,
 ) -> bool {
-    file_logging_enabled && foundation_log_window_requested(arguments)
+    file_logging_enabled
+        && arguments.into_iter().any(|argument| {
+            argument == FOUNDATION_LOG_ARGUMENT || argument == FOUNDATION_LOG_INLINE_ARGUMENT
+        })
+}
+
+fn foundation_should_use_inline_log_window(arguments: impl IntoIterator<Item = String>) -> bool {
+    foundation_inline_log_requested(arguments)
 }
 
 /// Returns the executable-relative directory that stores Foundation logs.
@@ -148,13 +171,18 @@ fn foundation_log_file_layer(app: &mut App) -> Option<BoxedLayer> {
 }
 
 fn foundation_log_visibility_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
+    let arguments = std::env::args().collect::<Vec<_>>();
     let should_show_log_window =
-        foundation_should_show_log_window(std::env::args(), foundation_file_logging_enabled());
+        foundation_should_show_log_window(arguments.clone(), foundation_file_logging_enabled());
+    let should_use_inline_log_window = foundation_should_use_inline_log_window(arguments);
 
     if should_show_log_window {
-        show_platform_log_window_if_available();
+        show_platform_log_window_if_available(should_use_inline_log_window);
         return Some(Box::new(
-            bevy::log::tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr),
+            bevy::log::tracing_subscriber::fmt::Layer::default()
+                .event_format(FoundationVisibleLogFormatter)
+                .with_ansi(true)
+                .with_writer(std::io::stderr),
         ));
     }
 
@@ -223,17 +251,238 @@ fn foundation_precise_timestamp_for_file_name(timestamp: SystemTime) -> String {
     )
 }
 
+struct FoundationVisibleLogFormatter;
+
+impl<S, N> FormatEvent<S, N> for FoundationVisibleLogFormatter
+where
+    S: Subscriber + for<'span> LookupSpan<'span>,
+    N: for<'writer> FormatFields<'writer> + 'static,
+{
+    fn format_event(
+        &self,
+        context: &FmtContext<'_, S, N>,
+        mut writer: Writer<'_>,
+        event: &Event<'_>,
+    ) -> std_fmt::Result {
+        let metadata = event.metadata();
+        let log_level = metadata.level();
+        let log_target = metadata.target();
+        let log_category = foundation_log_category(log_target);
+        let ansi_enabled = writer.has_ansi_escapes();
+
+        // Use ANSI 16-color roles instead of hard-coded RGB values so PowerShell,
+        // Windows Terminal, and other terminals map the colors through the active theme.
+        write_styled(&mut writer, ansi_enabled, foundation_level_style(log_level))?;
+        write!(&mut writer, "{:<5}", log_level)?;
+        write_styled(&mut writer, ansi_enabled, ANSI_RESET)?;
+        write!(&mut writer, " ")?;
+
+        write_styled(
+            &mut writer,
+            ansi_enabled,
+            foundation_category_style(log_category),
+        )?;
+        write!(&mut writer, "[{:<18}]", log_category.label())?;
+        write_styled(&mut writer, ansi_enabled, ANSI_RESET)?;
+        write!(&mut writer, " ")?;
+
+        write_styled(&mut writer, ansi_enabled, ANSI_DIM)?;
+        write!(&mut writer, "{log_target:<42}")?;
+        write_styled(&mut writer, ansi_enabled, ANSI_RESET)?;
+        write!(&mut writer, " | ")?;
+
+        context
+            .field_format()
+            .format_fields(writer.by_ref(), event)?;
+        writeln!(writer)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FoundationLogCategory {
+    Bevy,
+    FoundationEngine,
+    FoundationRuntime,
+    FoundationEditor,
+    LastBeacon,
+    TemplateGame,
+    Rust,
+    ThirdParty,
+}
+
+impl FoundationLogCategory {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Bevy => "Bevy",
+            Self::FoundationEngine => "Foundation Engine",
+            Self::FoundationRuntime => "Foundation Runtime",
+            Self::FoundationEditor => "Foundation Editor",
+            Self::LastBeacon => "Last Beacon",
+            Self::TemplateGame => "Template Game",
+            Self::Rust => "Rust",
+            Self::ThirdParty => "Third Party",
+        }
+    }
+}
+
+fn foundation_log_category(log_target: &str) -> FoundationLogCategory {
+    if foundation_target_has_prefix(log_target, &["last_beacon", "last-beacon"]) {
+        return FoundationLogCategory::LastBeacon;
+    }
+
+    if foundation_target_has_prefix(log_target, &["template_game", "template-game"]) {
+        return FoundationLogCategory::TemplateGame;
+    }
+
+    if foundation_target_has_prefix(log_target, &["foundation_runtime_library"]) {
+        return FoundationLogCategory::FoundationRuntime;
+    }
+
+    if foundation_target_has_prefix(log_target, &["foundation_editor_library"]) {
+        return FoundationLogCategory::FoundationEditor;
+    }
+
+    if foundation_target_has_prefix(
+        log_target,
+        &[
+            "foundation",
+            "foundation_build",
+            "foundation_console_macros",
+            "foundation-build",
+            "foundation-console-macros",
+        ],
+    ) {
+        return FoundationLogCategory::FoundationEngine;
+    }
+
+    if foundation_target_has_prefix(
+        log_target,
+        &[
+            "bevy",
+            "bevy_",
+            "bevy-",
+            "wgpu",
+            "winit",
+            "naga",
+            "gilrs",
+            "cosmic_text",
+            "parley",
+            "accesskit",
+        ],
+    ) {
+        return FoundationLogCategory::Bevy;
+    }
+
+    if foundation_target_has_prefix(log_target, &["std", "core", "alloc", "panic"]) {
+        return FoundationLogCategory::Rust;
+    }
+
+    FoundationLogCategory::ThirdParty
+}
+
+fn foundation_target_has_prefix(log_target: &str, prefixes: &[&str]) -> bool {
+    prefixes.iter().any(|prefix| {
+        log_target == *prefix
+            || log_target
+                .strip_prefix(prefix)
+                .is_some_and(|remaining_target| {
+                    remaining_target.starts_with("::")
+                        || remaining_target.starts_with('_')
+                        || remaining_target.starts_with('-')
+                })
+    })
+}
+
+const ANSI_RESET: &str = "\x1b[0m";
+const ANSI_DIM: &str = "\x1b[2m";
+const ANSI_BOLD_RED: &str = "\x1b[1;31m";
+const ANSI_BOLD_YELLOW: &str = "\x1b[1;33m";
+const ANSI_BOLD_GREEN: &str = "\x1b[1;32m";
+const ANSI_BOLD_BLUE: &str = "\x1b[1;34m";
+const ANSI_BOLD_MAGENTA: &str = "\x1b[1;35m";
+const ANSI_BOLD_CYAN: &str = "\x1b[1;36m";
+const ANSI_BRIGHT_BLACK: &str = "\x1b[90m";
+
+fn foundation_level_style(log_level: &Level) -> &'static str {
+    match *log_level {
+        Level::ERROR => ANSI_BOLD_RED,
+        Level::WARN => ANSI_BOLD_YELLOW,
+        Level::INFO => ANSI_BOLD_GREEN,
+        Level::DEBUG => ANSI_BOLD_CYAN,
+        Level::TRACE => ANSI_BRIGHT_BLACK,
+    }
+}
+
+fn foundation_category_style(log_category: FoundationLogCategory) -> &'static str {
+    match log_category {
+        FoundationLogCategory::Bevy => ANSI_BOLD_BLUE,
+        FoundationLogCategory::FoundationEngine => ANSI_BOLD_MAGENTA,
+        FoundationLogCategory::FoundationRuntime => ANSI_BOLD_CYAN,
+        FoundationLogCategory::FoundationEditor => ANSI_BOLD_CYAN,
+        FoundationLogCategory::LastBeacon => ANSI_BOLD_GREEN,
+        FoundationLogCategory::TemplateGame => ANSI_BOLD_GREEN,
+        FoundationLogCategory::Rust => ANSI_BRIGHT_BLACK,
+        FoundationLogCategory::ThirdParty => ANSI_DIM,
+    }
+}
+
+fn write_styled(
+    writer: &mut Writer<'_>,
+    ansi_enabled: bool,
+    ansi_style: &'static str,
+) -> std_fmt::Result {
+    if ansi_enabled {
+        write!(writer, "{ansi_style}")?;
+    }
+
+    Ok(())
+}
+
 #[cfg(windows)]
-fn show_platform_log_window_if_available() {
-    // Windows-subsystem games do not have a console by default. Allocating one here
-    // makes `--log` useful without making normal or shipping launches noisy.
+fn show_platform_log_window_if_available(use_inline_log_window: bool) {
     unsafe {
-        windows_sys::Win32::System::Console::AllocConsole();
+        if use_inline_log_window {
+            // `--log-inline` is an explicit request to reuse the parent PowerShell
+            // or Windows Terminal console instead of opening Foundation's separate log.
+            windows_sys::Win32::System::Console::AttachConsole(
+                windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
+            );
+        } else {
+            // `--log` opens a separate Foundation log window by default. A process can
+            // only be attached to one console, so detach first in case Cargo or the
+            // shell gave this game the parent console automatically.
+            windows_sys::Win32::System::Console::FreeConsole();
+            windows_sys::Win32::System::Console::AllocConsole();
+        }
+
+        enable_windows_virtual_terminal_colors();
+    }
+}
+
+#[cfg(windows)]
+unsafe fn enable_windows_virtual_terminal_colors() {
+    let standard_error_handle = windows_sys::Win32::System::Console::GetStdHandle(
+        windows_sys::Win32::System::Console::STD_ERROR_HANDLE,
+    );
+    let mut console_mode = 0;
+    let mode_was_read = windows_sys::Win32::System::Console::GetConsoleMode(
+        standard_error_handle,
+        &mut console_mode,
+    ) != 0;
+
+    if mode_was_read {
+        let styled_console_mode = console_mode
+            | windows_sys::Win32::System::Console::ENABLE_PROCESSED_OUTPUT
+            | windows_sys::Win32::System::Console::ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        windows_sys::Win32::System::Console::SetConsoleMode(
+            standard_error_handle,
+            styled_console_mode,
+        );
     }
 }
 
 #[cfg(not(windows))]
-fn show_platform_log_window_if_available() {
+fn show_platform_log_window_if_available(_use_inline_log_window: bool) {
     // Non-Windows platforms generally inherit a terminal rather than opening a
     // Foundation-managed console window, so the stderr formatter is enough.
 }
@@ -297,6 +546,20 @@ mod tests {
     }
 
     #[test]
+    fn inline_log_argument_requests_parent_terminal_output() {
+        let arguments = ["game.exe", FOUNDATION_LOG_INLINE_ARGUMENT].map(str::to_string);
+
+        assert!(foundation_inline_log_requested(arguments));
+
+        let arguments_without_inline_log =
+            ["game.exe", FOUNDATION_LOG_ARGUMENT].map(str::to_string);
+
+        assert!(!foundation_inline_log_requested(
+            arguments_without_inline_log
+        ));
+    }
+
+    #[test]
     fn shipping_policy_ignores_log_argument_when_file_logging_is_disabled() {
         let arguments = ["game.exe", FOUNDATION_LOG_ARGUMENT].map(str::to_string);
 
@@ -306,6 +569,13 @@ mod tests {
     #[test]
     fn non_shipping_policy_shows_log_window_when_log_argument_is_present() {
         let arguments = ["game.exe", FOUNDATION_LOG_ARGUMENT].map(str::to_string);
+
+        assert!(foundation_should_show_log_window(arguments, true));
+    }
+
+    #[test]
+    fn non_shipping_policy_shows_inline_log_when_inline_argument_is_present() {
+        let arguments = ["game.exe", FOUNDATION_LOG_INLINE_ARGUMENT].map(str::to_string);
 
         assert!(foundation_should_show_log_window(arguments, true));
     }
@@ -333,6 +603,40 @@ mod tests {
             latest_log_file_path,
             PathBuf::from("C:/FoundationGame/saved/logs/latest.log")
         );
+    }
+
+    #[test]
+    fn log_categories_wrap_known_targets() {
+        assert_eq!(
+            foundation_log_category("bevy_render::renderer"),
+            FoundationLogCategory::Bevy
+        );
+        assert_eq!(
+            foundation_log_category("wgpu_core"),
+            FoundationLogCategory::Bevy
+        );
+        assert_eq!(
+            foundation_log_category("foundation_runtime_library::scene_stack"),
+            FoundationLogCategory::FoundationRuntime
+        );
+        assert_eq!(
+            foundation_log_category("foundation::launch"),
+            FoundationLogCategory::FoundationEngine
+        );
+        assert_eq!(
+            foundation_log_category("last_beacon::scenes"),
+            FoundationLogCategory::LastBeacon
+        );
+    }
+
+    #[test]
+    fn log_category_labels_are_readable() {
+        assert_eq!(FoundationLogCategory::Bevy.label(), "Bevy");
+        assert_eq!(
+            FoundationLogCategory::FoundationRuntime.label(),
+            "Foundation Runtime"
+        );
+        assert_eq!(FoundationLogCategory::LastBeacon.label(), "Last Beacon");
     }
 
     #[test]

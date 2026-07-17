@@ -7,10 +7,18 @@ Foundation owns the default logging policy shared by Foundation games.
 By default, Foundation games keep visible log output quiet. A normal launch should
 not open or rely on a log window.
 
-Pass `--log` to request visible log output in non-shipping builds:
+Pass `--log` to request visible log output in non-shipping builds. On Windows,
+Foundation opens a separate log window by default:
 
 ```cmd
 cargo run -p foundation -- --game <game-name> --log
+```
+
+Use `--log-inline` instead when you explicitly want visible logs in the current
+parent PowerShell/Windows Terminal console instead of a separate log window:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --log-inline
 ```
 
 Packaged-style runs can forward the same runtime flag after `--`:
@@ -21,6 +29,29 @@ scripts\foundation-build.cmd run --project <game> --configuration test --target 
 
 Shipping builds ignore `--log` for visible log output. This keeps public builds
 from exposing development logging windows even if a user passes the flag.
+
+Visible log lines use Foundation's readable terminal formatter:
+
+```text
+INFO  [Bevy              ] bevy_render::renderer │ AdapterInfo { ... }
+WARN  [Foundation Runtime] foundation_runtime_library::scene_stack │ Missing scene key ...
+ERROR [Last Beacon       ] last_beacon::scenes │ Failed to load scene ...
+```
+
+The formatter adds severity colors and source-category colors with ANSI terminal
+roles instead of hard-coded RGB values. In PowerShell or Windows Terminal, those
+colors and the font come from the current terminal profile/theme when logs run
+inline in the current terminal. Foundation does not set a custom GUI font for
+logs. On Windows, the default `--log` path opens a separate Foundation log
+window with virtual-terminal color support enabled; `--log-inline` keeps logs in
+the parent PowerShell/Windows Terminal console so they inherit that profile's
+font and theme directly. The separate Windows console uses the system console
+font/theme, while inline logging uses the current terminal profile.
+
+Foundation derives categories from tracing targets, so Bevy logs are wrapped as
+`Bevy` without changing the Bevy codebase. Foundation runtime, Foundation engine,
+Foundation editor, Last Beacon, TemplateGame, Rust, and third-party targets get
+separate labels where their crate/module targets are identifiable.
 
 ## Log files
 
@@ -62,5 +93,7 @@ A game can continue customizing other Bevy default plugins by building the plugi
 group and setting the Foundation log plugin on that group.
 
 On Windows, games that should not create a console window by default should use a
-Windows-subsystem executable entry point and let Foundation allocate a console
-only when `--log` is requested in a non-shipping build.
+Windows-subsystem executable entry point and let Foundation allocate a separate
+log console only when `--log` is requested in a non-shipping build. Use
+`--log-inline` instead when current-terminal logging is preferable for scripts or
+local terminal workflows.

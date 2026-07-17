@@ -12,9 +12,16 @@ use bevy::prelude::*;
 #[cfg(feature = "dev-tools")]
 pub use foundation_console_macros::{console_command, ConsoleCommandInput};
 
+pub mod bsn_assets;
 #[cfg(feature = "dev-tools")]
 pub mod console;
 pub mod credits;
+mod dynamic_bsn;
+mod dynamic_bsn_lexer;
+lalrpop_util::lalrpop_mod!(
+    #[allow(clippy::vec_init_then_push)]
+    dynamic_bsn_grammar
+);
 pub mod game_settings;
 pub mod logging;
 pub mod menu;
@@ -43,6 +50,12 @@ impl Plugin for FoundationPlugin {
         .register_type::<FoundationActor>()
         .init_resource::<game_settings::FoundationGameSettings>()
         .init_resource::<FoundationSettings>();
+
+        // The temporary BSN asset bridge needs Bevy's asset infrastructure,
+        // which is installed by DefaultPlugins or AssetPlugin before Foundation.
+        if app.world().contains_resource::<AssetServer>() {
+            app.add_plugins(bsn_assets::FoundationBsnAssetPlugin);
+        }
 
         if cfg!(feature = "dev-tools") {
             self.add_dev_tool_plugins(app);
@@ -98,6 +111,10 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
+    pub use crate::bsn_assets::{
+        FoundationBsnAssetPlugin, FoundationBsnCommandsExt, FoundationBsnInstance,
+        FoundationBsnSceneRegistry,
+    };
     #[cfg(feature = "dev-tools")]
     pub use crate::console::{
         ConsoleAutocompleteCandidate, ConsoleCommandArguments, ConsoleCommandDescriptor,
@@ -166,5 +183,43 @@ mod tests {
             .read();
         assert!(registry.contains(std::any::TypeId::of::<FoundationActor>()));
         assert!(registry.contains(std::any::TypeId::of::<game_settings::FoundationGameSettings>()));
+    }
+
+    #[test]
+    fn foundation_bsn_authored_components_reflect_default() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(FoundationPlugin);
+
+        let registry = app
+            .world()
+            .resource::<bevy::ecs::reflect::AppTypeRegistry>()
+            .read();
+
+        assert_reflects_default::<splash_screen::FoundationSplashScreen>(&registry);
+        assert_reflects_default::<splash_screen::FoundationSplashUiRoot>(&registry);
+        assert_reflects_default::<splash_screen::FoundationSplashText>(&registry);
+        assert_reflects_default::<menu::FoundationMenuButton>(&registry);
+        assert_reflects_default::<menu::FoundationOptionsMenu>(&registry);
+        assert_reflects_default::<menu::FoundationPlaceholderMenu>(&registry);
+        assert_reflects_default::<menu::FoundationCloseOnEscape>(&registry);
+        assert_reflects_default::<menu::FoundationResumeOnEscape>(&registry);
+        assert_reflects_default::<menu::FoundationPauseOpener>(&registry);
+        assert_reflects_default::<menu::FoundationSimpleGameplayLevel>(&registry);
+        assert_reflects_default::<menu::FoundationSpin>(&registry);
+        assert_reflects_default::<credits::FoundationCreditsRoll>(&registry);
+    }
+
+    fn assert_reflects_default<T: 'static>(registry: &bevy::reflect::TypeRegistry) {
+        let type_registration = registry
+            .get(std::any::TypeId::of::<T>())
+            .expect("Foundation BSN-authored component should be registered");
+        assert!(
+            type_registration
+                .data::<bevy::prelude::ReflectDefault>()
+                .is_some(),
+            "{} should reflect Default for dynamic BSN loading",
+            type_registration.type_info().type_path(),
+        );
     }
 }
