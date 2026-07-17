@@ -12,9 +12,16 @@ use bevy::prelude::*;
 #[cfg(feature = "dev-tools")]
 pub use foundation_console_macros::{console_command, ConsoleCommandInput};
 
+pub mod bsn_assets;
 #[cfg(feature = "dev-tools")]
 pub mod console;
 pub mod credits;
+mod dynamic_bsn;
+mod dynamic_bsn_lexer;
+lalrpop_util::lalrpop_mod!(
+    #[allow(clippy::vec_init_then_push)]
+    dynamic_bsn_grammar
+);
 pub mod game_settings;
 pub mod logging;
 pub mod menu;
@@ -43,6 +50,12 @@ impl Plugin for FoundationPlugin {
         .register_type::<FoundationActor>()
         .init_resource::<game_settings::FoundationGameSettings>()
         .init_resource::<FoundationSettings>();
+
+        // The temporary BSN asset bridge needs Bevy's asset infrastructure,
+        // which is installed by DefaultPlugins or AssetPlugin before Foundation.
+        if app.world().contains_resource::<AssetServer>() {
+            app.add_plugins(bsn_assets::FoundationBsnAssetPlugin);
+        }
 
         if cfg!(feature = "dev-tools") {
             self.add_dev_tool_plugins(app);
@@ -98,6 +111,10 @@ pub struct FoundationActor {
 
 /// Common imports for games using FoundationRuntimeLibrary.
 pub mod prelude {
+    pub use crate::bsn_assets::{
+        FoundationBsnAssetPlugin, FoundationBsnCommandsExt, FoundationBsnInstance,
+        FoundationBsnSceneRegistry,
+    };
     #[cfg(feature = "dev-tools")]
     pub use crate::console::{
         ConsoleAutocompleteCandidate, ConsoleCommandArguments, ConsoleCommandDescriptor,
