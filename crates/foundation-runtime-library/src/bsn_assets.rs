@@ -98,6 +98,20 @@ pub struct FoundationBsnInstance {
 #[derive(Clone, Copy, Debug, Component)]
 struct FoundationBsnApplyPending;
 
+/// Marks a tracked BSN root whose scene patch failed during resolution or application.
+#[allow(dead_code)]
+#[derive(Clone, Debug, Component)]
+struct FoundationBsnApplyFailed {
+    reason: String,
+}
+
+#[derive(Debug)]
+enum FoundationBsnResolveStatus {
+    Waiting,
+    Ready,
+    Failed(String),
+}
+
 /// Extension methods for spawning `.bsn` prefab or level assets from commands.
 pub trait FoundationBsnCommandsExt {
     /// Queues a `.bsn` asset spawn as a new tracked root entity.
@@ -199,21 +213,21 @@ fn apply_pending_bsn_instances(world: &mut World) {
 
     for (instance_entity, scene_handle) in pending_instances {
         let scene_patch_id = scene_handle.id();
-        let scene_is_ready = world.resource_scope(
-            |world, mut scene_patches: Mut<Assets<ScenePatch>>| -> bool {
+        let resolve_status = world.resource_scope(
+            |world, mut scene_patches: Mut<Assets<ScenePatch>>| -> FoundationBsnResolveStatus {
                 let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
-                    return false;
+                    return FoundationBsnResolveStatus::Waiting;
                 };
 
                 if scene_patch.resolved.is_some() {
-                    return true;
+                    return FoundationBsnResolveStatus::Ready;
                 }
 
                 let scene = scene_patches
                     .get_mut(scene_patch_id)
                     .and_then(|mut scene_patch| scene_patch.scene.take());
                 let Some(scene) = scene else {
-                    return false;
+                    return FoundationBsnResolveStatus::Waiting;
                 };
 
                 let asset_server = world.resource::<AssetServer>();
@@ -222,48 +236,66 @@ fn apply_pending_bsn_instances(world: &mut World) {
                         if let Some(mut scene_patch) = scene_patches.get_mut(scene_patch_id) {
                             scene_patch.resolved = Some(Arc::new(resolved_scene_root));
                         }
-                        true
+                        FoundationBsnResolveStatus::Ready
                     }
                     Err(resolve_error) => {
-                        error!(
-                            "Failed to resolve Foundation BSN scene {scene_patch_id}: {resolve_error}"
-                        );
-                        false
+                        FoundationBsnResolveStatus::Failed(resolve_error.to_string())
                     }
                 }
             },
         );
 
-        if !scene_is_ready {
-            continue;
-        }
-
-        let scene_applied = world.resource_scope(
-            |world, scene_patches: Mut<Assets<ScenePatch>>| -> bool {
-                let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
-                    return false;
-                };
-                let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) else {
-                    return false;
-                };
-
-                match scene_patch.apply(&mut instance_entity_mut) {
-                    Ok(()) => true,
-                    Err(apply_error) => {
-                        error!(
-                            "Failed to apply Foundation BSN scene {scene_patch_id} to {instance_entity}: {apply_error}"
-                        );
-                        false
-                    }
-                }
-            },
-        );
-
-        if scene_applied {
-            if let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) {
-                instance_entity_mut.remove::<FoundationBsnApplyPending>();
+        match resolve_status {
+            FoundationBsnResolveStatus::Waiting => continue,
+            FoundationBsnResolveStatus::Ready => {}
+            FoundationBsnResolveStatus::Failed(resolve_error) => {
+                let failure_reason = format!(
+                    "Failed to resolve Foundation BSN scene {scene_patch_id}: {resolve_error}"
+                );
+                error!("{failure_reason}");
+                mark_bsn_instance_failed(world, instance_entity, failure_reason);
+                continue;
             }
         }
+
+        let scene_apply_result = world.resource_scope(
+            |world, scene_patches: Mut<Assets<ScenePatch>>| -> Result<(), String> {
+                let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
+                    return Err("ScenePatch asset disappeared before apply".to_string());
+                };
+                let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) else {
+                    return Err("BSN instance entity disappeared before apply".to_string());
+                };
+
+                scene_patch
+                    .apply(&mut instance_entity_mut)
+                    .map_err(|apply_error| apply_error.to_string())
+            },
+        );
+
+        match scene_apply_result {
+            Ok(()) => {
+                if let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) {
+                    instance_entity_mut.remove::<FoundationBsnApplyPending>();
+                }
+            }
+            Err(apply_error) => {
+                let failure_reason = format!(
+                    "Failed to apply Foundation BSN scene {scene_patch_id} to {instance_entity}: {apply_error}"
+                );
+                error!("{failure_reason}");
+                mark_bsn_instance_failed(world, instance_entity, failure_reason);
+            }
+        }
+    }
+}
+
+fn mark_bsn_instance_failed(world: &mut World, instance_entity: Entity, failure_reason: String) {
+    if let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) {
+        instance_entity_mut.remove::<FoundationBsnApplyPending>();
+        instance_entity_mut.insert(FoundationBsnApplyFailed {
+            reason: failure_reason,
+        });
     }
 }
 
@@ -372,6 +404,150 @@ fn _asset_path_is_bsn(asset_path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::scene::{ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies};
+
+    use crate::scene_stack::SceneId;
+
+    #[derive(Clone, Debug, Default, Component)]
+    struct HardenedRootMarker;
+
+    #[derive(Clone, Debug, Default, Component)]
+    struct HardenedChildMarker;
+
+    struct FailingScene;
+
+    impl Scene for FailingScene {
+        fn resolve(
+            self,
+            _context: &mut ResolveContext,
+            _scene: &mut ResolvedScene,
+        ) -> Result<(), ResolveSceneError> {
+            Err(ResolveSceneError::MissingScene)
+        }
+
+        fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {}
+    }
+
+    #[test]
+    fn pending_instance_applies_scene_content_and_propagates_owner() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin {
+            file_path: ".".to_string(),
+            ..default()
+        });
+        app.init_asset::<ScenePatch>();
+        app.add_systems(
+            Update,
+            (
+                apply_pending_bsn_instances,
+                propagate_loaded_bsn_scene_owners,
+            )
+                .chain(),
+        );
+
+        let scene_patch = {
+            let asset_server = app.world().resource::<AssetServer>();
+            ScenePatch::load(
+                asset_server,
+                bevy::scene::bsn! {
+                    HardenedRootMarker
+                    Children [HardenedChildMarker]
+                },
+            )
+        };
+        let scene_handle = app
+            .world_mut()
+            .resource_mut::<Assets<ScenePatch>>()
+            .add(scene_patch);
+        let expected_scene_owner = SceneOwner {
+            scene_id: SceneId(42),
+        };
+        let root_entity = app
+            .world_mut()
+            .spawn((
+                FoundationBsnInstance {
+                    asset_path: "scenes/hardened.bsn".to_string(),
+                    scene_owner: Some(expected_scene_owner),
+                    parent: None,
+                    scene_handle,
+                },
+                FoundationBsnApplyPending,
+                expected_scene_owner,
+            ))
+            .id();
+
+        app.update();
+        app.update();
+
+        assert!(app
+            .world()
+            .get::<FoundationBsnApplyPending>(root_entity)
+            .is_none());
+        assert!(app.world().get::<HardenedRootMarker>(root_entity).is_some());
+        assert_eq!(
+            app.world().get::<SceneOwner>(root_entity),
+            Some(&expected_scene_owner)
+        );
+
+        let child_entity = app.world().get::<Children>(root_entity).unwrap()[0];
+        assert!(app
+            .world()
+            .get::<HardenedChildMarker>(child_entity)
+            .is_some());
+        assert_eq!(
+            app.world().get::<SceneOwner>(child_entity),
+            Some(&expected_scene_owner)
+        );
+    }
+
+    #[test]
+    fn failed_resolution_marks_instance_failed_and_stops_pending_retry() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin {
+            file_path: ".".to_string(),
+            ..default()
+        });
+        app.init_asset::<ScenePatch>();
+        app.add_systems(Update, apply_pending_bsn_instances);
+
+        let scene_handle = app
+            .world_mut()
+            .resource_mut::<Assets<ScenePatch>>()
+            .add(ScenePatch {
+                scene: Some(Box::new(FailingScene)),
+                dependencies: Vec::new(),
+                resolved: None,
+            });
+        let root_entity = app
+            .world_mut()
+            .spawn((
+                FoundationBsnInstance {
+                    asset_path: "scenes/failing.bsn".to_string(),
+                    scene_owner: None,
+                    parent: None,
+                    scene_handle,
+                },
+                FoundationBsnApplyPending,
+            ))
+            .id();
+
+        app.update();
+        app.update();
+
+        assert!(app
+            .world()
+            .get::<FoundationBsnApplyPending>(root_entity)
+            .is_none());
+        let failure = app
+            .world()
+            .get::<FoundationBsnApplyFailed>(root_entity)
+            .expect("failed BSN instance should be marked failed");
+        assert!(failure
+            .reason
+            .contains("Failed to resolve Foundation BSN scene"));
+    }
 
     #[test]
     fn hot_reload_replaces_old_root_and_children() {
