@@ -1012,13 +1012,17 @@ mod tests {
             "game-editor",
             "--",
             "--custom-game-argument",
+            "--log",
         ]
         .map(str::to_string);
 
         let invocation = BuildInvocation::parse(arguments).expect("run arguments should parse");
 
         assert_eq!(invocation.command, Some(BuildCommand::Run));
-        assert_eq!(invocation.runtime_arguments, ["--custom-game-argument"]);
+        assert_eq!(
+            invocation.runtime_arguments,
+            ["--custom-game-argument", "--log"]
+        );
     }
 
     #[test]
