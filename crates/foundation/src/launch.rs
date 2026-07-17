@@ -19,6 +19,8 @@ pub(crate) struct FoundationLaunchArguments {
     pub(crate) game: String,
     /// Enables the Foundation editor-time shell in the selected game process.
     pub(crate) editor_enabled: bool,
+    /// Requests visible game log output in non-shipping game builds.
+    pub(crate) log_window_requested: bool,
 }
 
 /// Successful parse outcome for the Foundation command line.
@@ -37,6 +39,7 @@ impl FoundationLaunchArguments {
     ) -> Result<FoundationLaunchCommand, String> {
         let mut game = None;
         let mut editor_enabled = false;
+        let mut log_window_requested = false;
         let mut argument_iterator = arguments.into_iter();
 
         while let Some(argument) = argument_iterator.next() {
@@ -49,6 +52,9 @@ impl FoundationLaunchArguments {
                 }
                 "--editor" => {
                     editor_enabled = true;
+                }
+                "--log" => {
+                    log_window_requested = true;
                 }
                 "--help" | "-h" => {
                     return Ok(FoundationLaunchCommand::ShowHelp);
@@ -65,6 +71,7 @@ impl FoundationLaunchArguments {
         Ok(FoundationLaunchCommand::Launch(Self {
             game,
             editor_enabled,
+            log_window_requested,
         }))
     }
 }
@@ -157,6 +164,9 @@ fn launch_game_process(
     if launch_arguments.editor_enabled {
         command.arg("--editor");
     }
+    if launch_arguments.log_window_requested {
+        command.arg("--log");
+    }
 
     let status = command
         .status()
@@ -185,8 +195,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_game_and_editor_arguments() {
-        let arguments = ["--game", "example-game", "--editor"].map(str::to_string);
+    fn parse_game_editor_and_log_arguments() {
+        let arguments = ["--game", "example-game", "--editor", "--log"].map(str::to_string);
         let launch_command =
             FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
 
@@ -195,6 +205,7 @@ mod tests {
             FoundationLaunchCommand::Launch(FoundationLaunchArguments {
                 game: "example-game".to_string(),
                 editor_enabled: true,
+                log_window_requested: true,
             })
         );
     }

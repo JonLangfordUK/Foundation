@@ -16,6 +16,7 @@ pub use foundation_console_macros::{console_command, ConsoleCommandInput};
 pub mod console;
 pub mod credits;
 pub mod game_settings;
+pub mod logging;
 pub mod menu;
 pub mod scene_stack;
 pub mod splash_screen;
@@ -114,6 +115,14 @@ pub mod prelude {
     };
     pub use crate::game_settings::{
         FoundationGameSettings, FoundationGameSettingsIoError, FOUNDATION_GAME_SETTINGS_FILE_NAME,
+    };
+    pub use crate::logging::{
+        foundation_file_logging_enabled, foundation_latest_log_file_path,
+        foundation_log_directory_from_executable, foundation_log_plugin,
+        foundation_log_window_requested, foundation_log_window_requested_from_environment,
+        foundation_should_show_log_window, foundation_unique_crash_log_file_path,
+        FoundationLoggingPaths, FOUNDATION_CRASH_LOG_FILE_PREFIX, FOUNDATION_LATEST_LOG_FILE_NAME,
+        FOUNDATION_LOG_ARGUMENT, FOUNDATION_LOG_DIRECTORY,
     };
     pub use crate::menu::{
         foundation_is_not_paused, foundation_is_paused, FoundationCloseOnEscape,
