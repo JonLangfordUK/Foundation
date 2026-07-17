@@ -29,7 +29,7 @@ cargo run -p foundation -- --game <game-name> --log
 Request visible log output inline in the current terminal instead:
 
 ```cmd
-cargo run -p foundation -- --game <game-name> --log --log-inline
+cargo run -p foundation -- --game <game-name> --log-inline
 ```
 
 For external games, prefer the build workflow documented in [`build-packaging.md`](build-packaging.md). The loose launcher remains available for in-repo manifests when a repository intentionally carries a local game fixture.
@@ -62,7 +62,7 @@ lives in its own repository as the reference external Foundation game.
 
 The current implementation is a loose Cargo-package launch mode:
 
-1. `foundation` parses `--game <game-name>` plus optional `--editor`, `--log`, and `--log-inline`.
+1. `foundation` parses `--game <game-name>` plus optional `--editor`, `--log`, or `--log-inline`.
 2. `foundation` discovers manifests from `games/*/foundation.game.toml` when local game manifests exist.
 3. It selects the matching manifest by `[game].name`.
 4. It launches the manifest's `[launch].package` with `cargo run -p <package>`.

@@ -206,14 +206,7 @@ mod tests {
 
     #[test]
     fn parse_game_editor_and_log_arguments() {
-        let arguments = [
-            "--game",
-            "example-game",
-            "--editor",
-            "--log",
-            "--log-inline",
-        ]
-        .map(str::to_string);
+        let arguments = ["--game", "example-game", "--editor", "--log"].map(str::to_string);
         let launch_command =
             FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
 
@@ -223,6 +216,23 @@ mod tests {
                 game: "example-game".to_string(),
                 editor_enabled: true,
                 log_window_requested: true,
+                inline_log_requested: false,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_inline_log_argument_without_separate_log_argument() {
+        let arguments = ["--game", "example-game", "--log-inline"].map(str::to_string);
+        let launch_command =
+            FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
+
+        assert_eq!(
+            launch_command,
+            FoundationLaunchCommand::Launch(FoundationLaunchArguments {
+                game: "example-game".to_string(),
+                editor_enabled: false,
+                log_window_requested: false,
                 inline_log_requested: true,
             })
         );

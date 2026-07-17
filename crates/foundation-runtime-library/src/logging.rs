@@ -97,7 +97,10 @@ pub fn foundation_should_show_log_window(
     arguments: impl IntoIterator<Item = String>,
     file_logging_enabled: bool,
 ) -> bool {
-    file_logging_enabled && foundation_log_window_requested(arguments)
+    file_logging_enabled
+        && arguments.into_iter().any(|argument| {
+            argument == FOUNDATION_LOG_ARGUMENT || argument == FOUNDATION_LOG_INLINE_ARGUMENT
+        })
 }
 
 fn foundation_should_use_inline_log_window(arguments: impl IntoIterator<Item = String>) -> bool {
@@ -284,9 +287,9 @@ where
         write!(&mut writer, " ")?;
 
         write_styled(&mut writer, ansi_enabled, ANSI_DIM)?;
-        write!(&mut writer, "{log_target}")?;
+        write!(&mut writer, "{log_target:<42}")?;
         write_styled(&mut writer, ansi_enabled, ANSI_RESET)?;
-        write!(&mut writer, " │ ")?;
+        write!(&mut writer, " | ")?;
 
         context
             .field_format()
@@ -439,7 +442,7 @@ fn write_styled(
 fn show_platform_log_window_if_available(use_inline_log_window: bool) {
     unsafe {
         if use_inline_log_window {
-            // `--log --log-inline` is an explicit request to reuse the parent PowerShell
+            // `--log-inline` is an explicit request to reuse the parent PowerShell
             // or Windows Terminal console instead of opening Foundation's separate log.
             windows_sys::Win32::System::Console::AttachConsole(
                 windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
@@ -451,6 +454,30 @@ fn show_platform_log_window_if_available(use_inline_log_window: bool) {
             windows_sys::Win32::System::Console::FreeConsole();
             windows_sys::Win32::System::Console::AllocConsole();
         }
+
+        enable_windows_virtual_terminal_colors();
+    }
+}
+
+#[cfg(windows)]
+unsafe fn enable_windows_virtual_terminal_colors() {
+    let standard_error_handle = windows_sys::Win32::System::Console::GetStdHandle(
+        windows_sys::Win32::System::Console::STD_ERROR_HANDLE,
+    );
+    let mut console_mode = 0;
+    let mode_was_read = windows_sys::Win32::System::Console::GetConsoleMode(
+        standard_error_handle,
+        &mut console_mode,
+    ) != 0;
+
+    if mode_was_read {
+        let styled_console_mode = console_mode
+            | windows_sys::Win32::System::Console::ENABLE_PROCESSED_OUTPUT
+            | windows_sys::Win32::System::Console::ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        windows_sys::Win32::System::Console::SetConsoleMode(
+            standard_error_handle,
+            styled_console_mode,
+        );
     }
 }
 
@@ -542,6 +569,13 @@ mod tests {
     #[test]
     fn non_shipping_policy_shows_log_window_when_log_argument_is_present() {
         let arguments = ["game.exe", FOUNDATION_LOG_ARGUMENT].map(str::to_string);
+
+        assert!(foundation_should_show_log_window(arguments, true));
+    }
+
+    #[test]
+    fn non_shipping_policy_shows_inline_log_when_inline_argument_is_present() {
+        let arguments = ["game.exe", FOUNDATION_LOG_INLINE_ARGUMENT].map(str::to_string);
 
         assert!(foundation_should_show_log_window(arguments, true));
     }
