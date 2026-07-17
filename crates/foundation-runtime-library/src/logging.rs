@@ -32,6 +32,9 @@ use bevy::{
 /// Runtime argument that requests a visible Foundation log window.
 pub const FOUNDATION_LOG_ARGUMENT: &str = "--log";
 
+/// Runtime argument that writes visible Foundation logs into the parent terminal.
+pub const FOUNDATION_LOG_INLINE_ARGUMENT: &str = "--log-inline";
+
 /// Directory below the executable root where Foundation stores runtime logs.
 pub const FOUNDATION_LOG_DIRECTORY: &str = "saved/logs";
 
@@ -82,12 +85,23 @@ pub fn foundation_log_window_requested(arguments: impl IntoIterator<Item = Strin
         .any(|argument| argument == FOUNDATION_LOG_ARGUMENT)
 }
 
+/// Returns true when the provided arguments request parent-terminal log output.
+pub fn foundation_inline_log_requested(arguments: impl IntoIterator<Item = String>) -> bool {
+    arguments
+        .into_iter()
+        .any(|argument| argument == FOUNDATION_LOG_INLINE_ARGUMENT)
+}
+
 /// Returns true when Foundation should emit visible formatted log output.
 pub fn foundation_should_show_log_window(
     arguments: impl IntoIterator<Item = String>,
     file_logging_enabled: bool,
 ) -> bool {
     file_logging_enabled && foundation_log_window_requested(arguments)
+}
+
+fn foundation_should_use_inline_log_window(arguments: impl IntoIterator<Item = String>) -> bool {
+    foundation_inline_log_requested(arguments)
 }
 
 /// Returns the executable-relative directory that stores Foundation logs.
@@ -154,11 +168,13 @@ fn foundation_log_file_layer(app: &mut App) -> Option<BoxedLayer> {
 }
 
 fn foundation_log_visibility_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
+    let arguments = std::env::args().collect::<Vec<_>>();
     let should_show_log_window =
-        foundation_should_show_log_window(std::env::args(), foundation_file_logging_enabled());
+        foundation_should_show_log_window(arguments.clone(), foundation_file_logging_enabled());
+    let should_use_inline_log_window = foundation_should_use_inline_log_window(arguments);
 
     if should_show_log_window {
-        show_platform_log_window_if_available();
+        show_platform_log_window_if_available(should_use_inline_log_window);
         return Some(Box::new(
             bevy::log::tracing_subscriber::fmt::Layer::default()
                 .event_format(FoundationVisibleLogFormatter)
@@ -420,22 +436,26 @@ fn write_styled(
 }
 
 #[cfg(windows)]
-fn show_platform_log_window_if_available() {
-    // Prefer the parent PowerShell or Windows Terminal console so `--log` inherits the
-    // user's active font and color theme. Fall back to allocating a console only when
-    // the game was launched without a parent terminal.
+fn show_platform_log_window_if_available(use_inline_log_window: bool) {
     unsafe {
-        let attached_to_parent_console = windows_sys::Win32::System::Console::AttachConsole(
-            windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
-        ) != 0;
-        if !attached_to_parent_console {
+        if use_inline_log_window {
+            // `--log --log-inline` is an explicit request to reuse the parent PowerShell
+            // or Windows Terminal console instead of opening Foundation's separate log.
+            windows_sys::Win32::System::Console::AttachConsole(
+                windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
+            );
+        } else {
+            // `--log` opens a separate Foundation log window by default. A process can
+            // only be attached to one console, so detach first in case Cargo or the
+            // shell gave this game the parent console automatically.
+            windows_sys::Win32::System::Console::FreeConsole();
             windows_sys::Win32::System::Console::AllocConsole();
         }
     }
 }
 
 #[cfg(not(windows))]
-fn show_platform_log_window_if_available() {
+fn show_platform_log_window_if_available(_use_inline_log_window: bool) {
     // Non-Windows platforms generally inherit a terminal rather than opening a
     // Foundation-managed console window, so the stderr formatter is enough.
 }
@@ -496,6 +516,20 @@ mod tests {
         let arguments_without_log = ["game.exe", "--editor"].map(str::to_string);
 
         assert!(!foundation_log_window_requested(arguments_without_log));
+    }
+
+    #[test]
+    fn inline_log_argument_requests_parent_terminal_output() {
+        let arguments = ["game.exe", FOUNDATION_LOG_INLINE_ARGUMENT].map(str::to_string);
+
+        assert!(foundation_inline_log_requested(arguments));
+
+        let arguments_without_inline_log =
+            ["game.exe", FOUNDATION_LOG_ARGUMENT].map(str::to_string);
+
+        assert!(!foundation_inline_log_requested(
+            arguments_without_inline_log
+        ));
     }
 
     #[test]

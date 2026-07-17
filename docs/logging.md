@@ -7,10 +7,18 @@ Foundation owns the default logging policy shared by Foundation games.
 By default, Foundation games keep visible log output quiet. A normal launch should
 not open or rely on a log window.
 
-Pass `--log` to request visible log output in non-shipping builds:
+Pass `--log` to request visible log output in non-shipping builds. On Windows,
+Foundation opens a separate log window by default:
 
 ```cmd
 cargo run -p foundation -- --game <game-name> --log
+```
+
+Add `--log-inline` when you explicitly want visible logs in the current parent
+PowerShell/Windows Terminal console instead of a separate log window:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --log --log-inline
 ```
 
 Packaged-style runs can forward the same runtime flag after `--`:
@@ -32,11 +40,11 @@ ERROR [Last Beacon       ] last_beacon::scenes │ Failed to load scene ...
 
 The formatter adds severity colors and source-category colors with ANSI terminal
 roles instead of hard-coded RGB values. In PowerShell or Windows Terminal, those
-colors and the font come from the current terminal profile/theme. On Windows,
-Foundation first tries to attach to the parent PowerShell/Windows Terminal
-console before allocating a fallback console. Foundation does not set a custom
-GUI font for logs; when no parent terminal exists on Windows, `--log` may fall
-back to a normal Windows console.
+colors and the font come from the current terminal profile/theme when logs run
+inline in the current terminal. Foundation does not set a custom GUI font for
+logs. On Windows, the default `--log` path opens a separate Foundation log
+window; `--log --log-inline` keeps logs in the parent PowerShell/Windows Terminal
+console so they inherit that profile's font and theme directly.
 
 Foundation derives categories from tracing targets, so Bevy logs are wrapped as
 `Bevy` without changing the Bevy codebase. Foundation runtime, Foundation engine,
@@ -83,5 +91,7 @@ A game can continue customizing other Bevy default plugins by building the plugi
 group and setting the Foundation log plugin on that group.
 
 On Windows, games that should not create a console window by default should use a
-Windows-subsystem executable entry point and let Foundation allocate a console
-only when `--log` is requested in a non-shipping build.
+Windows-subsystem executable entry point and let Foundation allocate a separate
+log console only when `--log` is requested in a non-shipping build. Add
+`--log-inline` when current-terminal logging is preferable for scripts or local
+terminal workflows.

@@ -20,10 +20,16 @@ Enable the current editor-time shell for that game:
 cargo run -p foundation -- --game <game-name> --editor
 ```
 
-Request visible log output for a non-shipping game run:
+Request visible log output for a non-shipping game run. On Windows this opens a separate Foundation log window by default:
 
 ```cmd
 cargo run -p foundation -- --game <game-name> --log
+```
+
+Request visible log output inline in the current terminal instead:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --log --log-inline
 ```
 
 For external games, prefer the build workflow documented in [`build-packaging.md`](build-packaging.md). The loose launcher remains available for in-repo manifests when a repository intentionally carries a local game fixture.
@@ -56,11 +62,11 @@ lives in its own repository as the reference external Foundation game.
 
 The current implementation is a loose Cargo-package launch mode:
 
-1. `foundation` parses `--game <game-name>` plus optional `--editor` and `--log`.
+1. `foundation` parses `--game <game-name>` plus optional `--editor`, `--log`, and `--log-inline`.
 2. `foundation` discovers manifests from `games/*/foundation.game.toml` when local game manifests exist.
 3. It selects the matching manifest by `[game].name`.
 4. It launches the manifest's `[launch].package` with `cargo run -p <package>`.
-5. It forwards `--editor` and `--log` to the selected game process when requested.
+5. It forwards `--editor`, `--log`, and `--log-inline` to the selected game process when requested.
 
 This keeps the engine crate independent from concrete games while preserving a
 single stable command shape for users.
@@ -91,7 +97,7 @@ editor integration, not in concrete-game branches inside `crates/foundation`.
 
 Foundation games use a shared logging policy for visible log output, normal run
 logs, and preserved panic logs. See [`logging.md`](logging.md) for `--log`,
-shipping suppression, and `<exe-dir>/saved/logs/` behavior.
+`--log-inline`, shipping suppression, and `<exe-dir>/saved/logs/` behavior.
 
 ## Runtime Debug Console
 

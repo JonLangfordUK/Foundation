@@ -21,6 +21,8 @@ pub(crate) struct FoundationLaunchArguments {
     pub(crate) editor_enabled: bool,
     /// Requests visible game log output in non-shipping game builds.
     pub(crate) log_window_requested: bool,
+    /// Requests visible game logs in the parent terminal instead of a separate log window.
+    pub(crate) inline_log_requested: bool,
 }
 
 /// Successful parse outcome for the Foundation command line.
@@ -40,6 +42,7 @@ impl FoundationLaunchArguments {
         let mut game = None;
         let mut editor_enabled = false;
         let mut log_window_requested = false;
+        let mut inline_log_requested = false;
         let mut argument_iterator = arguments.into_iter();
 
         while let Some(argument) = argument_iterator.next() {
@@ -55,6 +58,9 @@ impl FoundationLaunchArguments {
                 }
                 "--log" => {
                     log_window_requested = true;
+                }
+                "--log-inline" => {
+                    inline_log_requested = true;
                 }
                 "--help" | "-h" => {
                     return Ok(FoundationLaunchCommand::ShowHelp);
@@ -72,6 +78,7 @@ impl FoundationLaunchArguments {
             game,
             editor_enabled,
             log_window_requested,
+            inline_log_requested,
         }))
     }
 }
@@ -167,6 +174,9 @@ fn launch_game_process(
     if launch_arguments.log_window_requested {
         command.arg("--log");
     }
+    if launch_arguments.inline_log_requested {
+        command.arg("--log-inline");
+    }
 
     let status = command
         .status()
@@ -196,7 +206,14 @@ mod tests {
 
     #[test]
     fn parse_game_editor_and_log_arguments() {
-        let arguments = ["--game", "example-game", "--editor", "--log"].map(str::to_string);
+        let arguments = [
+            "--game",
+            "example-game",
+            "--editor",
+            "--log",
+            "--log-inline",
+        ]
+        .map(str::to_string);
         let launch_command =
             FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
 
@@ -206,6 +223,7 @@ mod tests {
                 game: "example-game".to_string(),
                 editor_enabled: true,
                 log_window_requested: true,
+                inline_log_requested: true,
             })
         );
     }

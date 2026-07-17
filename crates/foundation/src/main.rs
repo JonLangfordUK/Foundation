@@ -11,7 +11,8 @@ use std::process::ExitCode;
 
 use launch::{launch_selected_game, FoundationLaunchArguments, FoundationLaunchCommand};
 
-const USAGE: &str = "Usage: cargo run -p foundation -- --game <game-name> [--editor] [--log]";
+const USAGE: &str =
+    "Usage: cargo run -p foundation -- --game <game-name> [--editor] [--log] [--log-inline]";
 
 fn main() -> ExitCode {
     let interrupt_exit_code = 130;
