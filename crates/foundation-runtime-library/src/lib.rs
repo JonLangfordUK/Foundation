@@ -27,6 +27,7 @@ pub mod logging;
 pub mod menu;
 pub mod scene_stack;
 pub mod splash_screen;
+pub mod startup_scene;
 
 /// Shared baseline plugin for Foundation games.
 ///
@@ -158,6 +159,10 @@ pub mod prelude {
         FoundationSplashRuntimeSettings, FoundationSplashScreen, FoundationSplashScreenPlugin,
         FoundationSplashText, FoundationSplashTimings, FoundationSplashUiParent,
         FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
+    };
+    pub use crate::startup_scene::{
+        startup_scene_commands_or_default, FoundationStartupSceneOverrideError,
+        FOUNDATION_STARTUP_SCENE_ARGUMENT,
     };
     #[cfg(feature = "dev-tools")]
     pub use crate::{console_command, ConsoleCommandInput};
