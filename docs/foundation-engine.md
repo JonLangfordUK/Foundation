@@ -32,6 +32,18 @@ Request visible log output inline in the current terminal instead:
 cargo run -p foundation -- --game <game-name> --log-inline
 ```
 
+In non-shipping builds, bypass the game's default startup scene with a registered BSN scene key or direct asset path:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --scene <scene-key-or-asset-path>
+```
+
+Open an ordered startup stack by passing a bracketed scene list. Spaces around commas are allowed; quote the value when your shell would otherwise split it:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --scene "[game/gameplay_level, scenes/testing_mode.bsn]"
+```
+
 For external games, prefer the build workflow documented in [`build-packaging.md`](build-packaging.md). The loose launcher remains available for in-repo manifests when a repository intentionally carries a local game fixture.
 
 ## Game Manifests
@@ -62,11 +74,11 @@ lives in its own repository as the reference external Foundation game.
 
 The current implementation is a loose Cargo-package launch mode:
 
-1. `foundation` parses `--game <game-name>` plus optional `--editor`, `--log`, or `--log-inline`.
+1. `foundation` parses `--game <game-name>` plus optional `--editor`, `--log`, `--log-inline`, or `--scene`.
 2. `foundation` discovers manifests from `games/*/foundation.game.toml` when local game manifests exist.
 3. It selects the matching manifest by `[game].name`.
 4. It launches the manifest's `[launch].package` with `cargo run -p <package>`.
-5. It forwards `--editor`, `--log`, and `--log-inline` to the selected game process when requested.
+5. It forwards `--editor`, `--log`, `--log-inline`, and `--scene` to the selected game process when requested.
 
 This keeps the engine crate independent from concrete games while preserving a
 single stable command shape for users.

@@ -58,6 +58,23 @@ registry.register_scene("last-beacon/main_menu", "scenes/main_menu.bsn");
 
 If a key is not registered, Foundation treats the key as a direct asset path. This makes `SceneSource::bsn_scene("levels/intro.bsn")` useful for simple level and prefab loading without a separate catalog.
 
+Non-shipping builds can also use the startup scene override argument. A single value opens one BSN scene instead of the game's default startup flow:
+
+```cmd
+--scene last-beacon/main_menu
+--scene scenes/main_menu.bsn
+```
+
+A bracketed list opens scenes in order as a startup stack. Foundation trims whitespace around commas, so all of these list separators are valid:
+
+```cmd
+--scene "[last-beacon/gameplay_level,scenes/testing_mode.bsn]"
+--scene "[last-beacon/gameplay_level, scenes/testing_mode.bsn]"
+--scene "[last-beacon/gameplay_level , scenes/testing_mode.bsn]"
+```
+
+The first override scene clears the stack; later entries are opened above it. If no `--scene` argument is present, games should emit their normal default startup scene commands.
+
 `SceneSource::runtime(SceneKey::new("debug-overlay"))` remains available for system-authored runtime scenes.
 
 ## Scene Presentation

@@ -101,6 +101,15 @@ Runtime arguments can be passed after `--`:
 scripts\foundation-build.cmd run --project ..\template-game\game --platform windows-x64 --configuration debug --target game -- --some-game-argument
 ```
 
+Non-shipping runs can bypass the game's default startup scene with a registered BSN scene key, direct asset path, or bracketed ordered stack. Quote bracketed lists when spaces around commas would otherwise be split by the shell:
+
+```cmd
+scripts\foundation-build.cmd run --project ..\template-game\game --configuration debug --target game -- --scene template-game/main_menu
+scripts\foundation-build.cmd run --project ..\template-game\game --configuration debug --target game -- --scene "[template-game/gameplay_level, scenes/testing_mode.bsn]"
+```
+
+`shipping` builds disable Foundation dev tools, so startup scene override arguments are ignored by games that use Foundation's helper.
+
 `game-editor` runs automatically pass `--editor` to the game executable.
 
 Invalid example:
