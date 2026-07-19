@@ -84,11 +84,11 @@ impl FoundationBsnSceneRegistry {
         registered_scene_keys
     }
 
-    /// Returns registered scene keys that begin with the supplied prefix.
-    pub fn registered_scene_keys_with_prefix(&self, scene_key_prefix: &str) -> Vec<&str> {
+    /// Returns registered scene keys that contain the supplied search text.
+    pub fn registered_scene_keys_containing(&self, scene_key_search_text: &str) -> Vec<&str> {
         self.registered_scene_keys()
             .into_iter()
-            .filter(|registered_scene_key| registered_scene_key.starts_with(scene_key_prefix))
+            .filter(|registered_scene_key| registered_scene_key.contains(scene_key_search_text))
             .collect()
     }
 }

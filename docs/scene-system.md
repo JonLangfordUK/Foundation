@@ -83,7 +83,7 @@ open last-beacon/gameplay_level last-beacon/pause_menu
 open scenes/main_menu.bsn
 ```
 
-The `open` command clears the current scene stack, opens the first scene fresh, and then opens each later scene above it in order. Console predictions for `open` arguments list registered scene keys from `FoundationBsnSceneRegistry`, such as `last-beacon/main_menu`. Direct asset-relative `.bsn` paths remain valid when typed explicitly, but they are not predicted unless registered as scene keys.
+The `open` command clears the current scene stack, opens the first scene fresh, and then opens each later scene above it in order. Console predictions for `open` arguments list registered scene keys from `FoundationBsnSceneRegistry`, such as `last-beacon/main_menu`. These predictions update while the user types and can appear before `open` is fully typed, so `op` can already preview full commands such as `open last-beacon/main_menu`. Scene-key prediction searches within registered keys, so `open map` can match a registered key such as `last-beacon/mapmap`. Direct asset-relative `.bsn` paths remain valid when typed explicitly, but they are not predicted unless registered as scene keys.
 
 `SceneSource::runtime(SceneKey::new("debug-overlay"))` remains available for system-authored runtime scenes.
 

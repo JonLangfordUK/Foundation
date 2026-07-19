@@ -42,8 +42,9 @@ The console provides:
 
 - Enter to run the current command.
 - Tab to complete the first sorted suggestion.
-- A floating suggestion list above the history/output area with all matching predictions.
-- Registered BSN scene key predictions for `open` arguments, such as `open las` predicting `last-beacon/main_menu`.
+- A floating suggestion list above the history/output area with all matching predictions, updated as the user types.
+- Command predictions match text contained anywhere in the command name, so typing `op` predicts `open`.
+- Registered BSN scene key predictions for `open` arguments, including while the user is still typing `open`; for example, `op` can already preview `open last-beacon/main_menu`, and `open map` can match a registered key such as `last-beacon/mapmap`.
 - Up and Down to navigate command history.
 - Mouse wheel to scroll console output.
 - Persistent command history at `<executable-dir>/saved/console/history.json`.

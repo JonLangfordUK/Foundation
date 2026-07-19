@@ -87,7 +87,8 @@ impl Plugin for FoundationConsolePlugin {
                     handle_console_keyboard_actions,
                     refresh_console_text_nodes,
                     scroll_console_output,
-                ),
+                )
+                    .chain(),
             );
     }
 }
@@ -563,22 +564,46 @@ fn autocomplete_console_candidates(
     console_registry: &FoundationConsoleRegistry,
     bsn_scene_registry: Option<&FoundationBsnSceneRegistry>,
 ) -> Vec<ConsoleAutocompleteCandidate> {
-    if let Some(open_scene_argument_context) = open_scene_argument_context(console_input) {
-        return autocomplete_open_scene_arguments(open_scene_argument_context, bsn_scene_registry);
+    let open_scene_argument_context = open_scene_argument_context(console_input);
+    let trimmed_start_input = console_input.trim_start();
+    if trimmed_start_input == FOUNDATION_OPEN_SCENE_COMMAND_NAME
+        || trimmed_start_input.starts_with("open ")
+    {
+        if let Some(open_scene_argument_context) = open_scene_argument_context {
+            return autocomplete_open_scene_arguments(
+                open_scene_argument_context,
+                bsn_scene_registry,
+            );
+        }
     }
 
-    let command_prefix = console_input
+    let mut autocomplete_candidates = Vec::new();
+
+    let command_search_text = console_input
         .split_whitespace()
         .next()
         .unwrap_or(console_input);
-    console_registry
-        .autocomplete_command_names(command_prefix)
-        .into_iter()
-        .map(|candidate| ConsoleAutocompleteCandidate {
-            replacement: command_placeholder(&candidate.replacement, console_registry),
-            display: candidate.display,
-        })
-        .collect()
+    autocomplete_candidates.extend(
+        console_registry
+            .autocomplete_command_names(command_search_text)
+            .into_iter()
+            .map(|candidate| {
+                let replacement = command_placeholder(&candidate.replacement, console_registry);
+                ConsoleAutocompleteCandidate {
+                    display: replacement.clone(),
+                    replacement,
+                }
+            }),
+    );
+
+    if let Some(open_scene_argument_context) = open_scene_argument_context {
+        autocomplete_candidates.extend(autocomplete_open_scene_arguments(
+            open_scene_argument_context,
+            bsn_scene_registry,
+        ));
+    }
+
+    autocomplete_candidates
 }
 
 fn console_suggestion_text(
@@ -607,12 +632,23 @@ struct OpenSceneArgumentContext {
 
 fn open_scene_argument_context(console_input: &str) -> Option<OpenSceneArgumentContext> {
     let trimmed_start_input = console_input.trim_start();
-    if trimmed_start_input != "open" && !trimmed_start_input.starts_with("open ") {
+    let open_command_offset = console_input.len() - trimmed_start_input.len();
+    if FOUNDATION_OPEN_SCENE_COMMAND_NAME.starts_with(trimmed_start_input) {
+        return Some(OpenSceneArgumentContext {
+            line_prefix_before_current_scene: format!(
+                "{}open ",
+                &console_input[..open_command_offset]
+            ),
+            current_scene_prefix: String::new(),
+        });
+    }
+    if trimmed_start_input != FOUNDATION_OPEN_SCENE_COMMAND_NAME
+        && !trimmed_start_input.starts_with("open ")
+    {
         return None;
     }
 
-    let open_command_offset = console_input.len() - trimmed_start_input.len();
-    let open_command_end = open_command_offset + "open".len();
+    let open_command_end = open_command_offset + FOUNDATION_OPEN_SCENE_COMMAND_NAME.len();
     let input_after_open_command = &console_input[open_command_end..];
     if input_after_open_command.is_empty() {
         return Some(OpenSceneArgumentContext {
@@ -650,7 +686,7 @@ fn autocomplete_open_scene_arguments(
     };
 
     bsn_scene_registry
-        .registered_scene_keys_with_prefix(&open_scene_argument_context.current_scene_prefix)
+        .registered_scene_keys_containing(&open_scene_argument_context.current_scene_prefix)
         .into_iter()
         .map(|registered_scene_key| {
             let replacement = format!(
@@ -658,8 +694,8 @@ fn autocomplete_open_scene_arguments(
                 open_scene_argument_context.line_prefix_before_current_scene, registered_scene_key,
             );
             ConsoleAutocompleteCandidate {
+                display: replacement.clone(),
                 replacement,
-                display: registered_scene_key.to_string(),
             }
         })
         .collect()
@@ -931,22 +967,22 @@ impl FoundationConsoleRegistry {
             .find(|command| command.name == command_name)
     }
 
-    /// Returns deterministic autocomplete candidates for a command-name prefix.
+    /// Returns deterministic autocomplete candidates whose command names contain search text.
     pub fn autocomplete_command_names(
         &self,
-        command_prefix: &str,
+        command_search_text: &str,
     ) -> Vec<ConsoleAutocompleteCandidate> {
         let mut autocomplete_candidates = self
             .commands
             .iter()
-            .filter(|command| command.name.starts_with(command_prefix))
+            .filter(|command| command.name.contains(command_search_text))
             .map(|command| ConsoleAutocompleteCandidate {
                 replacement: command.name.to_string(),
                 display: command.name.to_string(),
             })
             .collect::<Vec<_>>();
 
-        if FOUNDATION_OPEN_SCENE_COMMAND_NAME.starts_with(command_prefix) {
+        if FOUNDATION_OPEN_SCENE_COMMAND_NAME.contains(command_search_text) {
             autocomplete_candidates.push(ConsoleAutocompleteCandidate {
                 replacement: FOUNDATION_OPEN_SCENE_COMMAND_NAME.to_string(),
                 display: FOUNDATION_OPEN_SCENE_COMMAND_NAME.to_string(),
@@ -1685,13 +1721,50 @@ mod tests {
             vec![
                 ConsoleAutocompleteCandidate {
                     replacement: "open last-beacon/main_menu".to_string(),
-                    display: "last-beacon/main_menu".to_string(),
+                    display: "open last-beacon/main_menu".to_string(),
                 },
                 ConsoleAutocompleteCandidate {
                     replacement: "open last-beacon/my_map".to_string(),
-                    display: "last-beacon/my_map".to_string(),
+                    display: "open last-beacon/my_map".to_string(),
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn open_scene_autocomplete_starts_before_open_is_fully_typed() {
+        let registry = FoundationConsoleRegistry::default();
+        let mut bsn_scene_registry = FoundationBsnSceneRegistry::default();
+        bsn_scene_registry.register_scene("last-beacon/mapmap", "scenes/mapmap.bsn");
+
+        let suggestions =
+            autocomplete_console_candidates("op", &registry, Some(&bsn_scene_registry));
+
+        assert!(suggestions.contains(&ConsoleAutocompleteCandidate {
+            replacement: "open".to_string(),
+            display: "open".to_string(),
+        }));
+        assert!(suggestions.contains(&ConsoleAutocompleteCandidate {
+            replacement: "open last-beacon/mapmap".to_string(),
+            display: "open last-beacon/mapmap".to_string(),
+        }));
+    }
+
+    #[test]
+    fn open_scene_autocomplete_matches_registered_scene_key_substrings() {
+        let registry = FoundationConsoleRegistry::default();
+        let mut bsn_scene_registry = FoundationBsnSceneRegistry::default();
+        bsn_scene_registry.register_scene("last-beacon/mapmap", "scenes/mapmap.bsn");
+
+        let suggestions =
+            autocomplete_console_candidates("open mapmap", &registry, Some(&bsn_scene_registry));
+
+        assert_eq!(
+            suggestions,
+            vec![ConsoleAutocompleteCandidate {
+                replacement: "open last-beacon/mapmap".to_string(),
+                display: "open last-beacon/mapmap".to_string(),
+            }]
         );
     }
 
@@ -1702,6 +1775,15 @@ mod tests {
         let suggestion_text = console_suggestion_text("", &registry, None);
 
         assert!(suggestion_text.contains("foundation_console_history_size"));
+        assert!(suggestion_text.contains("open"));
+    }
+
+    #[test]
+    fn command_autocomplete_matches_text_contained_anywhere() {
+        let registry = FoundationConsoleRegistry::default();
+
+        let suggestion_text = console_suggestion_text("op", &registry, None);
+
         assert!(suggestion_text.contains("open"));
     }
 }
