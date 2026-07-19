@@ -77,8 +77,8 @@ impl Plugin for FoundationConsolePlugin {
             .register_type::<FoundationConsoleOutput>()
             .register_type::<FoundationConsoleSuggestion>()
             .register_type::<FoundationConsoleSuggestionOption>()
-            .register_type::<FoundationConsoleHistoryList>()
             .register_type::<FoundationConsoleHistoryItem>()
+            .register_type::<FoundationConsoleOutputLine>()
             .add_systems(
                 Update,
                 (
@@ -169,11 +169,6 @@ pub struct FoundationConsoleSuggestionOption {
     pub replacement: String,
 }
 
-/// Marker component for the clickable console history list entity.
-#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component)]
-pub struct FoundationConsoleHistoryList;
-
 /// Clickable command history item that can replace the current console input.
 #[derive(Clone, Debug, Component, Reflect)]
 #[reflect(Component)]
@@ -181,6 +176,11 @@ pub struct FoundationConsoleHistoryItem {
     /// Command line inserted into the console input when clicked.
     pub command_line: String,
 }
+
+/// Marker for generated console output rows rebuilt from command output history.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleOutputLine;
 
 /// Persisted command history for the Foundation debug console.
 #[derive(Clone, Debug, Default, Resource, Serialize, Deserialize)]
@@ -443,30 +443,21 @@ fn refresh_console_text_nodes(
     console_history: Res<FoundationConsoleHistory>,
     console_registry: Res<FoundationConsoleRegistry>,
     bsn_scene_registry: Option<Res<FoundationBsnSceneRegistry>>,
-    mut console_outputs: Query<
-        &mut Text,
-        (
-            With<FoundationConsoleOutput>,
-            Without<FoundationConsoleSuggestion>,
-        ),
+    console_outputs: Query<Entity, With<FoundationConsoleOutput>>,
+    output_lines: Query<Entity, With<FoundationConsoleOutputLine>>,
+    mut console_suggestions: Query<
+        (&mut Visibility, &mut Node, &mut ScrollPosition),
+        With<FoundationConsoleSuggestion>,
     >,
-    mut console_suggestions: Query<&mut Visibility, With<FoundationConsoleSuggestion>>,
     suggestion_lists: Query<Entity, With<FoundationConsoleSuggestion>>,
     suggestion_options: Query<Entity, With<FoundationConsoleSuggestionOption>>,
-    history_lists: Query<Entity, With<FoundationConsoleHistoryList>>,
-    history_items: Query<Entity, With<FoundationConsoleHistoryItem>>,
 ) {
     if console_ui_state.is_changed() || console_history.is_changed() {
-        let output_text = console_output_text(&console_history, &console_ui_state);
-        for mut text in &mut console_outputs {
-            text.0 = output_text.clone();
-        }
-
-        rebuild_console_history_items(
+        rebuild_console_output_lines(
             &mut commands,
-            &console_history,
-            &history_lists,
-            &history_items,
+            &console_ui_state,
+            &console_outputs,
+            &output_lines,
         );
     }
 
@@ -482,12 +473,15 @@ fn refresh_console_text_nodes(
             &console_registry,
             bsn_scene_registry,
         );
-        for mut visibility in &mut console_suggestions {
-            *visibility = if suggestions.is_empty() {
-                Visibility::Hidden
+        for (mut visibility, mut node, mut scroll_position) in &mut console_suggestions {
+            scroll_position.y = 0.0;
+            if suggestions.is_empty() {
+                *visibility = Visibility::Hidden;
+                node.display = Display::None;
             } else {
-                Visibility::Visible
-            };
+                *visibility = Visibility::Visible;
+                node.display = Display::Flex;
+            }
         }
         rebuild_console_suggestion_items(
             &mut commands,
@@ -510,9 +504,11 @@ fn rebuild_console_suggestion_items(
 
     for suggestion_list_entity in suggestion_lists {
         for suggestion in suggestions {
+            let suggestion_z_index = GlobalZIndex(10_004);
             let suggestion_option_entity = spawn_console_reuse_button(
                 commands,
                 &suggestion.display,
+                suggestion_z_index,
                 FoundationConsoleSuggestionOption {
                     replacement: suggestion.replacement.clone(),
                 },
@@ -524,35 +520,71 @@ fn rebuild_console_suggestion_items(
     }
 }
 
-fn rebuild_console_history_items(
+fn rebuild_console_output_lines(
     commands: &mut Commands,
-    console_history: &FoundationConsoleHistory,
-    history_lists: &Query<Entity, With<FoundationConsoleHistoryList>>,
-    history_items: &Query<Entity, With<FoundationConsoleHistoryItem>>,
+    console_ui_state: &FoundationConsoleUiState,
+    console_outputs: &Query<Entity, With<FoundationConsoleOutput>>,
+    output_lines: &Query<Entity, With<FoundationConsoleOutputLine>>,
 ) {
-    for history_item_entity in history_items {
-        commands.entity(history_item_entity).despawn();
+    for output_line_entity in output_lines {
+        commands.entity(output_line_entity).despawn();
     }
 
-    for history_list_entity in history_lists {
-        for command_line in console_history.commands.iter().rev().take(16) {
-            let history_item_entity = spawn_console_reuse_button(
-                commands,
-                command_line,
-                FoundationConsoleHistoryItem {
-                    command_line: command_line.clone(),
-                },
-            );
-            commands
-                .entity(history_list_entity)
-                .add_child(history_item_entity);
+    let output_entries = console_output_entries(console_ui_state);
+    for console_output_entity in console_outputs {
+        for output_entry in &output_entries {
+            for (output_line_position, output_line) in output_entry.lines().enumerate() {
+                let output_line_entity = if output_line_position == 0 {
+                    spawn_console_command_output_button(commands, output_line)
+                } else {
+                    spawn_console_output_text(commands, output_line)
+                };
+                commands
+                    .entity(console_output_entity)
+                    .add_child(output_line_entity);
+            }
         }
     }
+}
+
+fn spawn_console_command_output_button(commands: &mut Commands, output_line: &str) -> Entity {
+    let Some(command_line) = output_line.strip_prefix("> ") else {
+        return spawn_console_output_text(commands, output_line);
+    };
+
+    let history_z_index = GlobalZIndex(10_001);
+    spawn_console_reuse_button(
+        commands,
+        output_line,
+        history_z_index,
+        (
+            FoundationConsoleHistoryItem {
+                command_line: command_line.to_string(),
+            },
+            FoundationConsoleOutputLine,
+        ),
+    )
+}
+
+fn spawn_console_output_text(commands: &mut Commands, output_line: &str) -> Entity {
+    let output_text_color = TextColor(Color::srgba(0.82, 0.88, 0.78, 1.0));
+    commands
+        .spawn((
+            Text::new(output_line.to_string()),
+            TextFont {
+                font_size: 14.0.into(),
+                ..default()
+            },
+            output_text_color,
+            FoundationConsoleOutputLine,
+        ))
+        .id()
 }
 
 fn spawn_console_reuse_button<T: Bundle>(
     commands: &mut Commands,
     label: &str,
+    z_index: GlobalZIndex,
     marker: T,
 ) -> Entity {
     let button_background = BackgroundColor(Color::srgba(0.07, 0.07, 0.085, 0.96));
@@ -568,6 +600,7 @@ fn spawn_console_reuse_button<T: Bundle>(
                 ..default()
             },
             button_background,
+            z_index,
             marker,
         ))
         .with_child((
@@ -637,6 +670,8 @@ fn scroll_console_output(
     mut mouse_wheel_messages: MessageReader<MouseWheel>,
     console_state: Res<FoundationConsoleState>,
     mut console_ui_state: ResMut<FoundationConsoleUiState>,
+    suggestion_visibilities: Query<&Visibility, With<FoundationConsoleSuggestion>>,
+    mut suggestion_scroll_positions: Query<&mut ScrollPosition, With<FoundationConsoleSuggestion>>,
 ) {
     if !console_state.is_open {
         mouse_wheel_messages.clear();
@@ -656,11 +691,21 @@ fn scroll_console_output(
         return;
     }
 
+    let scroll_line_delta =
+        scroll_steps.unsigned_abs() as usize * FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP;
+
+    if console_preview_is_open(&suggestion_visibilities) {
+        scroll_console_prediction_popup(
+            scroll_steps,
+            scroll_line_delta,
+            &mut suggestion_scroll_positions,
+        );
+        return;
+    }
+
     let output_line_count = console_output_lines(&console_ui_state).len();
     let max_scroll_lines =
         output_line_count.saturating_sub(FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES);
-    let scroll_line_delta =
-        scroll_steps.unsigned_abs() as usize * FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP;
 
     if scroll_steps > 0 {
         console_ui_state.output_scroll_lines =
@@ -669,6 +714,21 @@ fn scroll_console_output(
         console_ui_state.output_scroll_lines = console_ui_state
             .output_scroll_lines
             .saturating_sub(scroll_line_delta);
+    }
+}
+
+fn scroll_console_prediction_popup(
+    scroll_steps: i32,
+    scroll_line_delta: usize,
+    suggestion_scroll_positions: &mut Query<&mut ScrollPosition, With<FoundationConsoleSuggestion>>,
+) {
+    let scroll_pixel_delta = scroll_line_delta as f32 * 8.0;
+    for mut scroll_position in suggestion_scroll_positions {
+        if scroll_steps > 0 {
+            scroll_position.y = (scroll_position.y + scroll_pixel_delta).max(0.0);
+        } else {
+            scroll_position.y = (scroll_position.y - scroll_pixel_delta).max(0.0);
+        }
     }
 }
 
@@ -932,7 +992,7 @@ fn next_history_input(
 fn spawn_console_overlay(
     commands: &mut Commands,
     scene_id: crate::scene_stack::SceneId,
-    console_history: &FoundationConsoleHistory,
+    _console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> Entity {
     let console_root_height = Val::Px(380.0);
@@ -942,7 +1002,6 @@ fn spawn_console_overlay(
     let console_border = BorderColor::all(Color::srgba(0.25, 0.25, 0.30, 1.0));
     let console_text_color = TextColor(Color::srgba(0.82, 0.88, 0.78, 1.0));
     let input_background = BackgroundColor(Color::srgba(0.05, 0.05, 0.06, 1.0));
-    let output_text = console_output_text(console_history, console_ui_state);
     let root_entity = commands
         .spawn((
             Name::new("Foundation Debug Console"),
@@ -994,18 +1053,25 @@ fn spawn_console_overlay(
             Node {
                 width: Val::Percent(100.0),
                 flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(2.0),
                 ..default()
             },
-            Text::new(output_text),
-            TextFont {
-                font_size: 14.0.into(),
-                ..default()
-            },
-            console_text_color,
             SceneOwner { scene_id },
             FoundationConsoleOutput,
         ))
         .id();
+
+    for output_entry in console_output_entries(console_ui_state) {
+        for (output_line_position, output_line) in output_entry.lines().enumerate() {
+            let output_line_entity = if output_line_position == 0 {
+                spawn_console_command_output_button(commands, output_line)
+            } else {
+                spawn_console_output_text(commands, output_line)
+            };
+            commands.entity(output_entity).add_child(output_line_entity);
+        }
+    }
 
     let suggestion_entity = commands
         .spawn((
@@ -1014,48 +1080,26 @@ fn spawn_console_overlay(
                 position_type: PositionType::Absolute,
                 left: Val::Px(12.0),
                 right: Val::Px(12.0),
-                bottom: Val::Px(58.0),
-                max_height: Val::Px(180.0),
+                // Keep the popup anchored above the input row and bounded inside the console.
+                bottom: Val::Px(62.0),
+                top: Val::Px(10.0),
+                max_height: Val::Px(280.0),
+                display: Display::None,
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(Val::Px(8.0)),
                 border: UiRect::all(Val::Px(1.0)),
+                overflow: Overflow::scroll_y(),
                 ..default()
             },
+            ScrollPosition::default(),
             BackgroundColor(Color::srgba(0.04, 0.04, 0.05, 0.95)),
             BorderColor::all(Color::srgba(0.30, 0.34, 0.42, 1.0)),
-            GlobalZIndex(10_001),
+            GlobalZIndex(10_003),
             Visibility::Hidden,
             SceneOwner { scene_id },
             FoundationConsoleSuggestion,
         ))
         .id();
-
-    let history_list_entity = commands
-        .spawn((
-            Name::new("Foundation Debug Console History Items"),
-            Node {
-                width: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(2.0),
-                ..default()
-            },
-            SceneOwner { scene_id },
-            FoundationConsoleHistoryList,
-        ))
-        .id();
-
-    for command_line in console_history.commands.iter().rev().take(16) {
-        let history_item_entity = spawn_console_reuse_button(
-            commands,
-            command_line,
-            FoundationConsoleHistoryItem {
-                command_line: command_line.clone(),
-            },
-        );
-        commands
-            .entity(history_list_entity)
-            .add_child(history_item_entity);
-    }
 
     let input_container_entity = commands
         .spawn((
@@ -1097,7 +1141,7 @@ fn spawn_console_overlay(
 
     commands
         .entity(output_viewport_entity)
-        .add_children(&[output_entity, history_list_entity]);
+        .add_child(output_entity);
     commands
         .entity(input_container_entity)
         .add_child(input_entity);
@@ -1110,13 +1154,18 @@ fn spawn_console_overlay(
     input_entity
 }
 
+#[cfg(test)]
 fn console_output_text(
     _console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> String {
+    console_output_entries(console_ui_state).join("\n")
+}
+
+fn console_output_entries(console_ui_state: &FoundationConsoleUiState) -> Vec<String> {
     let output_lines = console_output_lines(console_ui_state);
     if output_lines.is_empty() {
-        return "Foundation debug console ready.".to_string();
+        return vec!["Foundation debug console ready.".to_string()];
     }
 
     let newest_visible_line_end = output_lines
@@ -1125,7 +1174,7 @@ fn console_output_text(
     let visible_line_end = newest_visible_line_end.max(1);
     let visible_line_start =
         visible_line_end.saturating_sub(FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES);
-    output_lines[visible_line_start..visible_line_end].join("\n")
+    output_lines[visible_line_start..visible_line_end].to_vec()
 }
 
 fn console_output_lines(console_ui_state: &FoundationConsoleUiState) -> Vec<String> {
