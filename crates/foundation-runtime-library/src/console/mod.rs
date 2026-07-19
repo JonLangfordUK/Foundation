@@ -736,6 +736,10 @@ fn autocomplete_console_candidates(
     console_registry: &FoundationConsoleRegistry,
     bsn_scene_registry: Option<&FoundationBsnSceneRegistry>,
 ) -> Vec<ConsoleAutocompleteCandidate> {
+    if console_input.trim().is_empty() {
+        return Vec::new();
+    }
+
     let open_scene_argument_context = open_scene_argument_context(console_input);
     let trimmed_start_input = console_input.trim_start();
     if trimmed_start_input == FOUNDATION_OPEN_SCENE_COMMAND_NAME
@@ -1039,6 +1043,19 @@ fn spawn_console_overlay(
             FoundationConsoleHistoryList,
         ))
         .id();
+
+    for command_line in console_history.commands.iter().rev().take(16) {
+        let history_item_entity = spawn_console_reuse_button(
+            commands,
+            command_line,
+            FoundationConsoleHistoryItem {
+                command_line: command_line.clone(),
+            },
+        );
+        commands
+            .entity(history_list_entity)
+            .add_child(history_item_entity);
+    }
 
     let input_container_entity = commands
         .spawn((
@@ -1952,10 +1969,18 @@ mod tests {
     fn command_autocomplete_lists_multiple_sorted_predictions() {
         let registry = FoundationConsoleRegistry::default();
 
-        let suggestion_text = console_suggestion_text("", &registry, None);
+        let suggestion_text = console_suggestion_text("o", &registry, None);
 
         assert!(suggestion_text.contains("foundation_console_history_size"));
         assert!(suggestion_text.contains("open"));
+    }
+
+    #[test]
+    fn command_autocomplete_is_hidden_for_blank_input() {
+        let registry = FoundationConsoleRegistry::default();
+
+        assert_eq!(console_suggestion_text("", &registry, None), "");
+        assert_eq!(console_suggestion_text("   ", &registry, None), "");
     }
 
     #[test]
