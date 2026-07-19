@@ -123,7 +123,7 @@ pub mod prelude {
         ConsoleInputs, FoundationConsoleHistory, FoundationConsoleHistorySizeInputs,
         FoundationConsolePlugin, FoundationConsoleRegistry, FoundationConsoleState,
         FOUNDATION_CONSOLE_HISTORY_FILE_NAME, FOUNDATION_CONSOLE_SAVE_DIRECTORY,
-        FOUNDATION_CONSOLE_SCENE_KEY,
+        FOUNDATION_CONSOLE_SCENE_KEY, FOUNDATION_OPEN_SCENE_COMMAND_NAME,
     };
     pub use crate::credits::{
         flatten_credits_document, header_font_size_for_depth, CreditPerson, CreditsDisplayRow,

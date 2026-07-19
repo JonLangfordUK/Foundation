@@ -20,7 +20,7 @@ The console uses an input-blocking scene-stack overlay. Gameplay continues updat
 
 ## Running Commands
 
-Commands use a command name followed by named arguments:
+Most commands use a command name followed by named arguments:
 
 ```text
 example.say-hello name=Jon
@@ -28,10 +28,25 @@ example.say-hello name=Jon
 
 Named arguments use `name=value` syntax. Invalid tokens are reported in the console output.
 
+The built-in scene command uses positional scene arguments instead:
+
+```text
+open last-beacon/main_menu
+open last-beacon/gameplay_level last-beacon/pause_menu
+open scenes/main_menu.bsn
+```
+
+`open` clears the current Foundation scene stack and opens the supplied BSN scenes in order. Registered scene keys are resolved through `FoundationBsnSceneRegistry`. Direct `.bsn` paths are also accepted when typed explicitly, and those paths are relative to the active assets directory.
+
 The console provides:
 
 - Enter to run the current command.
-- Tab to complete the current command suggestion.
+- Tab to complete the first sorted suggestion.
+- Click any suggestion to copy it into the console input.
+- Click a command history item to copy it into the console input when the suggestion preview is closed.
+- A floating suggestion list above the history/output area with all matching predictions, updated as the user types.
+- Command predictions match text contained anywhere in the command name, so typing `op` predicts `open`.
+- Registered BSN scene key predictions for `open` arguments, including while the user is still typing `open`; for example, `op` can already preview `open last-beacon/main_menu`, and `open map` can match a registered key such as `last-beacon/mapmap`.
 - Up and Down to navigate command history.
 - Mouse wheel to scroll console output.
 - Persistent command history at `<executable-dir>/saved/console/history.json`.
