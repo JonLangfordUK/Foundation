@@ -72,6 +72,25 @@ impl FoundationBsnSceneRegistry {
             .cloned()
             .unwrap_or_else(|| scene_key.to_string())
     }
+
+    /// Returns registered scene keys in deterministic alphabetical order.
+    pub fn registered_scene_keys(&self) -> Vec<&str> {
+        let mut registered_scene_keys = self
+            .scene_asset_paths
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        registered_scene_keys.sort_unstable();
+        registered_scene_keys
+    }
+
+    /// Returns registered scene keys that begin with the supplied prefix.
+    pub fn registered_scene_keys_with_prefix(&self, scene_key_prefix: &str) -> Vec<&str> {
+        self.registered_scene_keys()
+            .into_iter()
+            .filter(|registered_scene_key| registered_scene_key.starts_with(scene_key_prefix))
+            .collect()
+    }
 }
 
 /// Tracks one live `.bsn` scene or prefab instance.
