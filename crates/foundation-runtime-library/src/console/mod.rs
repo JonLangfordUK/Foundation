@@ -594,24 +594,28 @@ fn handle_clickable_console_reuse(
         (&Interaction, &FoundationConsoleHistoryItem),
         (Changed<Interaction>, With<Button>),
     >,
+    suggestion_visibilities: Query<&Visibility, With<FoundationConsoleSuggestion>>,
 ) {
     let Some((input_entity, mut editable_text)) = console_inputs.iter_mut().next() else {
         return;
     };
 
-    let clicked_replacement = suggestion_options
-        .iter()
-        .find_map(|(interaction, suggestion_option)| {
-            (*interaction == Interaction::Pressed).then(|| suggestion_option.replacement.clone())
-        })
-        .or_else(|| {
-            history_items
-                .iter()
-                .find_map(|(interaction, history_item)| {
-                    (*interaction == Interaction::Pressed)
-                        .then(|| history_item.command_line.clone())
-                })
-        });
+    let clicked_suggestion =
+        suggestion_options
+            .iter()
+            .find_map(|(interaction, suggestion_option)| {
+                (*interaction == Interaction::Pressed)
+                    .then(|| suggestion_option.replacement.clone())
+            });
+    let is_preview_open = console_preview_is_open(&suggestion_visibilities);
+    let clicked_history_item = (!is_preview_open).then(|| {
+        history_items
+            .iter()
+            .find_map(|(interaction, history_item)| {
+                (*interaction == Interaction::Pressed).then(|| history_item.command_line.clone())
+            })
+    });
+    let clicked_replacement = clicked_suggestion.or_else(|| clicked_history_item.flatten());
 
     if let Some(clicked_replacement) = clicked_replacement {
         replace_console_input(&mut editable_text, &clicked_replacement);
@@ -619,6 +623,14 @@ fn handle_clickable_console_reuse(
         console_ui_state.history_cursor = None;
         input_focus.set(input_entity, FocusCause::Navigated);
     }
+}
+
+fn console_preview_is_open(
+    suggestion_visibilities: &Query<&Visibility, With<FoundationConsoleSuggestion>>,
+) -> bool {
+    suggestion_visibilities
+        .iter()
+        .any(|visibility| *visibility == Visibility::Visible)
 }
 
 fn scroll_console_output(
