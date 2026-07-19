@@ -42,6 +42,8 @@ The console provides:
 
 - Enter to run the current command.
 - Tab to complete the first sorted suggestion.
+- Click any suggestion to copy it into the console input.
+- Click a command history item to copy it into the console input.
 - A floating suggestion list above the history/output area with all matching predictions, updated as the user types.
 - Command predictions match text contained anywhere in the command name, so typing `op` predicts `open`.
 - Registered BSN scene key predictions for `open` arguments, including while the user is still typing `open`; for example, `op` can already preview `open last-beacon/main_menu`, and `open map` can match a registered key such as `last-beacon/mapmap`.
