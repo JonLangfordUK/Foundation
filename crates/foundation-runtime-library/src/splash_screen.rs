@@ -37,12 +37,12 @@ pub struct FoundationSplashUiParent(pub Entity);
 /// should be visually editable. Runtime systems target this root to the editor
 /// viewport or standalone game window and fade the marked text child.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationSplashUiRoot;
 
 /// Marks the authored text entity faded by a [`FoundationSplashScreen`].
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationSplashText;
 
 /// Runtime policy for reusable Foundation splash systems.
@@ -99,7 +99,7 @@ impl Plugin for FoundationSplashScreenPlugin {
 /// [`Text`] component on the marked text entity, not by this configuration
 /// component.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationSplashScreen {
     /// Timing values for the splash sequence, in seconds.
     pub timings: FoundationSplashTimings,
@@ -259,10 +259,14 @@ fn initialize_splash_screens(
         let scene_owner = scene_owner.copied();
         let authored_root = matching_authored_entity(scene_owner, &authored_roots);
         let authored_text = matching_authored_entity(scene_owner, &authored_texts);
-        // Prefer authored UI when both required markers exist; otherwise create fallback UI.
+        // Prefer authored UI when both required markers exist. Scene-stack splashes are usually
+        // paired with async `.bsn` content, so wait for the authored UI instead of permanently
+        // selecting the empty generated fallback before the asset has finished applying.
         let (ui_root, text_entity, generated_ui) =
             if let (Some(ui_root), Some(text_entity)) = (authored_root, authored_text) {
                 (ui_root, text_entity, false)
+            } else if scene_owner.is_some() {
+                continue;
             } else {
                 spawn_generated_splash_ui(
                     &mut commands,

@@ -107,7 +107,7 @@ pub struct FoundationExitRequested;
 /// - `resume`
 /// - `exit`
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationMenuButton {
     /// Action identifier. Use `open_scene`, `close_current`, `exit`, or `none`.
     pub action: String,
@@ -198,7 +198,7 @@ impl Default for FoundationMenuButton {
 
 /// Marks an options menu root that should be populated with reusable dummy UI.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationOptionsMenu {
     /// Title shown above the tabs.
     pub title: String,
@@ -214,7 +214,7 @@ impl Default for FoundationOptionsMenu {
 
 /// Marks a placeholder menu root that should show title/body text and a Back button.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationPlaceholderMenu {
     /// Title shown at the top of the placeholder menu.
     pub title: String,
@@ -233,7 +233,7 @@ impl Default for FoundationPlaceholderMenu {
 
 /// Closes the current scene-stack entry when Escape is pressed.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationCloseOnEscape;
 
 /// Clears Foundation pause state when the same entity closes on Escape.
@@ -241,12 +241,12 @@ pub struct FoundationCloseOnEscape;
 /// Add this next to [`FoundationCloseOnEscape`] on pause menus that should behave like
 /// the Resume button when Escape closes them.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationResumeOnEscape;
 
 /// Opens a pause menu scene when Escape is pressed while gameplay is unpaused.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationPauseOpener {
     /// Bevy BSN scene key for the pause menu.
     pub pause_scene_key: String,
@@ -268,7 +268,7 @@ impl Default for FoundationPauseOpener {
 /// Add this component to a Foundation scene entity when a project needs a small
 /// placeholder level without hand-authoring mesh/material handles in BSN.
 #[derive(Clone, Copy, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationSimpleGameplayLevel {
     /// Edge length of the generated cube in world units.
     pub cube_size: f32,
@@ -282,7 +282,7 @@ impl Default for FoundationSimpleGameplayLevel {
 
 /// Rotates an entity around its local Y axis while Foundation gameplay is not paused.
 #[derive(Clone, Copy, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationSpin {
     /// Rotation speed around the Y axis, in radians per second.
     pub radians_per_second: f32,

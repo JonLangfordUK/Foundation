@@ -20,6 +20,30 @@ Enable the current editor-time shell for that game:
 cargo run -p foundation -- --game <game-name> --editor
 ```
 
+Request visible log output for a non-shipping game run. On Windows this opens a separate Foundation log window by default:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --log
+```
+
+Request visible log output inline in the current terminal instead:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --log-inline
+```
+
+In non-shipping builds, bypass the game's default startup scene with a registered BSN scene key or direct asset path:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --scene <scene-key-or-asset-path>
+```
+
+Open an ordered startup stack by passing a bracketed scene list. Spaces around commas are allowed; quote the value when your shell would otherwise split it:
+
+```cmd
+cargo run -p foundation -- --game <game-name> --scene "[game/gameplay_level, scenes/testing_mode.bsn]"
+```
+
 For external games, prefer the build workflow documented in [`build-packaging.md`](build-packaging.md). The loose launcher remains available for in-repo manifests when a repository intentionally carries a local game fixture.
 
 ## Game Manifests
@@ -50,11 +74,11 @@ lives in its own repository as the reference external Foundation game.
 
 The current implementation is a loose Cargo-package launch mode:
 
-1. `foundation` parses `--game <game-name>` and optional `--editor`.
+1. `foundation` parses `--game <game-name>` plus optional `--editor`, `--log`, `--log-inline`, or `--scene`.
 2. `foundation` discovers manifests from `games/*/foundation.game.toml` when local game manifests exist.
 3. It selects the matching manifest by `[game].name`.
 4. It launches the manifest's `[launch].package` with `cargo run -p <package>`.
-5. It forwards `--editor` to the selected game process.
+5. It forwards `--editor`, `--log`, `--log-inline`, and `--scene` to the selected game process when requested.
 
 This keeps the engine crate independent from concrete games while preserving a
 single stable command shape for users.
@@ -80,6 +104,12 @@ bundled-game selection.
 `FoundationEditorPlugin` shell in the selected game process. Future editor
 features should remain in `crates/foundation-editor-library` or game-owned
 editor integration, not in concrete-game branches inside `crates/foundation`.
+
+## Runtime Logging
+
+Foundation games use a shared logging policy for visible log output, normal run
+logs, and preserved panic logs. See [`logging.md`](logging.md) for `--log`,
+`--log-inline`, shipping suppression, and `<exe-dir>/saved/logs/` behavior.
 
 ## Runtime Debug Console
 

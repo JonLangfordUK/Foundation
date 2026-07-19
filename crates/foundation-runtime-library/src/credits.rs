@@ -57,7 +57,7 @@ pub struct FoundationCreditsRuntimeSettings {
 
 /// Author-authored marker for a JSON-backed scrolling credits roll.
 #[derive(Clone, Debug, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FoundationCreditsRoll {
     /// Asset-relative or project-relative path to the credits JSON file.
     pub credits_path: String,

@@ -19,6 +19,12 @@ pub(crate) struct FoundationLaunchArguments {
     pub(crate) game: String,
     /// Enables the Foundation editor-time shell in the selected game process.
     pub(crate) editor_enabled: bool,
+    /// Requests visible game log output in non-shipping game builds.
+    pub(crate) log_window_requested: bool,
+    /// Requests visible game logs in the parent terminal instead of a separate log window.
+    pub(crate) inline_log_requested: bool,
+    /// Optional non-shipping startup scene key/path or bracketed scene stack list.
+    pub(crate) startup_scene_override: Option<String>,
 }
 
 /// Successful parse outcome for the Foundation command line.
@@ -37,6 +43,9 @@ impl FoundationLaunchArguments {
     ) -> Result<FoundationLaunchCommand, String> {
         let mut game = None;
         let mut editor_enabled = false;
+        let mut log_window_requested = false;
+        let mut inline_log_requested = false;
+        let mut startup_scene_override = None;
         let mut argument_iterator = arguments.into_iter();
 
         while let Some(argument) = argument_iterator.next() {
@@ -49,6 +58,24 @@ impl FoundationLaunchArguments {
                 }
                 "--editor" => {
                     editor_enabled = true;
+                }
+                "--log" => {
+                    log_window_requested = true;
+                }
+                "--log-inline" => {
+                    inline_log_requested = true;
+                }
+                "--scene" => {
+                    if startup_scene_override.is_some() {
+                        return Err("Expected at most one `--scene` argument.".to_string());
+                    }
+                    let Some(scene_override_value) = argument_iterator.next() else {
+                        return Err(
+                            "Expected a scene key, asset path, or bracketed list after `--scene`."
+                                .to_string(),
+                        );
+                    };
+                    startup_scene_override = Some(scene_override_value);
                 }
                 "--help" | "-h" => {
                     return Ok(FoundationLaunchCommand::ShowHelp);
@@ -65,6 +92,9 @@ impl FoundationLaunchArguments {
         Ok(FoundationLaunchCommand::Launch(Self {
             game,
             editor_enabled,
+            log_window_requested,
+            inline_log_requested,
+            startup_scene_override,
         }))
     }
 }
@@ -157,6 +187,15 @@ fn launch_game_process(
     if launch_arguments.editor_enabled {
         command.arg("--editor");
     }
+    if launch_arguments.log_window_requested {
+        command.arg("--log");
+    }
+    if launch_arguments.inline_log_requested {
+        command.arg("--log-inline");
+    }
+    if let Some(startup_scene_override) = &launch_arguments.startup_scene_override {
+        command.args(["--scene", startup_scene_override.as_str()]);
+    }
 
     let status = command
         .status()
@@ -185,8 +224,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_game_and_editor_arguments() {
-        let arguments = ["--game", "example-game", "--editor"].map(str::to_string);
+    fn parse_game_editor_and_log_arguments() {
+        let arguments = ["--game", "example-game", "--editor", "--log"].map(str::to_string);
         let launch_command =
             FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
 
@@ -195,7 +234,78 @@ mod tests {
             FoundationLaunchCommand::Launch(FoundationLaunchArguments {
                 game: "example-game".to_string(),
                 editor_enabled: true,
+                log_window_requested: true,
+                inline_log_requested: false,
+                startup_scene_override: None,
             })
+        );
+    }
+
+    #[test]
+    fn parse_inline_log_argument_without_separate_log_argument() {
+        let arguments = ["--game", "example-game", "--log-inline"].map(str::to_string);
+        let launch_command =
+            FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
+
+        assert_eq!(
+            launch_command,
+            FoundationLaunchCommand::Launch(FoundationLaunchArguments {
+                game: "example-game".to_string(),
+                editor_enabled: false,
+                log_window_requested: false,
+                inline_log_requested: true,
+                startup_scene_override: None,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_startup_scene_override_argument() {
+        let arguments =
+            ["--game", "example-game", "--scene", "[scene_a, scene_b]"].map(str::to_string);
+        let launch_command =
+            FoundationLaunchArguments::parse(arguments).expect("arguments should parse");
+
+        assert_eq!(
+            launch_command,
+            FoundationLaunchCommand::Launch(FoundationLaunchArguments {
+                game: "example-game".to_string(),
+                editor_enabled: false,
+                log_window_requested: false,
+                inline_log_requested: false,
+                startup_scene_override: Some("[scene_a, scene_b]".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn duplicate_startup_scene_override_argument_is_rejected() {
+        let arguments = [
+            "--game",
+            "example-game",
+            "--scene",
+            "scene_a",
+            "--scene",
+            "scene_b",
+        ]
+        .map(str::to_string);
+
+        let launch_error = FoundationLaunchArguments::parse(arguments)
+            .expect_err("duplicate scene override arguments should fail");
+
+        assert_eq!(launch_error, "Expected at most one `--scene` argument.");
+    }
+
+    #[test]
+    fn missing_startup_scene_override_value_is_rejected() {
+        let arguments = ["--game", "example-game", "--scene"].map(str::to_string);
+
+        let launch_error = FoundationLaunchArguments::parse(arguments)
+            .expect_err("missing scene override value should fail");
+
+        assert_eq!(
+            launch_error,
+            "Expected a scene key, asset path, or bracketed list after `--scene`."
         );
     }
 

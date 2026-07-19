@@ -11,9 +11,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::scene_stack::{
-    OpenSceneOptions, SceneAdded, SceneCommand, SceneId, SceneKey, SceneLoadRequested, SceneOwner,
-    ScenePresentation, SceneRemoved, SceneSource, SceneTarget,
+use crate::{
+    bsn_assets::FoundationBsnSceneRegistry,
+    scene_stack::{
+        OpenSceneOptions, SceneAdded, SceneCommand, SceneId, SceneKey, SceneLoadRequested,
+        SceneOwner, ScenePresentation, SceneRemoved, SceneSource, SceneTarget,
+    },
 };
 use bevy::{
     input::{
@@ -45,6 +48,9 @@ pub const FOUNDATION_CONSOLE_HISTORY_FILE_NAME: &str = "history.json";
 /// Scene-stack key used by the debug console overlay scene.
 pub const FOUNDATION_CONSOLE_SCENE_KEY: &str = "foundation/debug-console";
 
+/// Built-in console command that opens one or more BSN scenes by key or asset path.
+pub const FOUNDATION_OPEN_SCENE_COMMAND_NAME: &str = "open";
+
 /// All console commands linked into the current game binary.
 #[distributed_slice]
 pub static FOUNDATION_CONSOLE_COMMANDS: [ConsoleCommandDescriptor] = [..];
@@ -70,6 +76,9 @@ impl Plugin for FoundationConsolePlugin {
             .register_type::<FoundationConsoleOutputViewport>()
             .register_type::<FoundationConsoleOutput>()
             .register_type::<FoundationConsoleSuggestion>()
+            .register_type::<FoundationConsoleSuggestionOption>()
+            .register_type::<FoundationConsoleHistoryItem>()
+            .register_type::<FoundationConsoleOutputLine>()
             .add_systems(
                 Update,
                 (
@@ -80,8 +89,10 @@ impl Plugin for FoundationConsolePlugin {
                     update_console_input_state,
                     handle_console_keyboard_actions,
                     refresh_console_text_nodes,
+                    handle_clickable_console_reuse,
                     scroll_console_output,
-                ),
+                )
+                    .chain(),
             );
     }
 }
@@ -145,10 +156,31 @@ pub struct FoundationConsoleOutputViewport;
 #[reflect(Component)]
 pub struct FoundationConsoleOutput;
 
-/// Marker component for the console autocomplete and placeholder text entity.
+/// Marker component for the console autocomplete suggestion list entity.
 #[derive(Clone, Copy, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct FoundationConsoleSuggestion;
+
+/// Clickable autocomplete suggestion that can replace the current console input.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleSuggestionOption {
+    /// Text inserted into the console input when clicked.
+    pub replacement: String,
+}
+
+/// Clickable command history item that can replace the current console input.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleHistoryItem {
+    /// Command line inserted into the console input when clicked.
+    pub command_line: String,
+}
+
+/// Marker for generated console output rows rebuilt from command output history.
+#[derive(Clone, Copy, Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+pub struct FoundationConsoleOutputLine;
 
 /// Persisted command history for the Foundation debug console.
 #[derive(Clone, Debug, Default, Resource, Serialize, Deserialize)]
@@ -337,6 +369,7 @@ fn handle_console_keyboard_actions(
     mut console_ui_state: ResMut<FoundationConsoleUiState>,
     console_history: Res<FoundationConsoleHistory>,
     console_registry: Res<FoundationConsoleRegistry>,
+    bsn_scene_registry: Option<Res<FoundationBsnSceneRegistry>>,
     mut console_inputs: Query<(Entity, &mut EditableText), With<FoundationConsoleInput>>,
     mut scene_commands: MessageWriter<SceneCommand>,
 ) {
@@ -354,9 +387,12 @@ fn handle_console_keyboard_actions(
     }
 
     if keyboard_input.just_pressed(Key::Tab) {
-        if let Some(completed_input) =
-            autocomplete_console_input(&console_ui_state.input, &console_registry)
-        {
+        let bsn_scene_registry = bsn_scene_registry.as_deref();
+        if let Some(completed_input) = autocomplete_console_input(
+            &console_ui_state.input,
+            &console_registry,
+            bsn_scene_registry,
+        ) {
             replace_console_input(&mut editable_text, &completed_input);
             console_ui_state.input = completed_input;
         }
@@ -399,44 +435,243 @@ fn handle_console_keyboard_actions(
 const FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP: usize = 3;
 const FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES: usize = 16;
 
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn refresh_console_text_nodes(
+    mut commands: Commands,
     console_ui_state: Res<FoundationConsoleUiState>,
     console_history: Res<FoundationConsoleHistory>,
     console_registry: Res<FoundationConsoleRegistry>,
-    mut console_outputs: Query<
-        &mut Text,
-        (
-            With<FoundationConsoleOutput>,
-            Without<FoundationConsoleSuggestion>,
-        ),
-    >,
+    bsn_scene_registry: Option<Res<FoundationBsnSceneRegistry>>,
+    console_outputs: Query<Entity, With<FoundationConsoleOutput>>,
+    output_lines: Query<Entity, With<FoundationConsoleOutputLine>>,
     mut console_suggestions: Query<
-        &mut Text,
-        (
-            With<FoundationConsoleSuggestion>,
-            Without<FoundationConsoleOutput>,
-        ),
+        (&mut Visibility, &mut Node, &mut ScrollPosition),
+        With<FoundationConsoleSuggestion>,
     >,
+    suggestion_lists: Query<Entity, With<FoundationConsoleSuggestion>>,
+    suggestion_options: Query<Entity, With<FoundationConsoleSuggestionOption>>,
 ) {
     if console_ui_state.is_changed() || console_history.is_changed() {
-        let output_text = console_output_text(&console_history, &console_ui_state);
-        for mut text in &mut console_outputs {
-            text.0 = output_text.clone();
-        }
+        rebuild_console_output_lines(
+            &mut commands,
+            &console_ui_state,
+            &console_outputs,
+            &output_lines,
+        );
     }
 
-    if console_ui_state.is_changed() || console_registry.is_changed() {
-        let suggestion_text = console_suggestion_text(&console_ui_state.input, &console_registry);
-        for mut text in &mut console_suggestions {
-            text.0 = suggestion_text.clone();
+    let suggestions_changed = console_ui_state.is_changed()
+        || console_registry.is_changed()
+        || bsn_scene_registry
+            .as_ref()
+            .is_some_and(|registry| registry.is_changed());
+    if suggestions_changed {
+        let bsn_scene_registry = bsn_scene_registry.as_deref();
+        let suggestions = autocomplete_console_candidates(
+            &console_ui_state.input,
+            &console_registry,
+            bsn_scene_registry,
+        );
+        for (mut visibility, mut node, mut scroll_position) in &mut console_suggestions {
+            scroll_position.y = 0.0;
+            if suggestions.is_empty() {
+                *visibility = Visibility::Hidden;
+                node.display = Display::None;
+            } else {
+                *visibility = Visibility::Visible;
+                node.display = Display::Flex;
+            }
+        }
+        rebuild_console_suggestion_items(
+            &mut commands,
+            &suggestions,
+            &suggestion_lists,
+            &suggestion_options,
+        );
+    }
+}
+
+fn rebuild_console_suggestion_items(
+    commands: &mut Commands,
+    suggestions: &[ConsoleAutocompleteCandidate],
+    suggestion_lists: &Query<Entity, With<FoundationConsoleSuggestion>>,
+    suggestion_options: &Query<Entity, With<FoundationConsoleSuggestionOption>>,
+) {
+    for suggestion_option_entity in suggestion_options {
+        commands.entity(suggestion_option_entity).despawn();
+    }
+
+    for suggestion_list_entity in suggestion_lists {
+        for suggestion in suggestions {
+            let suggestion_z_index = GlobalZIndex(10_004);
+            let suggestion_option_entity = spawn_console_reuse_button(
+                commands,
+                &suggestion.display,
+                suggestion_z_index,
+                FoundationConsoleSuggestionOption {
+                    replacement: suggestion.replacement.clone(),
+                },
+            );
+            commands
+                .entity(suggestion_list_entity)
+                .add_child(suggestion_option_entity);
         }
     }
+}
+
+fn rebuild_console_output_lines(
+    commands: &mut Commands,
+    console_ui_state: &FoundationConsoleUiState,
+    console_outputs: &Query<Entity, With<FoundationConsoleOutput>>,
+    output_lines: &Query<Entity, With<FoundationConsoleOutputLine>>,
+) {
+    for output_line_entity in output_lines {
+        commands.entity(output_line_entity).despawn();
+    }
+
+    let output_entries = console_output_entries(console_ui_state);
+    for console_output_entity in console_outputs {
+        for output_entry in &output_entries {
+            for (output_line_position, output_line) in output_entry.lines().enumerate() {
+                let output_line_entity = if output_line_position == 0 {
+                    spawn_console_command_output_button(commands, output_line)
+                } else {
+                    spawn_console_output_text(commands, output_line)
+                };
+                commands
+                    .entity(console_output_entity)
+                    .add_child(output_line_entity);
+            }
+        }
+    }
+}
+
+fn spawn_console_command_output_button(commands: &mut Commands, output_line: &str) -> Entity {
+    let Some(command_line) = output_line.strip_prefix("> ") else {
+        return spawn_console_output_text(commands, output_line);
+    };
+
+    let history_z_index = GlobalZIndex(10_001);
+    spawn_console_reuse_button(
+        commands,
+        output_line,
+        history_z_index,
+        (
+            FoundationConsoleHistoryItem {
+                command_line: command_line.to_string(),
+            },
+            FoundationConsoleOutputLine,
+        ),
+    )
+}
+
+fn spawn_console_output_text(commands: &mut Commands, output_line: &str) -> Entity {
+    let output_text_color = TextColor(Color::srgba(0.82, 0.88, 0.78, 1.0));
+    commands
+        .spawn((
+            Text::new(output_line.to_string()),
+            TextFont {
+                font_size: 14.0.into(),
+                ..default()
+            },
+            output_text_color,
+            FoundationConsoleOutputLine,
+        ))
+        .id()
+}
+
+fn spawn_console_reuse_button<T: Bundle>(
+    commands: &mut Commands,
+    label: &str,
+    z_index: GlobalZIndex,
+    marker: T,
+) -> Entity {
+    let button_background = BackgroundColor(Color::srgba(0.07, 0.07, 0.085, 0.96));
+    let button_text_color = TextColor(Color::srgba(0.78, 0.86, 1.0, 1.0));
+
+    commands
+        .spawn((
+            Button,
+            Node {
+                width: Val::Percent(100.0),
+                min_height: Val::Px(20.0),
+                padding: UiRect::axes(Val::Px(6.0), Val::Px(2.0)),
+                ..default()
+            },
+            button_background,
+            z_index,
+            marker,
+        ))
+        .with_child((
+            Text::new(label.to_string()),
+            TextFont {
+                font_size: 12.0.into(),
+                ..default()
+            },
+            button_text_color,
+        ))
+        .id()
+}
+
+#[allow(clippy::type_complexity)]
+fn handle_clickable_console_reuse(
+    mut input_focus: ResMut<InputFocus>,
+    mut console_ui_state: ResMut<FoundationConsoleUiState>,
+    mut console_inputs: Query<(Entity, &mut EditableText), With<FoundationConsoleInput>>,
+    suggestion_options: Query<
+        (&Interaction, &FoundationConsoleSuggestionOption),
+        (Changed<Interaction>, With<Button>),
+    >,
+    history_items: Query<
+        (&Interaction, &FoundationConsoleHistoryItem),
+        (Changed<Interaction>, With<Button>),
+    >,
+    suggestion_visibilities: Query<&Visibility, With<FoundationConsoleSuggestion>>,
+) {
+    let Some((input_entity, mut editable_text)) = console_inputs.iter_mut().next() else {
+        return;
+    };
+
+    let clicked_suggestion =
+        suggestion_options
+            .iter()
+            .find_map(|(interaction, suggestion_option)| {
+                (*interaction == Interaction::Pressed)
+                    .then(|| suggestion_option.replacement.clone())
+            });
+    let is_preview_open = console_preview_is_open(&suggestion_visibilities);
+    let clicked_history_item = (!is_preview_open).then(|| {
+        history_items
+            .iter()
+            .find_map(|(interaction, history_item)| {
+                (*interaction == Interaction::Pressed).then(|| history_item.command_line.clone())
+            })
+    });
+    let clicked_replacement = clicked_suggestion.or_else(|| clicked_history_item.flatten());
+
+    if let Some(clicked_replacement) = clicked_replacement {
+        replace_console_input(&mut editable_text, &clicked_replacement);
+        console_ui_state.input = clicked_replacement;
+        console_ui_state.history_cursor = None;
+        input_focus.set(input_entity, FocusCause::Navigated);
+    }
+}
+
+fn console_preview_is_open(
+    suggestion_visibilities: &Query<&Visibility, With<FoundationConsoleSuggestion>>,
+) -> bool {
+    suggestion_visibilities
+        .iter()
+        .any(|visibility| *visibility == Visibility::Visible)
 }
 
 fn scroll_console_output(
     mut mouse_wheel_messages: MessageReader<MouseWheel>,
     console_state: Res<FoundationConsoleState>,
     mut console_ui_state: ResMut<FoundationConsoleUiState>,
+    suggestion_visibilities: Query<&Visibility, With<FoundationConsoleSuggestion>>,
+    mut suggestion_scroll_positions: Query<&mut ScrollPosition, With<FoundationConsoleSuggestion>>,
 ) {
     if !console_state.is_open {
         mouse_wheel_messages.clear();
@@ -456,11 +691,21 @@ fn scroll_console_output(
         return;
     }
 
+    let scroll_line_delta =
+        scroll_steps.unsigned_abs() as usize * FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP;
+
+    if console_preview_is_open(&suggestion_visibilities) {
+        scroll_console_prediction_popup(
+            scroll_steps,
+            scroll_line_delta,
+            &mut suggestion_scroll_positions,
+        );
+        return;
+    }
+
     let output_line_count = console_output_lines(&console_ui_state).len();
     let max_scroll_lines =
         output_line_count.saturating_sub(FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES);
-    let scroll_line_delta =
-        scroll_steps.unsigned_abs() as usize * FOUNDATION_CONSOLE_SCROLL_LINES_PER_WHEEL_STEP;
 
     if scroll_steps > 0 {
         console_ui_state.output_scroll_lines =
@@ -469,6 +714,21 @@ fn scroll_console_output(
         console_ui_state.output_scroll_lines = console_ui_state
             .output_scroll_lines
             .saturating_sub(scroll_line_delta);
+    }
+}
+
+fn scroll_console_prediction_popup(
+    scroll_steps: i32,
+    scroll_line_delta: usize,
+    suggestion_scroll_positions: &mut Query<&mut ScrollPosition, With<FoundationConsoleSuggestion>>,
+) {
+    let scroll_pixel_delta = scroll_line_delta as f32 * 8.0;
+    for mut scroll_position in suggestion_scroll_positions {
+        if scroll_steps > 0 {
+            scroll_position.y = (scroll_position.y + scroll_pixel_delta).max(0.0);
+        } else {
+            scroll_position.y = (scroll_position.y - scroll_pixel_delta).max(0.0);
+        }
     }
 }
 
@@ -521,35 +781,161 @@ fn replace_console_input(editable_text: &mut EditableText, replacement: &str) {
 fn autocomplete_console_input(
     console_input: &str,
     console_registry: &FoundationConsoleRegistry,
+    bsn_scene_registry: Option<&FoundationBsnSceneRegistry>,
 ) -> Option<String> {
-    let command_prefix = console_input
+    let candidate =
+        autocomplete_console_candidates(console_input, console_registry, bsn_scene_registry)
+            .into_iter()
+            .next()?;
+
+    Some(candidate.replacement)
+}
+
+fn autocomplete_console_candidates(
+    console_input: &str,
+    console_registry: &FoundationConsoleRegistry,
+    bsn_scene_registry: Option<&FoundationBsnSceneRegistry>,
+) -> Vec<ConsoleAutocompleteCandidate> {
+    if console_input.trim().is_empty() {
+        return Vec::new();
+    }
+
+    let open_scene_argument_context = open_scene_argument_context(console_input);
+    let trimmed_start_input = console_input.trim_start();
+    if trimmed_start_input == FOUNDATION_OPEN_SCENE_COMMAND_NAME
+        || trimmed_start_input.starts_with("open ")
+    {
+        if let Some(open_scene_argument_context) = open_scene_argument_context {
+            return autocomplete_open_scene_arguments(
+                open_scene_argument_context,
+                bsn_scene_registry,
+            );
+        }
+    }
+
+    let mut autocomplete_candidates = Vec::new();
+
+    let command_search_text = console_input
         .split_whitespace()
         .next()
         .unwrap_or(console_input);
-    let candidate = console_registry
-        .autocomplete_command_names(command_prefix)
-        .into_iter()
-        .next()?;
+    autocomplete_candidates.extend(
+        console_registry
+            .autocomplete_command_names(command_search_text)
+            .into_iter()
+            .map(|candidate| {
+                let replacement = command_placeholder(&candidate.replacement, console_registry);
+                ConsoleAutocompleteCandidate {
+                    display: replacement.clone(),
+                    replacement,
+                }
+            }),
+    );
 
-    Some(command_placeholder(
-        &candidate.replacement,
-        console_registry,
-    ))
+    if let Some(open_scene_argument_context) = open_scene_argument_context {
+        autocomplete_candidates.extend(autocomplete_open_scene_arguments(
+            open_scene_argument_context,
+            bsn_scene_registry,
+        ));
+    }
+
+    autocomplete_candidates
 }
 
+#[cfg(test)]
 fn console_suggestion_text(
     console_input: &str,
     console_registry: &FoundationConsoleRegistry,
+    bsn_scene_registry: Option<&FoundationBsnSceneRegistry>,
 ) -> String {
-    let Some(suggestion) = autocomplete_console_input(console_input, console_registry) else {
+    let suggestions =
+        autocomplete_console_candidates(console_input, console_registry, bsn_scene_registry);
+    if suggestions.is_empty() {
         return String::new();
+    }
+
+    suggestions
+        .into_iter()
+        .map(|suggestion| suggestion.display)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OpenSceneArgumentContext {
+    line_prefix_before_current_scene: String,
+    current_scene_prefix: String,
+}
+
+fn open_scene_argument_context(console_input: &str) -> Option<OpenSceneArgumentContext> {
+    let trimmed_start_input = console_input.trim_start();
+    let open_command_offset = console_input.len() - trimmed_start_input.len();
+    if FOUNDATION_OPEN_SCENE_COMMAND_NAME.starts_with(trimmed_start_input) {
+        return Some(OpenSceneArgumentContext {
+            line_prefix_before_current_scene: format!(
+                "{}open ",
+                &console_input[..open_command_offset]
+            ),
+            current_scene_prefix: String::new(),
+        });
+    }
+    if trimmed_start_input != FOUNDATION_OPEN_SCENE_COMMAND_NAME
+        && !trimmed_start_input.starts_with("open ")
+    {
+        return None;
+    }
+
+    let open_command_end = open_command_offset + FOUNDATION_OPEN_SCENE_COMMAND_NAME.len();
+    let input_after_open_command = &console_input[open_command_end..];
+    if input_after_open_command.is_empty() {
+        return Some(OpenSceneArgumentContext {
+            line_prefix_before_current_scene: format!(
+                "{}open ",
+                &console_input[..open_command_offset]
+            ),
+            current_scene_prefix: String::new(),
+        });
+    }
+
+    let scene_arguments_start = open_command_end + 1;
+    let scene_arguments = &console_input[scene_arguments_start..];
+    let current_scene_prefix_start = scene_arguments
+        .rfind(char::is_whitespace)
+        .map(|relative_whitespace_position| {
+            scene_arguments_start + relative_whitespace_position + 1
+        })
+        .unwrap_or(scene_arguments_start);
+    let line_prefix_before_current_scene = console_input[..current_scene_prefix_start].to_string();
+    let current_scene_prefix = console_input[current_scene_prefix_start..].to_string();
+
+    Some(OpenSceneArgumentContext {
+        line_prefix_before_current_scene,
+        current_scene_prefix,
+    })
+}
+
+fn autocomplete_open_scene_arguments(
+    open_scene_argument_context: OpenSceneArgumentContext,
+    bsn_scene_registry: Option<&FoundationBsnSceneRegistry>,
+) -> Vec<ConsoleAutocompleteCandidate> {
+    let Some(bsn_scene_registry) = bsn_scene_registry else {
+        return Vec::new();
     };
 
-    if suggestion == console_input {
-        String::new()
-    } else {
-        format!("Tab: {suggestion}")
-    }
+    bsn_scene_registry
+        .registered_scene_keys_containing(&open_scene_argument_context.current_scene_prefix)
+        .into_iter()
+        .map(|registered_scene_key| {
+            let replacement = format!(
+                "{}{}",
+                open_scene_argument_context.line_prefix_before_current_scene, registered_scene_key,
+            );
+            ConsoleAutocompleteCandidate {
+                display: replacement.clone(),
+                replacement,
+            }
+        })
+        .collect()
 }
 
 fn command_placeholder(command_name: &str, console_registry: &FoundationConsoleRegistry) -> String {
@@ -606,7 +992,7 @@ fn next_history_input(
 fn spawn_console_overlay(
     commands: &mut Commands,
     scene_id: crate::scene_stack::SceneId,
-    console_history: &FoundationConsoleHistory,
+    _console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> Entity {
     let console_root_height = Val::Px(380.0);
@@ -616,9 +1002,6 @@ fn spawn_console_overlay(
     let console_border = BorderColor::all(Color::srgba(0.25, 0.25, 0.30, 1.0));
     let console_text_color = TextColor(Color::srgba(0.82, 0.88, 0.78, 1.0));
     let input_background = BackgroundColor(Color::srgba(0.05, 0.05, 0.06, 1.0));
-    let output_text = console_output_text(console_history, console_ui_state);
-    let suggestion_text = String::new();
-
     let root_entity = commands
         .spawn((
             Name::new("Foundation Debug Console"),
@@ -670,33 +1053,49 @@ fn spawn_console_overlay(
             Node {
                 width: Val::Percent(100.0),
                 flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(2.0),
                 ..default()
             },
-            Text::new(output_text),
-            TextFont {
-                font_size: 14.0.into(),
-                ..default()
-            },
-            console_text_color,
             SceneOwner { scene_id },
             FoundationConsoleOutput,
         ))
         .id();
 
+    for output_entry in console_output_entries(console_ui_state) {
+        for (output_line_position, output_line) in output_entry.lines().enumerate() {
+            let output_line_entity = if output_line_position == 0 {
+                spawn_console_command_output_button(commands, output_line)
+            } else {
+                spawn_console_output_text(commands, output_line)
+            };
+            commands.entity(output_entity).add_child(output_line_entity);
+        }
+    }
+
     let suggestion_entity = commands
         .spawn((
-            Name::new("Foundation Debug Console Suggestion"),
+            Name::new("Foundation Debug Console Suggestions"),
             Node {
-                width: Val::Percent(100.0),
-                min_height: Val::Px(20.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(12.0),
+                right: Val::Px(12.0),
+                // Keep the popup anchored above the input row and bounded inside the console.
+                bottom: Val::Px(62.0),
+                top: Val::Px(10.0),
+                max_height: Val::Px(280.0),
+                display: Display::None,
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(8.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                overflow: Overflow::scroll_y(),
                 ..default()
             },
-            Text::new(suggestion_text),
-            TextFont {
-                font_size: 12.0.into(),
-                ..default()
-            },
-            TextColor(Color::srgba(0.50, 0.62, 0.92, 1.0)),
+            ScrollPosition::default(),
+            BackgroundColor(Color::srgba(0.04, 0.04, 0.05, 0.95)),
+            BorderColor::all(Color::srgba(0.30, 0.34, 0.42, 1.0)),
+            GlobalZIndex(10_003),
+            Visibility::Hidden,
             SceneOwner { scene_id },
             FoundationConsoleSuggestion,
         ))
@@ -755,13 +1154,18 @@ fn spawn_console_overlay(
     input_entity
 }
 
+#[cfg(test)]
 fn console_output_text(
     _console_history: &FoundationConsoleHistory,
     console_ui_state: &FoundationConsoleUiState,
 ) -> String {
+    console_output_entries(console_ui_state).join("\n")
+}
+
+fn console_output_entries(console_ui_state: &FoundationConsoleUiState) -> Vec<String> {
     let output_lines = console_output_lines(console_ui_state);
     if output_lines.is_empty() {
-        return "Foundation debug console ready.".to_string();
+        return vec!["Foundation debug console ready.".to_string()];
     }
 
     let newest_visible_line_end = output_lines
@@ -770,7 +1174,7 @@ fn console_output_text(
     let visible_line_end = newest_visible_line_end.max(1);
     let visible_line_start =
         visible_line_end.saturating_sub(FOUNDATION_CONSOLE_VISIBLE_OUTPUT_LINES);
-    output_lines[visible_line_start..visible_line_end].join("\n")
+    output_lines[visible_line_start..visible_line_end].to_vec()
 }
 
 fn console_output_lines(console_ui_state: &FoundationConsoleUiState) -> Vec<String> {
@@ -809,19 +1213,31 @@ impl FoundationConsoleRegistry {
             .find(|command| command.name == command_name)
     }
 
-    /// Returns deterministic autocomplete candidates for a command-name prefix.
+    /// Returns deterministic autocomplete candidates whose command names contain search text.
     pub fn autocomplete_command_names(
         &self,
-        command_prefix: &str,
+        command_search_text: &str,
     ) -> Vec<ConsoleAutocompleteCandidate> {
-        self.commands
+        let mut autocomplete_candidates = self
+            .commands
             .iter()
-            .filter(|command| command.name.starts_with(command_prefix))
+            .filter(|command| command.name.contains(command_search_text))
             .map(|command| ConsoleAutocompleteCandidate {
                 replacement: command.name.to_string(),
                 display: command.name.to_string(),
             })
-            .collect()
+            .collect::<Vec<_>>();
+
+        if FOUNDATION_OPEN_SCENE_COMMAND_NAME.contains(command_search_text) {
+            autocomplete_candidates.push(ConsoleAutocompleteCandidate {
+                replacement: FOUNDATION_OPEN_SCENE_COMMAND_NAME.to_string(),
+                display: FOUNDATION_OPEN_SCENE_COMMAND_NAME.to_string(),
+            });
+        }
+        autocomplete_candidates.sort_by(|left_candidate, right_candidate| {
+            left_candidate.display.cmp(&right_candidate.display)
+        });
+        autocomplete_candidates
     }
 
     /// Executes a parsed console command against the provided Bevy world.
@@ -830,6 +1246,10 @@ impl FoundationConsoleRegistry {
         world: &mut World,
         command_line: &str,
     ) -> ConsoleCommandResult<()> {
+        if is_open_scene_command_line(command_line) {
+            return execute_open_scene_command(world, command_line);
+        }
+
         let parsed_command_line = ParsedConsoleCommandLine::parse(command_line)?;
         let Some(command) = self.find_command(&parsed_command_line.command_name) else {
             return Err(ConsoleCommandError::UnknownCommand {
@@ -839,6 +1259,55 @@ impl FoundationConsoleRegistry {
 
         (command.execute)(world, parsed_command_line.arguments)
     }
+}
+
+fn is_open_scene_command_line(command_line: &str) -> bool {
+    let trimmed_command_line = command_line.trim_start();
+    trimmed_command_line == "open" || trimmed_command_line.starts_with("open ")
+}
+
+fn execute_open_scene_command(world: &mut World, command_line: &str) -> ConsoleCommandResult<()> {
+    let scene_keys = parse_open_scene_command_scene_keys(command_line)?;
+    let scene_commands = runtime_open_scene_commands(scene_keys);
+    let Some(mut scene_command_messages) = world.get_resource_mut::<Messages<SceneCommand>>()
+    else {
+        return Err(ConsoleCommandError::SceneCommandsUnavailable);
+    };
+
+    for scene_command in scene_commands {
+        scene_command_messages.write(scene_command);
+    }
+
+    Ok(())
+}
+
+fn parse_open_scene_command_scene_keys(command_line: &str) -> ConsoleCommandResult<Vec<String>> {
+    let scene_keys = command_line
+        .split_whitespace()
+        .skip(1)
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if scene_keys.is_empty() {
+        return Err(ConsoleCommandError::MissingOpenSceneArgument);
+    }
+
+    Ok(scene_keys)
+}
+
+fn runtime_open_scene_commands(scene_keys: Vec<String>) -> Vec<SceneCommand> {
+    scene_keys
+        .into_iter()
+        .enumerate()
+        .map(|(scene_key_position, scene_key)| {
+            let scene_source = SceneSource::bsn_scene(scene_key);
+            if scene_key_position == 0 {
+                let clear_stack_options = OpenSceneOptions::default().clear_stack();
+                SceneCommand::open_with_options(scene_source, clear_stack_options)
+            } else {
+                SceneCommand::open(scene_source)
+            }
+        })
+        .collect()
 }
 
 /// Metadata and executor for one Foundation console command.
@@ -1031,6 +1500,10 @@ pub enum ConsoleCommandError {
     },
     /// A no-input command received one or more parameters.
     UnexpectedParameters,
+    /// The built-in `open` command did not receive any scene keys or paths.
+    MissingOpenSceneArgument,
+    /// The scene-stack message resource was not installed in the current app.
+    SceneCommandsUnavailable,
     /// Bevy failed to run a generated command system.
     SystemFailed {
         /// Bevy system failure details.
@@ -1082,6 +1555,8 @@ impl fmt::Display for ConsoleCommandError {
                 "Failed to parse console parameter `{parameter_name}` as {expected_type_name}: {reason}"
             ),
             Self::UnexpectedParameters => write!(formatter, "This console command does not accept parameters."),
+            Self::MissingOpenSceneArgument => write!(formatter, "Expected `open` to include at least one BSN scene key or asset-relative `.bsn` path."),
+            Self::SceneCommandsUnavailable => write!(formatter, "The Foundation scene stack is not available, so `open` cannot change scenes."),
             Self::SystemFailed { reason } => write!(formatter, "Console command system failed: {reason}"),
         }
     }
@@ -1409,5 +1884,160 @@ mod tests {
 
         let console_history = world.resource::<FoundationConsoleHistory>();
         assert_eq!(console_history.commands, vec!["second", "third"]);
+    }
+
+    #[test]
+    fn open_scene_command_builds_clear_then_ordered_open_commands() {
+        let scene_keys = vec![
+            "last-beacon/gameplay_level".to_string(),
+            "last-beacon/pause_menu".to_string(),
+        ];
+
+        let scene_commands = runtime_open_scene_commands(scene_keys);
+
+        assert_eq!(
+            scene_commands,
+            vec![
+                SceneCommand::open_with_options(
+                    SceneSource::bsn_scene("last-beacon/gameplay_level"),
+                    OpenSceneOptions::default().clear_stack(),
+                ),
+                SceneCommand::open(SceneSource::bsn_scene("last-beacon/pause_menu")),
+            ]
+        );
+    }
+
+    #[test]
+    fn registry_executes_open_scene_command_against_scene_stack() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        let registry = FoundationConsoleRegistry::default();
+
+        registry
+            .execute_command_line(
+                app.world_mut(),
+                "open last-beacon/gameplay_level last-beacon/pause_menu",
+            )
+            .expect("open command should queue scene stack commands");
+        app.update();
+
+        let scene_stack = app.world().resource::<crate::scene_stack::SceneStack>();
+        assert_eq!(scene_stack.len(), 2);
+        assert_eq!(
+            scene_stack.entries()[0].source,
+            SceneSource::bsn_scene("last-beacon/gameplay_level")
+        );
+        assert_eq!(
+            scene_stack.entries()[1].source,
+            SceneSource::bsn_scene("last-beacon/pause_menu")
+        );
+    }
+
+    #[test]
+    fn open_scene_command_rejects_missing_scene_arguments() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        let registry = FoundationConsoleRegistry::default();
+
+        let command_error = registry
+            .execute_command_line(app.world_mut(), "open")
+            .expect_err("open command should require at least one scene");
+
+        assert!(matches!(
+            command_error,
+            ConsoleCommandError::MissingOpenSceneArgument
+        ));
+    }
+
+    #[test]
+    fn open_scene_autocomplete_predicts_registered_scene_keys_only() {
+        let registry = FoundationConsoleRegistry::default();
+        let mut bsn_scene_registry = FoundationBsnSceneRegistry::default();
+        bsn_scene_registry.register_scene("last-beacon/main_menu", "scenes/main_menu.bsn");
+        bsn_scene_registry.register_scene("last-beacon/my_map", "scenes/my_map.bsn");
+        bsn_scene_registry.register_scene("other-game/main_menu", "scenes/other_menu.bsn");
+
+        let suggestions =
+            autocomplete_console_candidates("open las", &registry, Some(&bsn_scene_registry));
+
+        assert_eq!(
+            suggestions,
+            vec![
+                ConsoleAutocompleteCandidate {
+                    replacement: "open last-beacon/main_menu".to_string(),
+                    display: "open last-beacon/main_menu".to_string(),
+                },
+                ConsoleAutocompleteCandidate {
+                    replacement: "open last-beacon/my_map".to_string(),
+                    display: "open last-beacon/my_map".to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn open_scene_autocomplete_starts_before_open_is_fully_typed() {
+        let registry = FoundationConsoleRegistry::default();
+        let mut bsn_scene_registry = FoundationBsnSceneRegistry::default();
+        bsn_scene_registry.register_scene("last-beacon/mapmap", "scenes/mapmap.bsn");
+
+        let suggestions =
+            autocomplete_console_candidates("op", &registry, Some(&bsn_scene_registry));
+
+        assert!(suggestions.contains(&ConsoleAutocompleteCandidate {
+            replacement: "open".to_string(),
+            display: "open".to_string(),
+        }));
+        assert!(suggestions.contains(&ConsoleAutocompleteCandidate {
+            replacement: "open last-beacon/mapmap".to_string(),
+            display: "open last-beacon/mapmap".to_string(),
+        }));
+    }
+
+    #[test]
+    fn open_scene_autocomplete_matches_registered_scene_key_substrings() {
+        let registry = FoundationConsoleRegistry::default();
+        let mut bsn_scene_registry = FoundationBsnSceneRegistry::default();
+        bsn_scene_registry.register_scene("last-beacon/mapmap", "scenes/mapmap.bsn");
+
+        let suggestions =
+            autocomplete_console_candidates("open mapmap", &registry, Some(&bsn_scene_registry));
+
+        assert_eq!(
+            suggestions,
+            vec![ConsoleAutocompleteCandidate {
+                replacement: "open last-beacon/mapmap".to_string(),
+                display: "open last-beacon/mapmap".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn command_autocomplete_lists_multiple_sorted_predictions() {
+        let registry = FoundationConsoleRegistry::default();
+
+        let suggestion_text = console_suggestion_text("o", &registry, None);
+
+        assert!(suggestion_text.contains("foundation_console_history_size"));
+        assert!(suggestion_text.contains("open"));
+    }
+
+    #[test]
+    fn command_autocomplete_is_hidden_for_blank_input() {
+        let registry = FoundationConsoleRegistry::default();
+
+        assert_eq!(console_suggestion_text("", &registry, None), "");
+        assert_eq!(console_suggestion_text("   ", &registry, None), "");
+    }
+
+    #[test]
+    fn command_autocomplete_matches_text_contained_anywhere() {
+        let registry = FoundationConsoleRegistry::default();
+
+        let suggestion_text = console_suggestion_text("op", &registry, None);
+
+        assert!(suggestion_text.contains("open"));
     }
 }

@@ -48,7 +48,42 @@ Systems mutate the stack by writing `SceneCommand` messages. Foundation processe
 
 ## Scene Sources
 
-`SceneSource::bsn_scene("template-game/main_menu")` identifies a BSN scene key. The active game catalog resolves that key to Rust-authored BSN content.
+`SceneSource::bsn_scene("template-game/main_menu")` identifies a BSN scene key. Foundation can now resolve these keys through the temporary `.bsn` asset bridge installed by `FoundationBsnAssetPlugin`.
+
+Games register stable scene keys with `FoundationBsnSceneRegistry`:
+
+```rust
+registry.register_scene("last-beacon/main_menu", "scenes/main_menu.bsn");
+```
+
+If a key is not registered, Foundation treats the key as a direct asset path relative to the active assets directory. This makes `SceneSource::bsn_scene("levels/intro.bsn")` useful for simple level and prefab loading without a separate catalog.
+
+Non-shipping builds can also use the startup scene override argument. A single value opens one BSN scene instead of the game's default startup flow:
+
+```cmd
+--scene last-beacon/main_menu
+--scene scenes/main_menu.bsn
+```
+
+A bracketed list opens scenes in order as a startup stack. Foundation trims whitespace around commas, so all of these list separators are valid:
+
+```cmd
+--scene "[last-beacon/gameplay_level,scenes/testing_mode.bsn]"
+--scene "[last-beacon/gameplay_level, scenes/testing_mode.bsn]"
+--scene "[last-beacon/gameplay_level , scenes/testing_mode.bsn]"
+```
+
+The first override scene clears the stack; later entries are opened above it. If no `--scene` argument is present, games should emit their normal default startup scene commands.
+
+Non-shipping builds can also use the debug console to reopen scenes while the game is already running:
+
+```text
+open last-beacon/main_menu
+open last-beacon/gameplay_level last-beacon/pause_menu
+open scenes/main_menu.bsn
+```
+
+The `open` command clears the current scene stack, opens the first scene fresh, and then opens each later scene above it in order. Console predictions for `open` arguments list registered scene keys from `FoundationBsnSceneRegistry`, such as `last-beacon/main_menu`. These predictions update while the user types and can appear before `open` is fully typed, so `op` can already preview full commands such as `open last-beacon/main_menu`. Scene-key prediction searches within registered keys, so `open map` can match a registered key such as `last-beacon/mapmap`. Direct asset-relative `.bsn` paths remain valid when typed explicitly, but they are not predicted unless registered as scene keys.
 
 `SceneSource::runtime(SceneKey::new("debug-overlay"))` remains available for system-authored runtime scenes.
 
@@ -97,12 +132,37 @@ SceneOwner { scene_id }
 
 Foundation cleanup removes owned entities when a scene leaves the stack. Generated UI or gameplay entities should inherit the same owner so they do not leak across scene transitions.
 
-## BSN Authoring Rules
+## BSN Asset Authoring Rules
 
-- Define concrete game scenes in the game crate as Rust scene functions.
-- Use BSN (`bsn!`) for scene structure where practical.
-- Use small imperative helpers only where scene ownership, runtime resources, or interaction wiring is clearer outside the macro.
-- Keep reusable behavior in `foundation-runtime-library` and concrete scene keys/content in the game crate.
+Foundation includes a temporary `.bsn` asset bridge for Bevy 0.19. Bevy currently ships the `bsn!` macro, but not the official file-backed `.bsn` asset loader. Foundation's bridge is intentionally isolated in `foundation-runtime-library` so it can be removed when Bevy provides first-party support.
+
+Use `.bsn` assets for ECS-authored levels and prefabs:
+
+```text
+game/assets/scenes/main_menu.bsn
+game/assets/scenes/gameplay_level.bsn
+game/assets/prefabs/loot_crate.bsn
+```
+
+Rules:
+
+- Keep concrete game scene and prefab files in the game asset directory.
+- Use `.bsn` for static entity/component hierarchy where practical.
+- Keep Rust glue for runtime behavior that cannot live in static assets, such as systems, resources, scene transition drivers, and strongly typed callbacks.
+- Register stable scene keys with `FoundationBsnSceneRegistry` when user-facing keys should not expose asset paths.
+- Keep reusable loader, spawn, and hot-reload behavior in `foundation-runtime-library`.
+- Do not use `.bsn` as a general data format for arbitrary non-ECS content unless a later plan explicitly expands the scope.
+
+### Hot reload behavior
+
+When Bevy reports that a loaded `.bsn` `ScenePatch` changed, Foundation's bridge performs whole-instance replacement:
+
+1. Find live `FoundationBsnInstance` roots using that asset.
+2. Despawn each old root recursively, removing authored children with it.
+3. Spawn a fresh root from the reloaded `.bsn` asset.
+4. Reapply Foundation scene ownership and parent attachment context that belongs to the instance.
+
+Foundation does not attempt in-place diffing or gameplay-state preservation. Entity references into a reloaded prefab or level may become stale after replacement. This is an accepted development-time tradeoff for simple, deterministic hot reload.
 
 ## Build Modes Direction
 
