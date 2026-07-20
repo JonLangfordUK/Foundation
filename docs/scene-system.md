@@ -132,6 +132,31 @@ SceneOwner { scene_id }
 
 Foundation cleanup removes owned entities when a scene leaves the stack. Generated UI or gameplay entities should inherit the same owner so they do not leak across scene transitions.
 
+## Readiness Gating (Scene Visibility)
+
+A scene's `visible` stack flag (from `ScenePresentation`) and its actual on-screen visibility are two separate concerns. Stack presentation decides whether a scene *should* be visible (not covered by another scene); readiness decides whether its content is *actually built and styled* yet.
+
+`SceneContentLoading` is a marker component games and Foundation systems attach to a `SceneOwner`-tagged entity — the scene root or any descendant — while that entity's content is still loading or applying:
+
+```rust
+commands.entity(entity).insert(SceneContentLoading);
+// ... once the entity's content is final (success or failure) ...
+commands.entity(entity).remove::<SceneContentLoading>();
+```
+
+`sync_scene_entity_visibility` only shows a scene-owned root once **both** are true:
+
+- the scene stack says the scene should be visible (`SceneStack::is_visible`), and
+- no entity that scene owns still carries `SceneContentLoading`.
+
+This closes the gap where a scene used to become visible the instant it was pushed onto the stack, before any of its authored content existed — producing a visible "pop" once the content actually finished loading a few frames later. Foundation's `.bsn` asset bridge (`bsn_assets.rs`) uses this directly: every scene-owned BSN root spawns `Visibility::Hidden` + `SceneContentLoading`, and both are cleared once `scene_patch.apply(...)` completes (whether it succeeds or fails — a broken load must still reveal whatever content exists rather than hiding the scene forever). Standalone (non scene-stack) BSN prefabs spawned via `spawn_bsn_asset` are not gated by the scene stack; they reveal themselves directly once their own apply completes.
+
+Game code that starts its own nested asset loads under already-applied scene content (for example Last Beacon's `LastBeaconBsnWidget` reusable-widget composition) should follow the same pattern: insert `SceneContentLoading` on the entity that starts a new load, and remove it once that load settles. Doing so keeps the owning scene hidden until every nested load finishes too, instead of the scene's shell appearing first and individual pieces popping in afterward.
+
+Ordering matters here: a system that inserts `SceneContentLoading` in reaction to newly-applied scene content (such as `Added<SomeMarker>`) must run *after* `propagate_loaded_bsn_scene_owners` in the same `Update` pass, so the entity already carries the correct `SceneOwner` before the marker is attached. Otherwise the marker could briefly apply to no scene, letting the parent scene flash visible for one frame before hiding again once ownership catches up on the next frame. `foundation_runtime_library::prelude::propagate_loaded_bsn_scene_owners` is exported specifically so other crates can express this ordering with `.after(propagate_loaded_bsn_scene_owners)`.
+
+Readiness gating is purely additive to presentation: a fully-ready scene that is covered by a scene above it still hides, and a stack-visible-but-loading scene stays hidden regardless of presentation. Both conditions must hold together.
+
 ## BSN Asset Authoring Rules
 
 Foundation includes a temporary `.bsn` asset bridge for Bevy 0.19. Bevy currently ships the `bsn!` macro, but not the official file-backed `.bsn` asset loader. Foundation's bridge is intentionally isolated in `foundation-runtime-library` so it can be removed when Bevy provides first-party support.
