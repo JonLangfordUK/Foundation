@@ -226,7 +226,14 @@ fn spawn_bsn_instance_with_asset_server(
     scene_entity.id()
 }
 
-fn apply_pending_bsn_instances(world: &mut World) {
+/// Applies loaded `ScenePatch` content onto tracked BSN root/prefab entities.
+///
+/// Game code that reassigns fonts, styling, or other post-processing on
+/// newly-authored components (for example via `Added<TextFont>`) should
+/// order that system after this one, so it sees corrected values on the
+/// same frame text/nodes are created, before Bevy's text/layout systems run
+/// in `PostUpdate` and rasterize glyphs with whatever font was present.
+pub fn apply_pending_bsn_instances(world: &mut World) {
     let pending_instances = {
         let mut pending_query = world
             .query_filtered::<(Entity, &FoundationBsnInstance), With<FoundationBsnApplyPending>>();
