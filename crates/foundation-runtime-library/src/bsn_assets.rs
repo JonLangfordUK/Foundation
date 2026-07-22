@@ -251,6 +251,10 @@ fn activate_prepared_bsn_scenes(
     scene_stack: Res<SceneStack>,
     mut preparation_registry: ResMut<crate::scene_stack::ScenePreparationRegistry>,
     mut preload_requested: MessageWriter<ScenePreloadRequested>,
+    active_scene_instances: Query<
+        &FoundationBsnInstance,
+        Without<FoundationPreparedSceneCacheEntry>,
+    >,
     mut prepared_scene_instances: Query<
         (
             Entity,
@@ -265,6 +269,16 @@ fn activate_prepared_bsn_scenes(
             continue;
         };
 
+        let scene_owner = SceneOwner {
+            scene_id: scene_stack_entry.id,
+        };
+        let scene_already_has_active_bsn_content = active_scene_instances
+            .iter()
+            .any(|active_instance| active_instance.scene_owner == Some(scene_owner));
+        if scene_already_has_active_bsn_content {
+            continue;
+        }
+
         let Some((prepared_root_entity, _prepared_scene, mut prepared_instance)) =
             prepared_scene_instances
                 .iter_mut()
@@ -273,9 +287,6 @@ fn activate_prepared_bsn_scenes(
             continue;
         };
 
-        let scene_owner = SceneOwner {
-            scene_id: scene_stack_entry.id,
-        };
         prepared_instance.scene_owner = Some(scene_owner);
         let activation_root_entity = prepared_root_entity;
         commands.queue(move |world: &mut World| {
@@ -1056,6 +1067,75 @@ mod tests {
                 .get::<FoundationBsnInstance>(root_entity)
                 .and_then(|instance| instance.scene_owner),
             Some(expected_scene_owner)
+        );
+    }
+
+    #[test]
+    fn active_scene_does_not_reactivate_refilled_cache_copy() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_systems(
+            PostUpdate,
+            activate_prepared_bsn_scenes.in_set(FoundationSceneStackSet::ActivateSceneContent),
+        );
+
+        let scene_source = SceneSource::bsn_scene("levels/prepared");
+        app.world_mut()
+            .resource_mut::<crate::scene_stack::ScenePreparationRegistry>()
+            .mark_ready(scene_source.clone());
+        app.world_mut()
+            .write_message(SceneCommand::open(scene_source.clone()));
+        app.update();
+
+        let active_scene_owner = SceneOwner {
+            scene_id: SceneId(1),
+        };
+        let active_root_entity = app
+            .world_mut()
+            .spawn(FoundationBsnInstance {
+                asset_path: "levels/prepared.bsn".to_string(),
+                scene_owner: Some(active_scene_owner),
+                parent: None,
+                scene_handle: Handle::default(),
+            })
+            .id();
+        let prepared_refill_entity = app
+            .world_mut()
+            .spawn((
+                FoundationPreparedSceneCacheEntry {
+                    source: scene_source,
+                },
+                FoundationBsnInstance {
+                    asset_path: "levels/prepared.bsn".to_string(),
+                    scene_owner: None,
+                    parent: None,
+                    scene_handle: Handle::default(),
+                },
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<FoundationBsnInstance>(active_root_entity)
+                .and_then(|instance| instance.scene_owner),
+            Some(active_scene_owner),
+            "existing active content should remain the scene's active BSN instance"
+        );
+        assert!(
+            app.world()
+                .get::<FoundationPreparedSceneCacheEntry>(prepared_refill_entity)
+                .is_some(),
+            "a refilled cache copy for an already-active scene must stay cached, not activate again"
+        );
+        assert_eq!(
+            app.world()
+                .get::<FoundationBsnInstance>(prepared_refill_entity)
+                .and_then(|instance| instance.scene_owner),
+            None,
+            "a refilled cache copy should not be assigned to an already-populated scene"
         );
     }
 
