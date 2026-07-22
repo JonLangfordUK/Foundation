@@ -83,7 +83,6 @@ impl Plugin for FoundationConsolePlugin {
                 Update,
                 (
                     toggle_console_scene,
-                    spawn_console_scene_from_stack_request,
                     track_console_scene_added,
                     track_console_scene_removed,
                     update_console_input_state,
@@ -93,6 +92,11 @@ impl Plugin for FoundationConsolePlugin {
                     scroll_console_output,
                 )
                     .chain(),
+            )
+            .add_systems(
+                PostUpdate,
+                spawn_console_scene_from_stack_request
+                    .in_set(crate::scene_stack::FoundationSceneStackSet::ActivateSceneContent),
             );
     }
 }
@@ -1914,6 +1918,9 @@ mod tests {
         app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
         let registry = FoundationConsoleRegistry::default();
 
+        let first_scene_source = SceneSource::bsn_scene("last-beacon/gameplay_level");
+        let second_scene_source = SceneSource::bsn_scene("last-beacon/pause_menu");
+
         registry
             .execute_command_line(
                 app.world_mut(),
@@ -1921,17 +1928,20 @@ mod tests {
             )
             .expect("open command should queue scene stack commands");
         app.update();
+        app.world_mut()
+            .write_message(crate::scene_stack::ScenePreloadReady {
+                source: first_scene_source.clone(),
+            });
+        app.world_mut()
+            .write_message(crate::scene_stack::ScenePreloadReady {
+                source: second_scene_source.clone(),
+            });
+        app.update();
 
         let scene_stack = app.world().resource::<crate::scene_stack::SceneStack>();
         assert_eq!(scene_stack.len(), 2);
-        assert_eq!(
-            scene_stack.entries()[0].source,
-            SceneSource::bsn_scene("last-beacon/gameplay_level")
-        );
-        assert_eq!(
-            scene_stack.entries()[1].source,
-            SceneSource::bsn_scene("last-beacon/pause_menu")
-        );
+        assert_eq!(scene_stack.entries()[0].source, first_scene_source);
+        assert_eq!(scene_stack.entries()[1].source, second_scene_source);
     }
 
     #[test]

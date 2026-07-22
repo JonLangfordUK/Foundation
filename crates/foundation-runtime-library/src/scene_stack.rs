@@ -6,11 +6,23 @@
 //! scene source instead of being converted into a separate Foundation-specific
 //! scene format.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use bevy::prelude::*;
+use bevy::{log::error, prelude::*};
 
 /// Installs FoundationRuntimeLibrary scene stack resources and message types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub enum FoundationSceneStackSet {
+    /// Records preload outcomes and processes queued transition batches.
+    ProcessTransitions,
+    /// Activates already-prepared scene content into newly-added stack entries.
+    ActivateSceneContent,
+    /// Synchronizes scene-root visibility after stack and activation changes settle.
+    SyncVisibility,
+    /// Cleans up entities whose owning scenes were removed from the stack.
+    Cleanup,
+}
+
 #[derive(Default)]
 pub struct FoundationSceneStackPlugin;
 
@@ -18,24 +30,52 @@ impl Plugin for FoundationSceneStackPlugin {
     fn build(&self, app: &mut App) {
         // The stack resource owns scene lifecycle; messages are the public mutation API.
         app.init_resource::<SceneStack>()
+            .init_resource::<ScenePreparationRegistry>()
+            .init_resource::<ScenePreloadRegistry>()
+            .init_resource::<SceneCommandQueue>()
+            .init_resource::<SceneTransitionStatus>()
             .add_message::<SceneCommand>()
             .add_message::<SceneAdded>()
             .add_message::<SceneRemoved>()
             .add_message::<SceneFocused>()
             .add_message::<SceneUnfocused>()
             .add_message::<SceneLoadRequested>()
+            .add_message::<ScenePreloadRequested>()
+            .add_message::<ScenePreloadReady>()
+            .add_message::<ScenePreloadFailed>()
+            .add_message::<SceneTransitionFailed>()
             .register_type::<SceneOwner>()
             .register_type::<SceneContentLoading>()
-            // Visibility sync and cleanup run after command processing so both
-            // observe the freshly recomputed stack flags and removed scene IDs.
+            .register_type::<ScenePreparationStatus>()
+            .register_type::<SceneTransitionStatus>()
+            .configure_sets(
+                PostUpdate,
+                (
+                    FoundationSceneStackSet::ProcessTransitions,
+                    FoundationSceneStackSet::ActivateSceneContent,
+                    FoundationSceneStackSet::SyncVisibility,
+                    FoundationSceneStackSet::Cleanup,
+                )
+                    .chain(),
+            )
             .add_systems(
                 PostUpdate,
                 (
+                    record_scene_preload_results,
                     process_scene_commands,
-                    sync_scene_entity_visibility,
-                    cleanup_removed_scene_entities,
+                    advance_scene_command_queue,
+                    request_registered_scene_preloads,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(FoundationSceneStackSet::ProcessTransitions),
+            )
+            .add_systems(
+                PostUpdate,
+                sync_scene_entity_visibility.in_set(FoundationSceneStackSet::SyncVisibility),
+            )
+            .add_systems(
+                PostUpdate,
+                cleanup_removed_scene_entities.in_set(FoundationSceneStackSet::Cleanup),
             );
     }
 }
@@ -74,7 +114,7 @@ impl From<String> for SceneKey {
 ///
 /// BSN scene keys are first-class sources so FoundationRuntimeLibrary can cooperate
 /// with code-authored BSN scenes without defining a second scene-stack API.
-#[derive(Clone, Debug, PartialEq, Eq, Reflect)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 pub enum SceneSource {
     /// A Bevy BSN scene key resolved by the active game catalog.
     BsnScene { key: String },
@@ -321,6 +361,11 @@ impl From<SceneKey> for SceneTarget {
 /// Buffered request to mutate the scene stack.
 #[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
 pub enum SceneCommand {
+    /// Prepare a scene source for later activation without mutating the current stack.
+    Preload {
+        /// Scene source to prepare.
+        source: SceneSource,
+    },
     /// Open a scene, optionally clearing or replacing existing entries first.
     Open {
         /// Scene source to open.
@@ -344,6 +389,11 @@ pub enum SceneCommand {
 }
 
 impl SceneCommand {
+    /// Creates a preload command.
+    pub fn preload(source: SceneSource) -> Self {
+        Self::Preload { source }
+    }
+
     /// Creates an open command with default options.
     pub fn open(source: SceneSource) -> Self {
         Self::Open {
@@ -431,8 +481,181 @@ pub struct SceneOwner {
 #[reflect(Component, Default)]
 pub struct SceneContentLoading;
 
+/// Public preparation status for a scene source.
+#[derive(Clone, Debug, PartialEq, Eq, Reflect)]
+pub enum ScenePreparationStatus {
+    /// Preparation has been requested but not settled yet.
+    Requested,
+    /// Prepared content is ready for stack activation.
+    Ready,
+    /// Preparation failed and must be retried explicitly.
+    Failed,
+}
+
+/// Tracks current preparation state for scene sources known to Foundation.
+#[derive(Debug, Default, Resource)]
+pub struct ScenePreparationRegistry {
+    entries: HashMap<SceneSource, ScenePreparationRecord>,
+}
+
+impl ScenePreparationRegistry {
+    /// Returns the current preparation status for a source, if Foundation knows it.
+    pub fn status(&self, scene_source: &SceneSource) -> Option<&ScenePreparationStatus> {
+        self.entries.get(scene_source).map(|record| &record.status)
+    }
+
+    /// Returns the last recorded failure reason for a source, if one exists.
+    pub fn failure_reason(&self, scene_source: &SceneSource) -> Option<&str> {
+        self.entries
+            .get(scene_source)
+            .and_then(|record| record.failure_reason.as_deref())
+    }
+
+    pub(crate) fn mark_requested(&mut self, scene_source: SceneSource) {
+        self.entries.insert(
+            scene_source,
+            ScenePreparationRecord {
+                status: ScenePreparationStatus::Requested,
+                failure_reason: None,
+            },
+        );
+    }
+
+    pub(crate) fn mark_ready(&mut self, scene_source: SceneSource) {
+        self.entries.insert(
+            scene_source,
+            ScenePreparationRecord {
+                status: ScenePreparationStatus::Ready,
+                failure_reason: None,
+            },
+        );
+    }
+
+    pub(crate) fn mark_failed(&mut self, scene_source: SceneSource, failure_reason: String) {
+        self.entries.insert(
+            scene_source,
+            ScenePreparationRecord {
+                status: ScenePreparationStatus::Failed,
+                failure_reason: Some(failure_reason),
+            },
+        );
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ScenePreparationRecord {
+    status: ScenePreparationStatus,
+    failure_reason: Option<String>,
+}
+
+/// Registers scene sources that should be proactively preloaded when another scene activates.
+#[derive(Debug, Default, Resource)]
+pub struct ScenePreloadRegistry {
+    preload_targets_by_source: HashMap<SceneSource, Vec<SceneSource>>,
+}
+
+impl ScenePreloadRegistry {
+    /// Registers scene sources that should preload whenever `scene_source` activates.
+    pub fn register_preloads(
+        &mut self,
+        scene_source: impl Into<SceneSource>,
+        preload_targets: impl IntoIterator<Item = SceneSource>,
+    ) {
+        self.preload_targets_by_source
+            .insert(scene_source.into(), preload_targets.into_iter().collect());
+    }
+
+    /// Returns the registered preload targets for a source.
+    pub fn preload_targets(&self, scene_source: &SceneSource) -> &[SceneSource] {
+        self.preload_targets_by_source
+            .get(scene_source)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+}
+
+/// Tracks whether Foundation is currently waiting on one or more prepared scene sources.
+#[derive(Clone, Debug, Default, Reflect, Resource)]
+#[reflect(Resource, Default)]
+pub struct SceneTransitionStatus {
+    /// True when at least one queued scene-transition batch is still waiting on preparation.
+    pub transition_pending: bool,
+    /// Scene sources required by the currently active pending transition batch.
+    pub pending_sources: Vec<SceneSource>,
+    /// Total queued transition batches, including the currently active batch when present.
+    pub queued_transition_count: usize,
+}
+
+#[derive(Debug, Default, Resource)]
+struct SceneCommandQueue {
+    next_batch_id: u64,
+    queued_batches: VecDeque<QueuedSceneCommandBatch>,
+}
+
+impl SceneCommandQueue {
+    fn allocate_batch_id(&mut self) -> u64 {
+        let batch_id = self.next_batch_id.max(1);
+        self.next_batch_id = batch_id + 1;
+        batch_id
+    }
+}
+
+#[derive(Clone, Debug)]
+struct QueuedSceneCommandBatch {
+    id: u64,
+    commands: Vec<SceneCommand>,
+    required_sources: Vec<SceneSource>,
+    preload_started: bool,
+}
+
+impl QueuedSceneCommandBatch {
+    fn new(id: u64, commands: Vec<SceneCommand>) -> Self {
+        Self {
+            id,
+            required_sources: collect_required_sources(&commands),
+            commands,
+            preload_started: false,
+        }
+    }
+}
+
+/// Message emitted when Foundation should begin preparing a scene source for later activation.
+#[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
+pub struct ScenePreloadRequested {
+    /// Source that should begin preparing.
+    pub source: SceneSource,
+}
+
+/// Message emitted when a previously requested scene source is ready to activate.
+#[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
+pub struct ScenePreloadReady {
+    /// Prepared source that is now activation-ready.
+    pub source: SceneSource,
+}
+
+/// Message emitted when a scene source failed to prepare.
+#[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
+pub struct ScenePreloadFailed {
+    /// Source that failed to prepare.
+    pub source: SceneSource,
+    /// Human-readable failure reason.
+    pub reason: String,
+}
+
+/// Message emitted when a queued transition batch could not complete because one or more sources failed.
+#[derive(Clone, Debug, Message, PartialEq, Eq, Reflect)]
+pub struct SceneTransitionFailed {
+    /// Queued batch that failed.
+    pub batch_id: u64,
+    /// Scene sources whose preparation failed.
+    pub failed_sources: Vec<SceneSource>,
+}
+
 /// Convenience methods for queuing scene commands through Bevy [`Commands`].
 pub trait SceneCommandsExt {
+    /// Queues a command to preload a scene without mutating the current stack.
+    fn preload_scene(&mut self, source: SceneSource) -> &mut Self;
+
     /// Queues a command to open a scene with default options.
     fn open_scene(&mut self, source: SceneSource) -> &mut Self;
 
@@ -457,6 +680,10 @@ pub trait SceneCommandsExt {
 }
 
 impl<'w, 's> SceneCommandsExt for Commands<'w, 's> {
+    fn preload_scene(&mut self, source: SceneSource) -> &mut Self {
+        self.queue_scene_command(SceneCommand::preload(source))
+    }
+
     fn open_scene(&mut self, source: SceneSource) -> &mut Self {
         self.queue_scene_command(SceneCommand::open(source))
     }
@@ -502,32 +729,149 @@ impl<'w, 's> QueueSceneCommand for Commands<'w, 's> {
 
 fn process_scene_commands(
     mut commands: MessageReader<SceneCommand>,
+    mut command_queue: ResMut<SceneCommandQueue>,
+    mut preparation_registry: ResMut<ScenePreparationRegistry>,
+    mut preload_requested: MessageWriter<ScenePreloadRequested>,
+) {
+    // Drain commands before queuing them so later systems observe a stable batch.
+    let scene_commands = commands.read().cloned().collect::<Vec<_>>();
+    if scene_commands.is_empty() {
+        return;
+    }
+
+    let mut stack_mutation_commands = Vec::new();
+    for scene_command in scene_commands {
+        match scene_command {
+            SceneCommand::Preload { source } => {
+                request_scene_preload_if_needed(
+                    source,
+                    &mut preparation_registry,
+                    &mut preload_requested,
+                );
+            }
+            other_scene_command => stack_mutation_commands.push(other_scene_command),
+        }
+    }
+
+    if stack_mutation_commands.is_empty() {
+        return;
+    }
+
+    let batch_id = command_queue.allocate_batch_id();
+    command_queue
+        .queued_batches
+        .push_back(QueuedSceneCommandBatch::new(
+            batch_id,
+            stack_mutation_commands,
+        ));
+}
+
+fn record_scene_preload_results(
+    mut preparation_registry: ResMut<ScenePreparationRegistry>,
+    mut preload_ready: MessageReader<ScenePreloadReady>,
+    mut preload_failed: MessageReader<ScenePreloadFailed>,
+) {
+    for ready_message in preload_ready.read() {
+        preparation_registry.mark_ready(ready_message.source.clone());
+    }
+
+    for failed_message in preload_failed.read() {
+        preparation_registry
+            .mark_failed(failed_message.source.clone(), failed_message.reason.clone());
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn advance_scene_command_queue(
+    mut command_queue: ResMut<SceneCommandQueue>,
+    mut transition_status: ResMut<SceneTransitionStatus>,
+    mut preparation_registry: ResMut<ScenePreparationRegistry>,
     mut stack: ResMut<SceneStack>,
     mut added: MessageWriter<SceneAdded>,
     mut removed: MessageWriter<SceneRemoved>,
     mut focused: MessageWriter<SceneFocused>,
     mut unfocused: MessageWriter<SceneUnfocused>,
     mut load_requested: MessageWriter<SceneLoadRequested>,
+    mut preload_requested: MessageWriter<ScenePreloadRequested>,
+    mut transition_failed: MessageWriter<SceneTransitionFailed>,
 ) {
-    // Drain commands before applying them so stack mutations cannot affect this read pass.
-    let scene_commands = commands.read().cloned().collect::<Vec<_>>();
-    if scene_commands.is_empty() {
-        return;
-    }
+    transition_status.transition_pending = false;
+    transition_status.pending_sources.clear();
+    transition_status.queued_transition_count = command_queue.queued_batches.len();
 
-    for command in scene_commands {
-        apply_scene_command(
-            command,
-            &mut stack,
-            &mut added,
-            &mut removed,
-            &mut load_requested,
-        );
-    }
+    loop {
+        let Some(batch) = command_queue.queued_batches.front_mut() else {
+            return;
+        };
 
-    // Recompute focus and derived flags once per batch so callers observe only
-    // the net focus transition, never transient intermediate stack states.
-    update_runtime_flags(&mut stack, &mut focused, &mut unfocused);
+        if !batch.preload_started {
+            for required_source in batch.required_sources.clone() {
+                request_scene_preload_if_needed(
+                    required_source,
+                    &mut preparation_registry,
+                    &mut preload_requested,
+                );
+            }
+            batch.preload_started = true;
+        }
+
+        let mut failed_sources = Vec::new();
+        let mut waiting_on_sources = Vec::new();
+        for required_source in &batch.required_sources {
+            match preparation_registry.status(required_source) {
+                Some(ScenePreparationStatus::Ready) => {}
+                Some(ScenePreparationStatus::Failed) => {
+                    failed_sources.push(required_source.clone());
+                }
+                _ => waiting_on_sources.push(required_source.clone()),
+            }
+        }
+
+        if !failed_sources.is_empty() {
+            let failed_batch_id = batch.id;
+            let failed_source_list = failed_sources.clone();
+            for failed_source in &failed_sources {
+                let failure_reason = preparation_registry
+                    .failure_reason(failed_source)
+                    .unwrap_or("Unknown scene preparation failure");
+                error!(
+                    "Scene transition batch {failed_batch_id} cannot activate because `{failed_source:?}` failed: {failure_reason}"
+                );
+            }
+            transition_failed.write(SceneTransitionFailed {
+                batch_id: failed_batch_id,
+                failed_sources: failed_source_list,
+            });
+            command_queue.queued_batches.pop_front();
+            transition_status.queued_transition_count = command_queue.queued_batches.len();
+            continue;
+        }
+
+        if !waiting_on_sources.is_empty() {
+            transition_status.transition_pending = true;
+            transition_status.pending_sources = waiting_on_sources;
+            return;
+        }
+
+        let ready_batch = command_queue
+            .queued_batches
+            .pop_front()
+            .expect("front batch should still exist once all sources are ready");
+        for scene_command in ready_batch.commands {
+            apply_scene_command(
+                scene_command,
+                &mut stack,
+                &mut added,
+                &mut removed,
+                &mut load_requested,
+            );
+        }
+
+        // Recompute focus and derived flags after each activated batch so the
+        // lifecycle messages reflect the committed stack state only.
+        update_runtime_flags(&mut stack, &mut focused, &mut unfocused);
+        transition_status.queued_transition_count = command_queue.queued_batches.len();
+    }
 }
 
 fn apply_scene_command(
@@ -538,6 +882,9 @@ fn apply_scene_command(
     load_requested: &mut MessageWriter<SceneLoadRequested>,
 ) {
     match command {
+        SceneCommand::Preload { source } => {
+            panic!("preload commands should be handled before stack mutation: {source:?}");
+        }
         SceneCommand::Open { source, options } => {
             // Replacement options are applied before loading the new scene entry.
             if options.clear_stack {
@@ -611,6 +958,89 @@ fn clear_stack(stack: &mut SceneStack, removed: &mut MessageWriter<SceneRemoved>
     while let Some(entry) = stack.entries.pop() {
         removed.write(SceneRemoved { scene_id: entry.id });
     }
+}
+
+fn request_registered_scene_preloads(
+    stack: Res<SceneStack>,
+    preload_registry: Res<ScenePreloadRegistry>,
+    mut preparation_registry: ResMut<ScenePreparationRegistry>,
+    mut added: MessageReader<SceneAdded>,
+    mut focused: MessageReader<SceneFocused>,
+    mut preload_requested: MessageWriter<ScenePreloadRequested>,
+) {
+    let mut preload_source_ids = added
+        .read()
+        .map(|added_message| added_message.scene_id)
+        .collect::<Vec<_>>();
+    preload_source_ids.extend(
+        focused
+            .read()
+            .map(|focused_message| focused_message.scene_id),
+    );
+
+    for preload_source_id in preload_source_ids {
+        let Some(scene_entry) = stack.get(preload_source_id) else {
+            continue;
+        };
+
+        for preload_target in preload_registry.preload_targets(&scene_entry.source) {
+            request_scene_preload_if_needed(
+                preload_target.clone(),
+                &mut preparation_registry,
+                &mut preload_requested,
+            );
+        }
+    }
+}
+
+fn request_scene_preload_if_needed(
+    scene_source: SceneSource,
+    preparation_registry: &mut ScenePreparationRegistry,
+    preload_requested: &mut MessageWriter<ScenePreloadRequested>,
+) {
+    match preparation_registry.status(&scene_source) {
+        Some(ScenePreparationStatus::Requested) | Some(ScenePreparationStatus::Ready) => return,
+        Some(ScenePreparationStatus::Failed) | None => {}
+    }
+
+    match &scene_source {
+        SceneSource::Runtime { .. } => {
+            preparation_registry.mark_ready(scene_source);
+        }
+        SceneSource::BsnScene { .. } => {
+            preparation_registry.mark_requested(scene_source.clone());
+            preload_requested.write(ScenePreloadRequested {
+                source: scene_source,
+            });
+        }
+    }
+}
+
+fn collect_required_sources(commands: &[SceneCommand]) -> Vec<SceneSource> {
+    let mut seen_sources = HashSet::new();
+    let mut required_sources = Vec::new();
+
+    for scene_command in commands {
+        let required_source = match scene_command {
+            SceneCommand::Open { source, .. } | SceneCommand::ClearAndOpen { source, .. } => {
+                Some(source.clone())
+            }
+            SceneCommand::Preload { .. }
+            | SceneCommand::CloseCurrent
+            | SceneCommand::Close(_)
+            | SceneCommand::Clear => None,
+        };
+
+        let Some(required_source) = required_source else {
+            continue;
+        };
+
+        if seen_sources.insert(required_source.clone()) {
+            required_sources.push(required_source);
+        }
+    }
+
+    required_sources
 }
 
 fn cleanup_removed_scene_entities(
@@ -778,6 +1208,12 @@ mod tests {
     fn command_helpers_construct_expected_commands() {
         let source = SceneSource::bsn_scene("levels/one");
         assert_eq!(
+            SceneCommand::preload(source.clone()),
+            SceneCommand::Preload {
+                source: source.clone(),
+            }
+        );
+        assert_eq!(
             SceneCommand::open(source.clone()),
             SceneCommand::Open {
                 source: source.clone(),
@@ -806,7 +1242,7 @@ mod tests {
     fn processing_open_command_pushes_scene_and_focuses_it() {
         let mut app = test_app();
         app.world_mut()
-            .write_message(SceneCommand::open(SceneSource::bsn_scene("levels/one")));
+            .write_message(SceneCommand::open(SceneSource::runtime("levels/one")));
 
         app.update();
 
@@ -814,7 +1250,7 @@ mod tests {
         assert_eq!(stack.len(), 1);
         let entry = stack.current().expect("opened scene should be stacked");
         assert_eq!(entry.id, SceneId(1));
-        assert_eq!(entry.source, SceneSource::bsn_scene("levels/one"));
+        assert_eq!(entry.source, SceneSource::runtime("levels/one"));
         assert!(entry.flags.visible);
         assert!(entry.flags.interactive);
         assert!(entry.flags.updating);
@@ -902,11 +1338,15 @@ mod tests {
         let mut app = test_app();
         app.world_mut()
             .write_message(SceneCommand::open(SceneSource::runtime("gameplay")));
-        app.world_mut()
-            .write_message(SceneCommand::clear_and_open(SceneSource::bsn_scene(
-                "levels/two",
-            )));
+        let replacement_scene_source = SceneSource::bsn_scene("levels/two");
+        app.world_mut().write_message(SceneCommand::clear_and_open(
+            replacement_scene_source.clone(),
+        ));
 
+        app.update();
+        app.world_mut().write_message(ScenePreloadReady {
+            source: replacement_scene_source.clone(),
+        });
         app.update();
 
         let stack = app.world().resource::<SceneStack>();
@@ -915,7 +1355,7 @@ mod tests {
             .current()
             .expect("replacement scene should be stacked");
         assert_eq!(entry.id, SceneId(2));
-        assert_eq!(entry.source, SceneSource::bsn_scene("levels/two"));
+        assert_eq!(entry.source, replacement_scene_source);
     }
 
     #[test]
@@ -1184,19 +1624,57 @@ mod tests {
     }
 
     #[test]
-    fn open_scene_emits_load_request_for_bsn_bridge() {
+    fn bsn_scene_open_waits_for_preload_ready_before_emitting_load_request() {
         let mut app = test_app();
         app.init_resource::<LoadRequestLog>();
-        app.add_systems(Last, collect_load_requests);
+        app.init_resource::<PreloadRequestLog>();
+        app.add_systems(Last, (collect_load_requests, collect_preload_requests));
 
+        let scene_source = SceneSource::bsn_scene("levels/one");
         app.world_mut()
-            .write_message(SceneCommand::open(SceneSource::bsn_scene("levels/one")));
+            .write_message(SceneCommand::open(scene_source.clone()));
         app.update();
 
-        let log = app.world().resource::<LoadRequestLog>();
+        let preload_log = app.world().resource::<PreloadRequestLog>();
+        assert_eq!(preload_log.0, vec![scene_source.clone()]);
+        let transition_status = app.world().resource::<SceneTransitionStatus>();
+        assert!(transition_status.transition_pending);
         assert_eq!(
-            log.0,
-            vec![(SceneId(1), SceneSource::bsn_scene("levels/one"))]
+            transition_status.pending_sources,
+            vec![scene_source.clone()]
+        );
+        let load_log = app.world().resource::<LoadRequestLog>();
+        assert!(load_log.0.is_empty());
+
+        app.world_mut().write_message(ScenePreloadReady {
+            source: scene_source.clone(),
+        });
+        app.update();
+
+        let load_log = app.world().resource::<LoadRequestLog>();
+        assert_eq!(load_log.0, vec![(SceneId(1), scene_source.clone())]);
+        let stack = app.world().resource::<SceneStack>();
+        assert_eq!(
+            stack.current().map(|entry| entry.source.clone()),
+            Some(scene_source)
+        );
+    }
+
+    #[test]
+    fn preload_command_marks_runtime_scene_ready_without_touching_stack() {
+        let mut app = test_app();
+        let runtime_scene_source = SceneSource::runtime("debug-overlay");
+
+        app.world_mut()
+            .write_message(SceneCommand::preload(runtime_scene_source.clone()));
+        app.update();
+
+        let stack = app.world().resource::<SceneStack>();
+        assert!(stack.is_empty());
+        let preparation_registry = app.world().resource::<ScenePreparationRegistry>();
+        assert_eq!(
+            preparation_registry.status(&runtime_scene_source),
+            Some(&ScenePreparationStatus::Ready)
         );
     }
 
@@ -1212,6 +1690,9 @@ mod tests {
 
     #[derive(Default, Resource)]
     struct LoadRequestLog(Vec<(SceneId, SceneSource)>);
+
+    #[derive(Default, Resource)]
+    struct PreloadRequestLog(Vec<SceneSource>);
 
     fn collect_lifecycle_messages(
         mut added: MessageReader<SceneAdded>,
@@ -1240,6 +1721,15 @@ mod tests {
     ) {
         for message in load_requests.read() {
             log.0.push((message.scene_id, message.source.clone()));
+        }
+    }
+
+    fn collect_preload_requests(
+        mut preload_requests: MessageReader<ScenePreloadRequested>,
+        mut log: ResMut<PreloadRequestLog>,
+    ) {
+        for message in preload_requests.read() {
+            log.0.push(message.source.clone());
         }
     }
 }

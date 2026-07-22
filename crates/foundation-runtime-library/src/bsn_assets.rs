@@ -20,7 +20,10 @@ use std::{
 
 use crate::{
     dynamic_bsn::DynamicBsnLoader,
-    scene_stack::{SceneContentLoading, SceneLoadRequested, SceneOwner, SceneSource},
+    scene_stack::{
+        FoundationSceneStackSet, SceneContentLoading, SceneLoadRequested, SceneOwner,
+        ScenePreloadFailed, ScenePreloadReady, ScenePreloadRequested, SceneSource,
+    },
 };
 
 /// Installs temporary `.bsn` asset loading and hot-reload replacement support.
@@ -39,17 +42,29 @@ impl Plugin for FoundationBsnAssetPlugin {
         app.init_asset_loader::<DynamicBsnLoader>()
             .init_resource::<FoundationBsnSceneRegistry>()
             .init_resource::<FoundationBsnProfilingSettings>()
+            .init_resource::<crate::scene_stack::ScenePreparationRegistry>()
+            .add_message::<ScenePreloadRequested>()
+            .add_message::<ScenePreloadReady>()
+            .add_message::<ScenePreloadFailed>()
+            .add_message::<SceneLoadRequested>()
             .register_type::<FoundationBsnInstance>()
             .add_systems(
                 Update,
                 (
-                    spawn_requested_bsn_scenes,
+                    spawn_requested_bsn_scene_preloads
+                        .run_if(resource_exists::<Messages<ScenePreloadRequested>>),
                     apply_pending_bsn_instances,
                     reveal_ready_standalone_bsn_instances,
                     propagate_loaded_bsn_scene_owners,
                     replace_reloaded_bsn_instances,
                 )
                     .chain(),
+            )
+            .add_systems(
+                PostUpdate,
+                activate_prepared_bsn_scenes
+                    .run_if(resource_exists::<Messages<SceneLoadRequested>>)
+                    .in_set(FoundationSceneStackSet::ActivateSceneContent),
             );
     }
 }
@@ -123,6 +138,13 @@ impl FromWorld for FoundationBsnProfilingSettings {
     }
 }
 
+/// Marks a hidden BSN root that is being kept prepared for later stack activation.
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component)]
+struct FoundationPreparedSceneCacheEntry {
+    source: SceneSource,
+}
+
 /// Tracks one live `.bsn` scene or prefab instance.
 ///
 /// This component is stored on the root entity that receives the loaded
@@ -174,28 +196,100 @@ impl<'world, 'state> FoundationBsnCommandsExt for Commands<'world, 'state> {
     }
 }
 
-fn spawn_requested_bsn_scenes(
+fn spawn_requested_bsn_scene_preloads(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     registry: Res<FoundationBsnSceneRegistry>,
-    mut scene_requests: MessageReader<SceneLoadRequested>,
+    mut preparation_registry: ResMut<crate::scene_stack::ScenePreparationRegistry>,
+    mut preload_requests: MessageReader<ScenePreloadRequested>,
+    existing_prepared_scenes: Query<(
+        Entity,
+        &FoundationPreparedSceneCacheEntry,
+        Option<&FoundationBsnApplyPending>,
+        Option<&FoundationBsnApplyFailed>,
+    )>,
 ) {
-    for scene_request in scene_requests.read() {
-        let SceneSource::BsnScene { key } = &scene_request.source else {
+    for preload_request in preload_requests.read() {
+        let SceneSource::BsnScene { key } = &preload_request.source else {
             continue;
         };
 
+        let existing_prepared_scene = existing_prepared_scenes
+            .iter()
+            .find(|(_, prepared_scene, _, _)| prepared_scene.source == preload_request.source);
+        if let Some((existing_entity, _, pending_apply, failed_apply)) = existing_prepared_scene {
+            if pending_apply.is_some() {
+                continue;
+            }
+            if failed_apply.is_none() {
+                continue;
+            }
+
+            commands.entity(existing_entity).despawn();
+        }
+
+        preparation_registry.mark_requested(preload_request.source.clone());
         let asset_path = registry.resolve_scene_path(key);
-        let scene_owner = SceneOwner {
-            scene_id: scene_request.scene_id,
-        };
-        spawn_bsn_instance_with_asset_server(
+        let prepared_root_entity = spawn_bsn_instance_with_asset_server(
             &mut commands,
             &asset_server,
             asset_path,
-            Some(scene_owner),
+            None,
             None,
         );
+        commands
+            .entity(prepared_root_entity)
+            .insert(FoundationPreparedSceneCacheEntry {
+                source: preload_request.source.clone(),
+            });
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn activate_prepared_bsn_scenes(
+    mut commands: Commands,
+    mut scene_requests: MessageReader<SceneLoadRequested>,
+    mut preparation_registry: ResMut<crate::scene_stack::ScenePreparationRegistry>,
+    mut preload_requested: MessageWriter<ScenePreloadRequested>,
+    mut prepared_scene_instances: Query<
+        (
+            Entity,
+            &FoundationPreparedSceneCacheEntry,
+            &mut FoundationBsnInstance,
+        ),
+        Without<FoundationBsnApplyPending>,
+    >,
+) {
+    for scene_request in scene_requests.read() {
+        let SceneSource::BsnScene { .. } = &scene_request.source else {
+            continue;
+        };
+
+        let Some((prepared_root_entity, _prepared_scene, mut prepared_instance)) =
+            prepared_scene_instances
+                .iter_mut()
+                .find(|(_, prepared_scene, _)| prepared_scene.source == scene_request.source)
+        else {
+            continue;
+        };
+
+        let scene_owner = SceneOwner {
+            scene_id: scene_request.scene_id,
+        };
+        prepared_instance.scene_owner = Some(scene_owner);
+        let activation_root_entity = prepared_root_entity;
+        commands.queue(move |world: &mut World| {
+            if let Ok(mut activation_root_entity_mut) = world.get_entity_mut(activation_root_entity)
+            {
+                activation_root_entity_mut.remove::<FoundationPreparedSceneCacheEntry>();
+            }
+            insert_scene_owner_recursively_in_world(world, activation_root_entity, scene_owner);
+        });
+
+        preparation_registry.mark_requested(scene_request.source.clone());
+        preload_requested.write(ScenePreloadRequested {
+            source: scene_request.source.clone(),
+        });
     }
 }
 
@@ -372,9 +466,20 @@ pub fn apply_pending_bsn_instances(world: &mut World) {
 
         match scene_apply_result {
             Ok(()) => {
+                let prepared_scene_source = world
+                    .get::<FoundationPreparedSceneCacheEntry>(instance_entity)
+                    .map(|prepared_scene| prepared_scene.source.clone());
                 if let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) {
                     instance_entity_mut.remove::<FoundationBsnApplyPending>();
                     instance_entity_mut.remove::<SceneContentLoading>();
+                }
+                if let Some(prepared_scene_source) = prepared_scene_source {
+                    world
+                        .resource_mut::<crate::scene_stack::ScenePreparationRegistry>()
+                        .mark_ready(prepared_scene_source.clone());
+                    world.write_message(ScenePreloadReady {
+                        source: prepared_scene_source,
+                    });
                 }
             }
             Err(apply_error) => {
@@ -413,12 +518,24 @@ fn log_slow_bsn_step(
 }
 
 fn mark_bsn_instance_failed(world: &mut World, instance_entity: Entity, failure_reason: String) {
+    let prepared_scene_source = world
+        .get::<FoundationPreparedSceneCacheEntry>(instance_entity)
+        .map(|prepared_scene| prepared_scene.source.clone());
     if let Ok(mut instance_entity_mut) = world.get_entity_mut(instance_entity) {
         instance_entity_mut.remove::<FoundationBsnApplyPending>();
         // A failed load is still a settled outcome: reveal whatever content
         // exists instead of hiding the scene forever.
         instance_entity_mut.remove::<SceneContentLoading>();
         instance_entity_mut.insert(FoundationBsnApplyFailed {
+            reason: failure_reason.clone(),
+        });
+    }
+    if let Some(prepared_scene_source) = prepared_scene_source {
+        world
+            .resource_mut::<crate::scene_stack::ScenePreparationRegistry>()
+            .mark_failed(prepared_scene_source.clone(), failure_reason.clone());
+        world.write_message(ScenePreloadFailed {
+            source: prepared_scene_source,
             reason: failure_reason,
         });
     }
@@ -438,6 +555,7 @@ fn reveal_ready_standalone_bsn_instances(
             With<FoundationBsnInstance>,
             Without<FoundationBsnApplyPending>,
             Without<SceneOwner>,
+            Without<FoundationPreparedSceneCacheEntry>,
         ),
     >,
 ) {
@@ -452,7 +570,12 @@ fn replace_reloaded_bsn_instances(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut scene_events: MessageReader<AssetEvent<ScenePatch>>,
-    scene_instances: Query<(Entity, &FoundationBsnInstance, Option<&ChildOf>)>,
+    scene_instances: Query<(
+        Entity,
+        &FoundationBsnInstance,
+        Option<&ChildOf>,
+        Option<&FoundationPreparedSceneCacheEntry>,
+    )>,
 ) {
     let reloaded_asset_ids = scene_events
         .read()
@@ -467,7 +590,8 @@ fn replace_reloaded_bsn_instances(
         return;
     }
 
-    for (instance_entity, bsn_instance, parent_link) in &scene_instances {
+    for (instance_entity, bsn_instance, parent_link, prepared_scene_cache_entry) in &scene_instances
+    {
         if !reloaded_asset_ids.contains(&bsn_instance.scene_handle.id()) {
             continue;
         }
@@ -480,13 +604,18 @@ fn replace_reloaded_bsn_instances(
         // The accepted hot-reload policy is intentionally simple: remove the
         // entire authored instance and spawn a fresh replacement from disk.
         commands.entity(instance_entity).despawn();
-        spawn_bsn_instance_with_asset_server(
+        let replacement_entity = spawn_bsn_instance_with_asset_server(
             &mut commands,
             &asset_server,
             replacement_asset_path,
             replacement_scene_owner,
             replacement_parent,
         );
+        if let Some(prepared_scene_cache_entry) = prepared_scene_cache_entry {
+            commands
+                .entity(replacement_entity)
+                .insert(prepared_scene_cache_entry.clone());
+        }
     }
 }
 
@@ -551,6 +680,25 @@ fn insert_scene_owner_recursively(
     }
 }
 
+fn insert_scene_owner_recursively_in_world(
+    world: &mut World,
+    entity: Entity,
+    scene_owner: SceneOwner,
+) {
+    let child_entities = world
+        .get::<Children>(entity)
+        .map(|child_entities| child_entities.iter().collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
+        entity_mut.insert(scene_owner);
+    }
+
+    for child_entity in child_entities {
+        insert_scene_owner_recursively_in_world(world, child_entity, scene_owner);
+    }
+}
+
 fn _asset_path_is_bsn(asset_path: &str) -> bool {
     AssetPath::parse(asset_path)
         .path()
@@ -570,6 +718,9 @@ mod tests {
 
     #[derive(Clone, Debug, Default, Component)]
     struct HardenedChildMarker;
+
+    #[derive(Default, Resource)]
+    struct PreloadReadyLog(Vec<SceneSource>);
 
     struct FailingScene;
 
@@ -727,6 +878,67 @@ mod tests {
     }
 
     #[test]
+    fn prepared_scene_apply_emits_preload_ready_and_stays_hidden() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin {
+            file_path: ".".to_string(),
+            ..default()
+        });
+        app.init_asset::<ScenePatch>();
+        app.init_resource::<crate::scene_stack::ScenePreparationRegistry>();
+        app.add_message::<ScenePreloadReady>();
+        app.init_resource::<PreloadReadyLog>();
+        app.add_systems(Update, apply_pending_bsn_instances);
+        app.add_systems(Last, collect_preload_ready_messages);
+
+        let scene_patch = {
+            let asset_server = app.world().resource::<AssetServer>();
+            ScenePatch::load(asset_server, bevy::scene::bsn! { HardenedRootMarker })
+        };
+        let scene_handle = app
+            .world_mut()
+            .resource_mut::<Assets<ScenePatch>>()
+            .add(scene_patch);
+        let prepared_scene_source = SceneSource::bsn_scene("levels/prepared");
+        let root_entity = app
+            .world_mut()
+            .spawn((
+                FoundationPreparedSceneCacheEntry {
+                    source: prepared_scene_source.clone(),
+                },
+                FoundationBsnInstance {
+                    asset_path: "levels/prepared.bsn".to_string(),
+                    scene_owner: None,
+                    parent: None,
+                    scene_handle,
+                },
+                FoundationBsnApplyPending,
+                Visibility::Hidden,
+            ))
+            .id();
+
+        app.update();
+        app.update();
+
+        assert!(app
+            .world()
+            .get::<FoundationBsnApplyPending>(root_entity)
+            .is_none());
+        assert!(app
+            .world()
+            .get::<FoundationPreparedSceneCacheEntry>(root_entity)
+            .is_some());
+        assert_eq!(
+            app.world().get::<Visibility>(root_entity),
+            Some(&Visibility::Hidden),
+            "prepared cache roots must stay hidden until explicitly activated"
+        );
+        let ready_log = app.world().resource::<PreloadReadyLog>();
+        assert_eq!(ready_log.0, vec![prepared_scene_source]);
+    }
+
+    #[test]
     fn standalone_bsn_instance_becomes_visible_once_applied() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -787,6 +999,60 @@ mod tests {
     }
 
     #[test]
+    fn activating_prepared_scene_assigns_scene_owner_recursively() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<crate::scene_stack::ScenePreparationRegistry>();
+        app.add_message::<SceneLoadRequested>();
+        app.add_message::<ScenePreloadRequested>();
+        app.add_systems(PostUpdate, activate_prepared_bsn_scenes);
+
+        let root_entity = app
+            .world_mut()
+            .spawn((
+                FoundationPreparedSceneCacheEntry {
+                    source: SceneSource::bsn_scene("levels/prepared"),
+                },
+                FoundationBsnInstance {
+                    asset_path: "levels/prepared.bsn".to_string(),
+                    scene_owner: None,
+                    parent: None,
+                    scene_handle: Handle::default(),
+                },
+            ))
+            .id();
+        let child_entity = app.world_mut().spawn((ChildOf(root_entity),)).id();
+
+        app.world_mut().write_message(SceneLoadRequested {
+            scene_id: SceneId(3),
+            source: SceneSource::bsn_scene("levels/prepared"),
+        });
+        app.update();
+
+        let expected_scene_owner = SceneOwner {
+            scene_id: SceneId(3),
+        };
+        assert_eq!(
+            app.world().get::<SceneOwner>(root_entity),
+            Some(&expected_scene_owner)
+        );
+        assert_eq!(
+            app.world().get::<SceneOwner>(child_entity),
+            Some(&expected_scene_owner)
+        );
+        assert!(app
+            .world()
+            .get::<FoundationPreparedSceneCacheEntry>(root_entity)
+            .is_none());
+        assert_eq!(
+            app.world()
+                .get::<FoundationBsnInstance>(root_entity)
+                .and_then(|instance| instance.scene_owner),
+            Some(expected_scene_owner)
+        );
+    }
+
+    #[test]
     fn hot_reload_replaces_old_root_and_children() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -829,6 +1095,15 @@ mod tests {
         let mut instances = app.world_mut().query::<&FoundationBsnInstance>();
         let replacement_count = instances.iter(app.world()).count();
         assert_eq!(replacement_count, 1);
+    }
+
+    fn collect_preload_ready_messages(
+        mut preload_ready: MessageReader<ScenePreloadReady>,
+        mut log: ResMut<PreloadReadyLog>,
+    ) {
+        for message in preload_ready.read() {
+            log.0.push(message.source.clone());
+        }
     }
 
     #[test]

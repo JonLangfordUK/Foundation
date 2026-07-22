@@ -150,10 +150,13 @@ pub mod prelude {
         FoundationResumeOnEscape, FoundationSimpleGameplayLevel, FoundationSpin,
     };
     pub use crate::scene_stack::{
-        FoundationSceneStackPlugin, OpenSceneOptions, SceneAdded, SceneCommand, SceneCommandsExt,
-        SceneContentLoading, SceneFocused, SceneId, SceneKey, SceneLoadRequested, SceneOwner,
-        ScenePresentation, SceneRemoved, SceneRuntimeFlags, SceneSource, SceneStack,
-        SceneStackEntry, SceneTarget, SceneUnfocused,
+        FoundationSceneStackPlugin, FoundationSceneStackSet, OpenSceneOptions, SceneAdded,
+        SceneCommand, SceneCommandsExt, SceneContentLoading, SceneFocused, SceneId, SceneKey,
+        SceneLoadRequested, SceneOwner, ScenePreloadFailed, ScenePreloadReady,
+        ScenePreloadRegistry, ScenePreloadRequested, ScenePreparationRegistry,
+        ScenePreparationStatus, ScenePresentation, SceneRemoved, SceneRuntimeFlags, SceneSource,
+        SceneStack, SceneStackEntry, SceneTarget, SceneTransitionFailed, SceneTransitionStatus,
+        SceneUnfocused,
     };
     pub use crate::splash_screen::{
         FoundationSplashRuntimeSettings, FoundationSplashScreen, FoundationSplashScreenPlugin,

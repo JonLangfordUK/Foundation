@@ -132,6 +132,58 @@ SceneOwner { scene_id }
 
 Foundation cleanup removes owned entities when a scene leaves the stack. Generated UI or gameplay entities should inherit the same owner so they do not leak across scene transitions.
 
+## Async Scene Preparation And Cache
+
+Foundation scene opens now flow through a preparation/activation lifecycle instead of constructing BSN scene content directly on the click-to-transition path.
+
+### Preparation lifecycle
+
+A scene source can be requested in two ways:
+
+- explicitly through `SceneCommand::Preload` / `SceneCommandsExt::preload_scene`, or
+- implicitly because an `Open` / `ClearAndOpen` transition batch needs that source before the stack can mutate.
+
+Foundation tracks public preparation state in `ScenePreparationRegistry`:
+
+- `Requested`
+- `Ready`
+- `Failed`
+
+BSN scene preparation stays asynchronous from the caller's perspective:
+
+1. Foundation queues `ScenePreloadRequested` for the target `SceneSource`.
+2. `FoundationBsnAssetPlugin` spawns a hidden prepared root and starts the Bevy asset load.
+3. Once the `.bsn` asset resolves and `ScenePatch::apply(...)` finishes, Foundation records the source as `Ready` and emits `ScenePreloadReady`.
+4. A queued transition batch activates only after every required scene source is `Ready`.
+
+If preparation fails, Foundation records `Failed` and emits `ScenePreloadFailed` / `SceneTransitionFailed` so callers can recover rather than hanging forever on a hidden or half-built scene.
+
+### Transition batches
+
+Foundation now queues stack mutations in batches. Any batch containing one or more scene opens waits until all target scene sources are prepared. While that wait is in progress, `SceneTransitionStatus` exposes:
+
+- whether a transition is pending,
+- which sources the active batch is still waiting on, and
+- how many transition batches are queued.
+
+This is the intended backbone for future loading-screen UI: a loading scene can inspect `SceneTransitionStatus` and react to `ScenePreloadReady` / `ScenePreloadFailed` without re-implementing scene-open logic.
+
+### Cached activation
+
+Prepared BSN roots are cached off-stack in a hidden state. When a queued batch finally activates, Foundation reuses the prepared root instead of re-running the expensive BSN resolve/apply work on the transition frame.
+
+Activation does three things:
+
+1. remove the prepared-cache marker,
+2. assign the new active `SceneOwner` to the root and all authored descendants, and
+3. immediately request a refill preload for the same source so frequently-used scenes can stay warm for the next transition.
+
+The cached prepared root is consumed by activation; Foundation then begins refilling the cache entry in the background.
+
+### Scene-authored preload relationships
+
+Games can register likely next-scene relationships through `ScenePreloadRegistry`. When a scene is added or regains focus, Foundation requests preloads for its registered targets. This keeps common UI transitions warm without every game re-implementing scene prediction logic.
+
 ## Readiness Gating (Scene Visibility)
 
 A scene's `visible` stack flag (from `ScenePresentation`) and its actual on-screen visibility are two separate concerns. Stack presentation decides whether a scene *should* be visible (not covered by another scene); readiness decides whether its content is *actually built and styled* yet.
