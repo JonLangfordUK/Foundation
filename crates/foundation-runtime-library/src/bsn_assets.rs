@@ -22,7 +22,7 @@ use crate::{
     dynamic_bsn::DynamicBsnLoader,
     scene_stack::{
         FoundationSceneStackSet, SceneContentLoading, SceneLoadRequested, SceneOwner,
-        ScenePreloadFailed, ScenePreloadReady, ScenePreloadRequested, SceneSource,
+        ScenePreloadFailed, ScenePreloadReady, ScenePreloadRequested, SceneSource, SceneStack,
     },
 };
 
@@ -63,7 +63,7 @@ impl Plugin for FoundationBsnAssetPlugin {
             .add_systems(
                 PostUpdate,
                 activate_prepared_bsn_scenes
-                    .run_if(resource_exists::<Messages<SceneLoadRequested>>)
+                    .run_if(resource_exists::<SceneStack>)
                     .in_set(FoundationSceneStackSet::ActivateSceneContent),
             );
     }
@@ -248,7 +248,7 @@ fn spawn_requested_bsn_scene_preloads(
 #[allow(clippy::type_complexity)]
 fn activate_prepared_bsn_scenes(
     mut commands: Commands,
-    mut scene_requests: MessageReader<SceneLoadRequested>,
+    scene_stack: Res<SceneStack>,
     mut preparation_registry: ResMut<crate::scene_stack::ScenePreparationRegistry>,
     mut preload_requested: MessageWriter<ScenePreloadRequested>,
     mut prepared_scene_instances: Query<
@@ -260,21 +260,21 @@ fn activate_prepared_bsn_scenes(
         Without<FoundationBsnApplyPending>,
     >,
 ) {
-    for scene_request in scene_requests.read() {
-        let SceneSource::BsnScene { .. } = &scene_request.source else {
+    for scene_stack_entry in scene_stack.entries() {
+        let SceneSource::BsnScene { .. } = &scene_stack_entry.source else {
             continue;
         };
 
         let Some((prepared_root_entity, _prepared_scene, mut prepared_instance)) =
             prepared_scene_instances
                 .iter_mut()
-                .find(|(_, prepared_scene, _)| prepared_scene.source == scene_request.source)
+                .find(|(_, prepared_scene, _)| prepared_scene.source == scene_stack_entry.source)
         else {
             continue;
         };
 
         let scene_owner = SceneOwner {
-            scene_id: scene_request.scene_id,
+            scene_id: scene_stack_entry.id,
         };
         prepared_instance.scene_owner = Some(scene_owner);
         let activation_root_entity = prepared_root_entity;
@@ -286,9 +286,9 @@ fn activate_prepared_bsn_scenes(
             insert_scene_owner_recursively_in_world(world, activation_root_entity, scene_owner);
         });
 
-        preparation_registry.mark_requested(scene_request.source.clone());
+        preparation_registry.mark_requested(scene_stack_entry.source.clone());
         preload_requested.write(ScenePreloadRequested {
-            source: scene_request.source.clone(),
+            source: scene_stack_entry.source.clone(),
         });
     }
 }
@@ -685,10 +685,13 @@ fn insert_scene_owner_recursively_in_world(
     entity: Entity,
     scene_owner: SceneOwner,
 ) {
-    let child_entities = world
-        .get::<Children>(entity)
-        .map(|child_entities| child_entities.iter().collect::<Vec<_>>())
-        .unwrap_or_default();
+    let child_entities = {
+        let mut child_links = world.query::<(Entity, &ChildOf)>();
+        child_links
+            .iter(world)
+            .filter_map(|(child_entity, child_of)| (child_of.0 == entity).then_some(child_entity))
+            .collect::<Vec<_>>()
+    };
 
     if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
         entity_mut.insert(scene_owner);
@@ -711,7 +714,7 @@ mod tests {
     use super::*;
     use bevy::scene::{ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies};
 
-    use crate::scene_stack::SceneId;
+    use crate::scene_stack::{SceneCommand, SceneId};
 
     #[derive(Clone, Debug, Default, Component)]
     struct HardenedRootMarker;
@@ -1002,16 +1005,22 @@ mod tests {
     fn activating_prepared_scene_assigns_scene_owner_recursively() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.init_resource::<crate::scene_stack::ScenePreparationRegistry>();
-        app.add_message::<SceneLoadRequested>();
-        app.add_message::<ScenePreloadRequested>();
-        app.add_systems(PostUpdate, activate_prepared_bsn_scenes);
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_systems(
+            PostUpdate,
+            activate_prepared_bsn_scenes.in_set(FoundationSceneStackSet::ActivateSceneContent),
+        );
+
+        let scene_source = SceneSource::bsn_scene("levels/prepared");
+        app.world_mut()
+            .resource_mut::<crate::scene_stack::ScenePreparationRegistry>()
+            .mark_ready(scene_source.clone());
 
         let root_entity = app
             .world_mut()
             .spawn((
                 FoundationPreparedSceneCacheEntry {
-                    source: SceneSource::bsn_scene("levels/prepared"),
+                    source: scene_source.clone(),
                 },
                 FoundationBsnInstance {
                     asset_path: "levels/prepared.bsn".to_string(),
@@ -1023,14 +1032,12 @@ mod tests {
             .id();
         let child_entity = app.world_mut().spawn((ChildOf(root_entity),)).id();
 
-        app.world_mut().write_message(SceneLoadRequested {
-            scene_id: SceneId(3),
-            source: SceneSource::bsn_scene("levels/prepared"),
-        });
+        app.world_mut()
+            .write_message(SceneCommand::open(scene_source));
         app.update();
 
         let expected_scene_owner = SceneOwner {
-            scene_id: SceneId(3),
+            scene_id: SceneId(1),
         };
         assert_eq!(
             app.world().get::<SceneOwner>(root_entity),
