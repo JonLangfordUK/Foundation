@@ -75,6 +75,7 @@ impl Plugin for FoundationSplashScreenPlugin {
     fn build(&self, app: &mut App) {
         // Runtime settings gate splash behavior for standalone and editor integrations.
         app.init_resource::<FoundationSplashRuntimeSettings>()
+            .add_message::<FoundationSplashCompleted>()
             .register_type::<FoundationSplashScreen>()
             .register_type::<FoundationSplashTimings>()
             .register_type::<FoundationSplashUiRoot>()
@@ -89,6 +90,13 @@ impl Plugin for FoundationSplashScreenPlugin {
                 ),
             );
     }
+}
+
+/// Message emitted once a splash screen finishes its fade sequence.
+#[derive(Clone, Copy, Debug, Message, PartialEq, Eq, Reflect)]
+pub struct FoundationSplashCompleted {
+    /// Scene owner for the completed splash, when it belongs to the scene stack.
+    pub scene_owner: Option<SceneOwner>,
 }
 
 /// Scene-authored splash-screen configuration.
@@ -168,6 +176,7 @@ impl Default for FoundationSplashScreen {
 
 /// Adjustable splash sequence timings, expressed in seconds.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default)]
 pub struct FoundationSplashTimings {
     /// Seconds spent fading from transparent to fully visible.
     pub fade_in_seconds: f32,
@@ -399,11 +408,16 @@ fn advance_splash_screens(
     mut commands: Commands,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut splashes: Query<(&FoundationSplashScreen, &mut FoundationSplashRuntime)>,
+    mut splashes: Query<(
+        &FoundationSplashScreen,
+        &mut FoundationSplashRuntime,
+        Option<&SceneOwner>,
+    )>,
     mut text_colors: Query<&mut TextColor>,
     mut scene_commands: MessageWriter<SceneCommand>,
+    mut splash_completed: MessageWriter<FoundationSplashCompleted>,
 ) {
-    for (splash, mut runtime) in &mut splashes {
+    for (splash, mut runtime, scene_owner) in &mut splashes {
         if runtime.phase == SplashPhase::Complete {
             continue;
         }
@@ -433,6 +447,9 @@ fn advance_splash_screens(
                 // Generated fallback UI is owned by the splash runtime and removed on completion.
                 commands.entity(runtime.ui_root).despawn();
             }
+            splash_completed.write(FoundationSplashCompleted {
+                scene_owner: scene_owner.copied(),
+            });
             if let Some(completion_scene_command) = splash.completion_command() {
                 scene_commands.write(completion_scene_command);
             }

@@ -159,9 +159,9 @@ pub mod prelude {
         SceneUnfocused,
     };
     pub use crate::splash_screen::{
-        FoundationSplashRuntimeSettings, FoundationSplashScreen, FoundationSplashScreenPlugin,
-        FoundationSplashText, FoundationSplashTimings, FoundationSplashUiParent,
-        FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
+        FoundationSplashCompleted, FoundationSplashRuntimeSettings, FoundationSplashScreen,
+        FoundationSplashScreenPlugin, FoundationSplashText, FoundationSplashTimings,
+        FoundationSplashUiParent, FoundationSplashUiRoot, FoundationSplashUiTargetCamera,
     };
     pub use crate::startup_scene::{
         startup_scene_commands_or_default, FoundationStartupSceneOverrideError,
