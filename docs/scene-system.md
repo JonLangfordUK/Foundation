@@ -157,6 +157,12 @@ Ordering matters here: a system that inserts `SceneContentLoading` in reaction t
 
 Readiness gating is purely additive to presentation: a fully-ready scene that is covered by a scene above it still hides, and a stack-visible-but-loading scene stays hidden regardless of presentation. Both conditions must hold together.
 
+### Profiling BSN apply stalls
+
+Foundation's temporary `.bsn` bridge emits tracing spans around scene resolution and `ScenePatch::apply` under `foundation_bsn_instance` and `foundation_bsn_apply`. Enable Bevy's profiling features (for example `bevy/trace_chrome` or `bevy/trace_tracy`) to capture these spans in a timeline profiler.
+
+For lightweight log-based profiling, set `FOUNDATION_BSN_PROFILE_MS=<milliseconds>` before launching a game. Foundation logs any BSN resolve/apply step that takes at least that long, including the asset path and root entity. This is intended to distinguish scene-stack visibility/readiness timing from the synchronous main-thread cost of constructing a large BSN scene.
+
 ## BSN Asset Authoring Rules
 
 Foundation includes a temporary `.bsn` asset bridge for Bevy 0.19. Bevy currently ships the `bsn!` macro, but not the official file-backed `.bsn` asset loader. Foundation's bridge is intentionally isolated in `foundation-runtime-library` so it can be removed when Bevy provides first-party support.

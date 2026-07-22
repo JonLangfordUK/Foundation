@@ -8,11 +8,15 @@
 use bevy::{
     asset::{AssetEvent, AssetPath, AssetServer, Handle},
     ecs::hierarchy::ChildOf,
+    log::{error, info_span, warn},
     prelude::*,
     scene::{ResolvedSceneRoot, ScenePatch},
 };
 
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use crate::{
     dynamic_bsn::DynamicBsnLoader,
@@ -34,6 +38,7 @@ impl Plugin for FoundationBsnAssetPlugin {
         // intentionally registered from one isolated Foundation plugin.
         app.init_asset_loader::<DynamicBsnLoader>()
             .init_resource::<FoundationBsnSceneRegistry>()
+            .init_resource::<FoundationBsnProfilingSettings>()
             .register_type::<FoundationBsnInstance>()
             .add_systems(
                 Update,
@@ -91,6 +96,30 @@ impl FoundationBsnSceneRegistry {
             .into_iter()
             .filter(|registered_scene_key| registered_scene_key.contains(scene_key_search_text))
             .collect()
+    }
+}
+
+/// Optional profiling settings for Foundation's temporary BSN apply bridge.
+///
+/// Set `FOUNDATION_BSN_PROFILE_MS=<milliseconds>` while running a game to log
+/// every BSN resolve/apply step that exceeds that threshold. This complements
+/// Bevy's `bevy/trace_chrome` or `bevy/trace_tracy` features, which can capture
+/// the spans emitted by this module in a timeline profiler.
+#[derive(Clone, Debug, Resource)]
+pub struct FoundationBsnProfilingSettings {
+    slow_step_threshold: Option<Duration>,
+}
+
+impl FromWorld for FoundationBsnProfilingSettings {
+    fn from_world(_world: &mut World) -> Self {
+        let slow_step_threshold = std::env::var("FOUNDATION_BSN_PROFILE_MS")
+            .ok()
+            .and_then(|raw_threshold| raw_threshold.parse::<u64>().ok())
+            .map(Duration::from_millis);
+
+        Self {
+            slow_step_threshold,
+        }
     }
 }
 
@@ -240,13 +269,24 @@ pub fn apply_pending_bsn_instances(world: &mut World) {
         pending_query
             .iter(world)
             .map(|(instance_entity, bsn_instance)| {
-                (instance_entity, bsn_instance.scene_handle.clone())
+                (
+                    instance_entity,
+                    bsn_instance.asset_path.clone(),
+                    bsn_instance.scene_handle.clone(),
+                )
             })
             .collect::<Vec<_>>()
     };
 
-    for (instance_entity, scene_handle) in pending_instances {
+    for (instance_entity, asset_path, scene_handle) in pending_instances {
+        let _instance_span = info_span!(
+            "foundation_bsn_instance",
+            asset_path = %asset_path,
+            entity = ?instance_entity,
+        )
+        .entered();
         let scene_patch_id = scene_handle.id();
+        let resolve_started_at = Instant::now();
         let resolve_status = world.resource_scope(
             |world, mut scene_patches: Mut<Assets<ScenePatch>>| -> FoundationBsnResolveStatus {
                 let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
@@ -279,6 +319,14 @@ pub fn apply_pending_bsn_instances(world: &mut World) {
             },
         );
 
+        log_slow_bsn_step(
+            world,
+            "resolve",
+            &asset_path,
+            instance_entity,
+            resolve_started_at.elapsed(),
+        );
+
         match resolve_status {
             FoundationBsnResolveStatus::Waiting => continue,
             FoundationBsnResolveStatus::Ready => {}
@@ -292,6 +340,13 @@ pub fn apply_pending_bsn_instances(world: &mut World) {
             }
         }
 
+        let _apply_span = info_span!(
+            "foundation_bsn_apply",
+            asset_path = %asset_path,
+            entity = ?instance_entity,
+        )
+        .entered();
+        let apply_started_at = Instant::now();
         let scene_apply_result = world.resource_scope(
             |world, scene_patches: Mut<Assets<ScenePatch>>| -> Result<(), String> {
                 let Some(scene_patch) = scene_patches.get(scene_patch_id) else {
@@ -305,6 +360,14 @@ pub fn apply_pending_bsn_instances(world: &mut World) {
                     .apply(&mut instance_entity_mut)
                     .map_err(|apply_error| apply_error.to_string())
             },
+        );
+
+        log_slow_bsn_step(
+            world,
+            "apply",
+            &asset_path,
+            instance_entity,
+            apply_started_at.elapsed(),
         );
 
         match scene_apply_result {
@@ -323,6 +386,30 @@ pub fn apply_pending_bsn_instances(world: &mut World) {
             }
         }
     }
+}
+
+fn log_slow_bsn_step(
+    world: &World,
+    step_name: &str,
+    asset_path: &str,
+    instance_entity: Entity,
+    elapsed: Duration,
+) {
+    let Some(slow_step_threshold) = world
+        .get_resource::<FoundationBsnProfilingSettings>()
+        .and_then(|settings| settings.slow_step_threshold)
+    else {
+        return;
+    };
+
+    if elapsed < slow_step_threshold {
+        return;
+    }
+
+    warn!(
+        "Foundation BSN {step_name} for `{asset_path}` on {instance_entity:?} took {:.2} ms",
+        elapsed.as_secs_f64() * 1000.0,
+    );
 }
 
 fn mark_bsn_instance_failed(world: &mut World, instance_entity: Entity, failure_reason: String) {
