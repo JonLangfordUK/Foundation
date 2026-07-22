@@ -1145,6 +1145,9 @@ fn close_on_escape(
                     &settings,
                     scene_stack.as_deref(),
                     close_marker_scene_owner.as_ref(),
+                ) || !close_marker_is_on_focused_scene(
+                    scene_stack.as_deref(),
+                    close_marker_scene_owner.as_ref(),
                 );
                 if !should_skip && resume_on_escape.is_some() {
                     // Escape should match the Resume button for pause menus, not leave gameplay frozen.
@@ -1157,6 +1160,18 @@ fn close_on_escape(
             pause_state.paused = false;
         }
         scene_commands.write(SceneCommand::CloseCurrent);
+    }
+}
+
+fn close_marker_is_on_focused_scene(
+    scene_stack: Option<&SceneStack>,
+    scene_owner: Option<&SceneOwner>,
+) -> bool {
+    match (scene_stack, scene_owner) {
+        (Some(scene_stack), Some(scene_owner)) => scene_stack
+            .focused()
+            .is_some_and(|scene_entry| scene_entry.id == scene_owner.scene_id),
+        _ => true,
     }
 }
 
@@ -1307,6 +1322,45 @@ mod tests {
             Some(crate::scene_stack::SceneId(1))
         );
         assert!(!pause_state.paused);
+    }
+
+    #[test]
+    fn escape_close_marker_on_lower_scene_does_not_close_focused_scene() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("main-menu")));
+        app.world_mut()
+            .write_message(SceneCommand::open_with_options(
+                SceneSource::runtime("credits"),
+                OpenSceneOptions::default()
+                    .with_key("credits")
+                    .with_presentation(ScenePresentation::FULLSCREEN),
+            ));
+        app.update();
+
+        app.world_mut().spawn((
+            FoundationCloseOnEscape,
+            SceneOwner {
+                scene_id: crate::scene_stack::SceneId(1),
+            },
+        ));
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+
+        let scene_stack = app.world().resource::<SceneStack>();
+        assert_eq!(
+            scene_stack.current().map(|entry| entry.id),
+            Some(crate::scene_stack::SceneId(2)),
+            "Escape should not close the focused scene because only a lower scene has FoundationCloseOnEscape"
+        );
     }
 
     #[test]

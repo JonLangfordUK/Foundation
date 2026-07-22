@@ -423,7 +423,7 @@ fn advance_splash_screens(
         if runtime.phase == SplashPhase::Complete {
             continue;
         }
-        if !splash_scene_is_visible(scene_stack.as_deref(), scene_owner.copied()) {
+        if !splash_scene_is_focused(scene_stack.as_deref(), scene_owner.copied()) {
             continue;
         }
 
@@ -466,12 +466,14 @@ fn splash_skip_requested(keyboard: &ButtonInput<KeyCode>) -> bool {
     keyboard.just_pressed(KeyCode::Escape)
 }
 
-fn splash_scene_is_visible(
+fn splash_scene_is_focused(
     scene_stack: Option<&SceneStack>,
     scene_owner: Option<SceneOwner>,
 ) -> bool {
     match (scene_stack, scene_owner) {
-        (Some(scene_stack), Some(scene_owner)) => scene_stack.is_visible(scene_owner.scene_id),
+        (Some(scene_stack), Some(scene_owner)) => scene_stack
+            .focused()
+            .is_some_and(|scene_entry| scene_entry.id == scene_owner.scene_id),
         _ => true,
     }
 }
@@ -588,23 +590,23 @@ mod tests {
     }
 
     #[test]
-    fn scene_owned_splash_advances_only_when_stack_visible() {
+    fn scene_owned_splash_advances_only_when_stack_focused() {
         let scene_owner = SceneOwner {
             scene_id: crate::scene_stack::SceneId(1),
         };
         let empty_scene_stack = SceneStack::default();
 
         assert!(
-            splash_scene_is_visible(None, Some(scene_owner)),
+            splash_scene_is_focused(None, Some(scene_owner)),
             "without a scene stack, splash runtime keeps standalone behavior"
         );
         assert!(
-            splash_scene_is_visible(Some(&empty_scene_stack), None),
+            splash_scene_is_focused(Some(&empty_scene_stack), None),
             "unowned standalone splashes are not scene-stack gated"
         );
         assert!(
-            !splash_scene_is_visible(Some(&empty_scene_stack), Some(scene_owner)),
-            "scene-owned splashes should not advance before their stack entry is visible"
+            !splash_scene_is_focused(Some(&empty_scene_stack), Some(scene_owner)),
+            "scene-owned splashes should not advance before their stack entry is focused"
         );
 
         let mut app = App::new();
@@ -616,8 +618,8 @@ mod tests {
 
         let scene_stack = app.world().resource::<SceneStack>();
         assert!(
-            splash_scene_is_visible(Some(scene_stack), Some(scene_owner)),
-            "scene-owned splashes may advance once scene-stack visibility is true"
+            splash_scene_is_focused(Some(scene_stack), Some(scene_owner)),
+            "scene-owned splashes may advance once their scene-stack entry is focused"
         );
     }
 
