@@ -1171,7 +1171,8 @@ fn close_marker_is_on_focused_scene(
         (Some(scene_stack), Some(scene_owner)) => scene_stack
             .focused()
             .is_some_and(|scene_entry| scene_entry.id == scene_owner.scene_id),
-        _ => true,
+        (Some(_), None) => false,
+        (None, _) => true,
     }
 }
 
@@ -1322,6 +1323,33 @@ mod tests {
             Some(crate::scene_stack::SceneId(1))
         );
         assert!(!pause_state.paused);
+    }
+
+    #[test]
+    fn unowned_escape_close_marker_does_not_close_focused_scene_stack_entry() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<ButtonInput<KeyCode>>();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.add_plugins(FoundationMenuPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("beacon")));
+        app.update();
+
+        app.world_mut().spawn(FoundationCloseOnEscape);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+
+        let scene_stack = app.world().resource::<SceneStack>();
+        assert_eq!(
+            scene_stack.current().map(|entry| entry.id),
+            Some(crate::scene_stack::SceneId(1)),
+            "Escape should not close Beacon just because an unowned cached scene has FoundationCloseOnEscape"
+        );
     }
 
     #[test]

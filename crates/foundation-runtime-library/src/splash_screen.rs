@@ -474,7 +474,8 @@ fn splash_scene_is_focused(
         (Some(scene_stack), Some(scene_owner)) => scene_stack
             .focused()
             .is_some_and(|scene_entry| scene_entry.id == scene_owner.scene_id),
-        _ => true,
+        (Some(_), None) => false,
+        (None, _) => true,
     }
 }
 
@@ -601,8 +602,8 @@ mod tests {
             "without a scene stack, splash runtime keeps standalone behavior"
         );
         assert!(
-            splash_scene_is_focused(Some(&empty_scene_stack), None),
-            "unowned standalone splashes are not scene-stack gated"
+            !splash_scene_is_focused(Some(&empty_scene_stack), None),
+            "unowned cached splashes must not advance while a scene stack exists"
         );
         assert!(
             !splash_scene_is_focused(Some(&empty_scene_stack), Some(scene_owner)),
