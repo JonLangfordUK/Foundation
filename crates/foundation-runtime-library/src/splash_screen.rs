@@ -6,7 +6,7 @@
 //! stack commands when the sequence completes.
 
 use crate::scene_stack::{
-    OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource,
+    OpenSceneOptions, SceneCommand, SceneOwner, ScenePresentation, SceneSource, SceneStack,
 };
 use bevy::prelude::*;
 
@@ -404,10 +404,12 @@ fn safe_add_child(commands: &mut Commands, parent_entity: Entity, child_entity: 
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn advance_splash_screens(
     mut commands: Commands,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    scene_stack: Option<Res<SceneStack>>,
     mut splashes: Query<(
         &FoundationSplashScreen,
         &mut FoundationSplashRuntime,
@@ -419,6 +421,9 @@ fn advance_splash_screens(
 ) {
     for (splash, mut runtime, scene_owner) in &mut splashes {
         if runtime.phase == SplashPhase::Complete {
+            continue;
+        }
+        if !splash_scene_is_visible(scene_stack.as_deref(), scene_owner.copied()) {
             continue;
         }
 
@@ -459,6 +464,16 @@ fn advance_splash_screens(
 
 fn splash_skip_requested(keyboard: &ButtonInput<KeyCode>) -> bool {
     keyboard.just_pressed(KeyCode::Escape)
+}
+
+fn splash_scene_is_visible(
+    scene_stack: Option<&SceneStack>,
+    scene_owner: Option<SceneOwner>,
+) -> bool {
+    match (scene_stack, scene_owner) {
+        (Some(scene_stack), Some(scene_owner)) => scene_stack.is_visible(scene_owner.scene_id),
+        _ => true,
+    }
 }
 
 fn advance_phase(
@@ -570,6 +585,40 @@ mod tests {
         elapsed = 1.5;
         assert_eq!(advance_phase(&mut phase, &mut elapsed, timings), 0.0);
         assert_eq!(phase, SplashPhase::Complete);
+    }
+
+    #[test]
+    fn scene_owned_splash_advances_only_when_stack_visible() {
+        let scene_owner = SceneOwner {
+            scene_id: crate::scene_stack::SceneId(1),
+        };
+        let empty_scene_stack = SceneStack::default();
+
+        assert!(
+            splash_scene_is_visible(None, Some(scene_owner)),
+            "without a scene stack, splash runtime keeps standalone behavior"
+        );
+        assert!(
+            splash_scene_is_visible(Some(&empty_scene_stack), None),
+            "unowned standalone splashes are not scene-stack gated"
+        );
+        assert!(
+            !splash_scene_is_visible(Some(&empty_scene_stack), Some(scene_owner)),
+            "scene-owned splashes should not advance before their stack entry is visible"
+        );
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(crate::scene_stack::FoundationSceneStackPlugin);
+        app.world_mut()
+            .write_message(SceneCommand::open(SceneSource::runtime("visible-splash")));
+        app.update();
+
+        let scene_stack = app.world().resource::<SceneStack>();
+        assert!(
+            splash_scene_is_visible(Some(scene_stack), Some(scene_owner)),
+            "scene-owned splashes may advance once scene-stack visibility is true"
+        );
     }
 
     #[test]
