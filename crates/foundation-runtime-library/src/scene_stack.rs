@@ -45,6 +45,7 @@ impl Plugin for FoundationSceneStackPlugin {
             .add_message::<ScenePreloadFailed>()
             .add_message::<SceneTransitionFailed>()
             .register_type::<SceneOwner>()
+            .register_type::<ScenePreparationContext>()
             .register_type::<SceneContentLoading>()
             .register_type::<ScenePreparationStatus>()
             .register_type::<SceneTransitionStatus>()
@@ -468,6 +469,18 @@ pub struct SceneOwner {
     pub scene_id: SceneId,
 }
 
+/// Tags hidden prepared-cache entities with the scene source they are being prepared for.
+///
+/// This context is available before a scene has an active [`SceneOwner`], allowing nested asset
+/// loaders and runtime scene generators to register readiness tokens against the prepared source
+/// while it is still off-stack and hidden in the cache.
+#[derive(Clone, Debug, Component, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct ScenePreparationContext {
+    /// Scene source being prepared by this cache subtree.
+    pub source: SceneSource,
+}
+
 /// Marks an entity whose content is not fully ready to display yet.
 ///
 /// Attach this to a [`SceneOwner`]-tagged entity — the scene root or any
@@ -484,18 +497,38 @@ pub struct SceneContentLoading;
 /// Public preparation status for a scene source.
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum ScenePreparationStatus {
-    /// Preparation has been requested but not settled yet.
+    /// Preparation has been requested but no concrete loading work has started yet.
     Requested,
-    /// Prepared content is ready for stack activation.
+    /// External assets are loading through Bevy's asset pipeline.
+    AssetLoading,
+    /// A BSN scene is resolving its dependencies before it can be applied.
+    Resolving,
+    /// Top-level scene content is being applied to a hidden prepared root.
+    ApplyingTopLevel,
+    /// Top-level content exists and Foundation is discovering nested readiness work.
+    DiscoveringNestedWork,
+    /// Nested scene, widget, or runtime readiness tokens are still pending.
+    PreparingNestedWork,
+    /// Prepared content is fully spawned, hidden, settled, and ready for stack activation.
     Ready,
+    /// Prepared content is currently being consumed by a scene-stack activation.
+    Activating,
+    /// The prepared source has been activated into the scene stack.
+    Active,
     /// Preparation failed and must be retried explicitly.
     Failed,
 }
+
+/// Opaque handle for a readiness token registered against a prepared scene source.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Reflect)]
+pub struct SceneReadinessToken(pub u64);
 
 /// Tracks current preparation state for scene sources known to Foundation.
 #[derive(Debug, Default, Resource)]
 pub struct ScenePreparationRegistry {
     entries: HashMap<SceneSource, ScenePreparationRecord>,
+    next_token_id: u64,
+    tokens: HashMap<SceneReadinessToken, SceneReadinessTokenRecord>,
 }
 
 impl ScenePreparationRegistry {
@@ -511,34 +544,137 @@ impl ScenePreparationRegistry {
             .and_then(|record| record.failure_reason.as_deref())
     }
 
-    pub(crate) fn mark_requested(&mut self, scene_source: SceneSource) {
-        self.entries.insert(
-            scene_source,
-            ScenePreparationRecord {
-                status: ScenePreparationStatus::Requested,
-                failure_reason: None,
+    /// Returns the number of outstanding readiness tokens for a prepared source.
+    pub fn pending_readiness_token_count(&self, scene_source: &SceneSource) -> usize {
+        self.entries
+            .get(scene_source)
+            .map(|record| record.pending_tokens.len())
+            .unwrap_or_default()
+    }
+
+    /// Registers pending readiness work against a scene source.
+    ///
+    /// `ScenePreloadReady` should not be emitted for the source until every token registered
+    /// for it has been settled. Tokens let nested BSN widgets, runtime-generated content, and
+    /// other game-specific systems participate in Foundation's prepared-scene readiness contract
+    /// without directly mutating cache internals.
+    pub fn request_readiness_token(
+        &mut self,
+        scene_source: SceneSource,
+        label: impl Into<String>,
+    ) -> SceneReadinessToken {
+        let token_id = self.next_token_id.max(1);
+        self.next_token_id = token_id + 1;
+        let token = SceneReadinessToken(token_id);
+        let record = self
+            .entries
+            .entry(scene_source.clone())
+            .or_insert_with(|| ScenePreparationRecord::new(ScenePreparationStatus::Requested));
+        record.pending_tokens.insert(token);
+        if matches!(
+            record.status,
+            ScenePreparationStatus::Ready | ScenePreparationStatus::DiscoveringNestedWork
+        ) {
+            record.status = ScenePreparationStatus::PreparingNestedWork;
+        }
+        self.tokens.insert(
+            token,
+            SceneReadinessTokenRecord {
+                scene_source,
+                label: label.into(),
             },
+        );
+        token
+    }
+
+    /// Settles a readiness token, returning the source it belonged to when it was known.
+    pub fn settle_readiness_token(&mut self, token: SceneReadinessToken) -> Option<SceneSource> {
+        let token_record = self.tokens.remove(&token)?;
+        if let Some(record) = self.entries.get_mut(&token_record.scene_source) {
+            record.pending_tokens.remove(&token);
+            if record.pending_tokens.is_empty()
+                && matches!(record.status, ScenePreparationStatus::PreparingNestedWork)
+            {
+                record.status = ScenePreparationStatus::DiscoveringNestedWork;
+            }
+        }
+        Some(token_record.scene_source)
+    }
+
+    /// Returns true when a source has completed top-level work and has no pending tokens.
+    pub fn source_is_settled_for_ready(&self, scene_source: &SceneSource) -> bool {
+        self.entries.get(scene_source).is_some_and(|record| {
+            record.failure_reason.is_none()
+                && record.pending_tokens.is_empty()
+                && matches!(
+                    record.status,
+                    ScenePreparationStatus::DiscoveringNestedWork | ScenePreparationStatus::Ready
+                )
+        })
+    }
+
+    pub(crate) fn mark_requested(&mut self, scene_source: SceneSource) {
+        self.set_status(scene_source, ScenePreparationStatus::Requested, None);
+    }
+
+    pub(crate) fn mark_asset_loading(&mut self, scene_source: SceneSource) {
+        self.set_status(scene_source, ScenePreparationStatus::AssetLoading, None);
+    }
+
+    pub(crate) fn mark_resolving(&mut self, scene_source: SceneSource) {
+        self.set_status(scene_source, ScenePreparationStatus::Resolving, None);
+    }
+
+    pub(crate) fn mark_applying_top_level(&mut self, scene_source: SceneSource) {
+        self.set_status(scene_source, ScenePreparationStatus::ApplyingTopLevel, None);
+    }
+
+    pub(crate) fn mark_discovering_nested_work(&mut self, scene_source: SceneSource) {
+        self.set_status(
+            scene_source,
+            ScenePreparationStatus::DiscoveringNestedWork,
+            None,
         );
     }
 
     pub(crate) fn mark_ready(&mut self, scene_source: SceneSource) {
-        self.entries.insert(
-            scene_source,
-            ScenePreparationRecord {
-                status: ScenePreparationStatus::Ready,
-                failure_reason: None,
-            },
-        );
+        self.set_status(scene_source, ScenePreparationStatus::Ready, None);
+    }
+
+    pub(crate) fn mark_activating(&mut self, scene_source: SceneSource) {
+        self.set_status(scene_source, ScenePreparationStatus::Activating, None);
+    }
+
+    pub(crate) fn mark_active(&mut self, scene_source: SceneSource) {
+        self.set_status(scene_source, ScenePreparationStatus::Active, None);
     }
 
     pub(crate) fn mark_failed(&mut self, scene_source: SceneSource, failure_reason: String) {
-        self.entries.insert(
+        self.set_status(
             scene_source,
-            ScenePreparationRecord {
-                status: ScenePreparationStatus::Failed,
-                failure_reason: Some(failure_reason),
-            },
+            ScenePreparationStatus::Failed,
+            Some(failure_reason),
         );
+    }
+
+    fn set_status(
+        &mut self,
+        scene_source: SceneSource,
+        status: ScenePreparationStatus,
+        failure_reason: Option<String>,
+    ) {
+        let record = self
+            .entries
+            .entry(scene_source)
+            .or_insert_with(|| ScenePreparationRecord::new(status.clone()));
+        record.status = if !record.pending_tokens.is_empty()
+            && matches!(status, ScenePreparationStatus::DiscoveringNestedWork)
+        {
+            ScenePreparationStatus::PreparingNestedWork
+        } else {
+            status
+        };
+        record.failure_reason = failure_reason;
     }
 }
 
@@ -546,6 +682,24 @@ impl ScenePreparationRegistry {
 struct ScenePreparationRecord {
     status: ScenePreparationStatus,
     failure_reason: Option<String>,
+    pending_tokens: HashSet<SceneReadinessToken>,
+}
+
+impl ScenePreparationRecord {
+    fn new(status: ScenePreparationStatus) -> Self {
+        Self {
+            status,
+            failure_reason: None,
+            pending_tokens: HashSet::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct SceneReadinessTokenRecord {
+    scene_source: SceneSource,
+    #[allow(dead_code)]
+    label: String,
 }
 
 /// Registers scene sources that should be proactively preloaded when another scene activates.
@@ -1005,8 +1159,8 @@ fn request_scene_preload_if_needed(
     preload_requested: &mut MessageWriter<ScenePreloadRequested>,
 ) {
     match preparation_registry.status(&scene_source) {
-        Some(ScenePreparationStatus::Requested) | Some(ScenePreparationStatus::Ready) => return,
         Some(ScenePreparationStatus::Failed) | None => {}
+        Some(_) => return,
     }
 
     match &scene_source {

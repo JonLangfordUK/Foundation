@@ -146,15 +146,24 @@ A scene source can be requested in two ways:
 Foundation tracks public preparation state in `ScenePreparationRegistry`:
 
 - `Requested`
+- `AssetLoading`
+- `Resolving`
+- `ApplyingTopLevel`
+- `DiscoveringNestedWork`
+- `PreparingNestedWork`
 - `Ready`
+- `Activating`
+- `Active`
 - `Failed`
 
 BSN scene preparation stays asynchronous from the caller's perspective:
 
 1. Foundation queues `ScenePreloadRequested` for the target `SceneSource`.
 2. `FoundationBsnAssetPlugin` spawns a hidden prepared root and starts the Bevy asset load.
-3. Once the `.bsn` asset resolves and `ScenePatch::apply(...)` finishes, Foundation records the source as `Ready` and emits `ScenePreloadReady`.
-4. A queued transition batch activates only after every required scene source is `Ready`.
+3. The `.bsn` asset resolves and `ScenePatch::apply(...)` runs against the hidden prepared root, never against a visible transition target.
+4. Foundation propagates `ScenePreparationContext` through the hidden prepared subtree so nested loaders and runtime scene generators can register readiness tokens against the source before it enters the stack.
+5. `ScenePreloadReady` is emitted only after top-level apply is complete and every registered readiness token has settled. In other words, `Ready` means fully spawned, hidden, non-interactable, dependency-settled, and cached for activation — not merely "the top-level BSN patch applied."
+6. A queued transition batch activates only after every required scene source is `Ready`.
 
 If preparation fails, Foundation records `Failed` and emits `ScenePreloadFailed` / `SceneTransitionFailed` so callers can recover rather than hanging forever on a hidden or half-built scene.
 
@@ -178,7 +187,9 @@ Activation does three things:
 2. assign the new active `SceneOwner` to the root and all authored descendants, and
 3. immediately request a refill preload for the same source so frequently-used scenes can stay warm for the next transition.
 
-The cached prepared root is consumed by activation; Foundation then begins refilling the cache entry in the background.
+The cached prepared root is consumed by activation; Foundation then begins refilling the cache entry in the background. Refill work is preparation work, not active-scene readiness work: it must never make the active scene unready again.
+
+`FoundationBsnPreparationBudget` limits how many ready BSN patches Foundation applies in one frame. The default is one apply per frame, which prevents a preload/refill burst from applying every prepared scene in the same gameplay frame. This does not make a single `ScenePatch::apply` call itself multi-threaded, but it keeps multiple scene dependencies from stacking into one large hitch.
 
 ### Scene-authored preload relationships
 
@@ -203,9 +214,9 @@ commands.entity(entity).remove::<SceneContentLoading>();
 
 This closes the gap where a scene used to become visible the instant it was pushed onto the stack, before any of its authored content existed — producing a visible "pop" once the content actually finished loading a few frames later. Foundation's `.bsn` asset bridge (`bsn_assets.rs`) uses this directly: every scene-owned BSN root spawns `Visibility::Hidden` + `SceneContentLoading`, and both are cleared once `scene_patch.apply(...)` completes (whether it succeeds or fails — a broken load must still reveal whatever content exists rather than hiding the scene forever). Standalone (non scene-stack) BSN prefabs spawned via `spawn_bsn_asset` are not gated by the scene stack; they reveal themselves directly once their own apply completes.
 
-Game code that starts its own nested asset loads under already-applied scene content (for example Last Beacon's `LastBeaconBsnWidget` reusable-widget composition) should follow the same pattern: insert `SceneContentLoading` on the entity that starts a new load, and remove it once that load settles. Doing so keeps the owning scene hidden until every nested load finishes too, instead of the scene's shell appearing first and individual pieces popping in afterward.
+Game code that starts its own nested asset loads in an active scene can follow the same pattern: insert `SceneContentLoading` on the entity that starts a new load, and remove it once that load settles. Doing so keeps the owning scene hidden until every nested load finishes too, instead of the scene's shell appearing first and individual pieces popping in afterward.
 
-Ordering matters here: a system that inserts `SceneContentLoading` in reaction to newly-applied scene content (such as `Added<SomeMarker>`) must run *after* `propagate_loaded_bsn_scene_owners` in the same `Update` pass, so the entity already carries the correct `SceneOwner` before the marker is attached. Otherwise the marker could briefly apply to no scene, letting the parent scene flash visible for one frame before hiding again once ownership catches up on the next frame. `foundation_runtime_library::prelude::propagate_loaded_bsn_scene_owners` is exported specifically so other crates can express this ordering with `.after(propagate_loaded_bsn_scene_owners)`.
+For off-stack prepared scenes, nested loaders should use readiness tokens instead. `ScenePreparationContext` identifies the source being prepared before a `SceneOwner` exists, and `ScenePreparationRegistry::request_readiness_token` / `settle_readiness_token` let game or runtime systems block `ScenePreloadReady` until their nested work has settled. This is the preferred path for reusable widget BSNs and runtime-generated scene content that must be ready before cached activation.
 
 Readiness gating is purely additive to presentation: a fully-ready scene that is covered by a scene above it still hides, and a stack-visible-but-loading scene stays hidden regardless of presentation. Both conditions must hold together.
 

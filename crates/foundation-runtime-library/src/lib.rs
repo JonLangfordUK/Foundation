@@ -114,7 +114,8 @@ pub struct FoundationActor {
 pub mod prelude {
     pub use crate::bsn_assets::{
         apply_pending_bsn_instances, propagate_loaded_bsn_scene_owners, FoundationBsnAssetPlugin,
-        FoundationBsnCommandsExt, FoundationBsnInstance, FoundationBsnSceneRegistry,
+        FoundationBsnCommandsExt, FoundationBsnInstance, FoundationBsnPreparationBudget,
+        FoundationBsnSceneRegistry,
     };
     #[cfg(feature = "dev-tools")]
     pub use crate::console::{
@@ -153,10 +154,10 @@ pub mod prelude {
         FoundationSceneStackPlugin, FoundationSceneStackSet, OpenSceneOptions, SceneAdded,
         SceneCommand, SceneCommandsExt, SceneContentLoading, SceneFocused, SceneId, SceneKey,
         SceneLoadRequested, SceneOwner, ScenePreloadFailed, ScenePreloadReady,
-        ScenePreloadRegistry, ScenePreloadRequested, ScenePreparationRegistry,
-        ScenePreparationStatus, ScenePresentation, SceneRemoved, SceneRuntimeFlags, SceneSource,
-        SceneStack, SceneStackEntry, SceneTarget, SceneTransitionFailed, SceneTransitionStatus,
-        SceneUnfocused,
+        ScenePreloadRegistry, ScenePreloadRequested, ScenePreparationContext,
+        ScenePreparationRegistry, ScenePreparationStatus, ScenePresentation, SceneReadinessToken,
+        SceneRemoved, SceneRuntimeFlags, SceneSource, SceneStack, SceneStackEntry, SceneTarget,
+        SceneTransitionFailed, SceneTransitionStatus, SceneUnfocused,
     };
     pub use crate::splash_screen::{
         FoundationSplashCompleted, FoundationSplashRuntimeSettings, FoundationSplashScreen,
