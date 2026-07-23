@@ -14,6 +14,7 @@ use bevy::{
 };
 
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -157,10 +158,16 @@ pub struct FoundationBsnPreparationBudget {
     pub max_applies_per_frame: usize,
 }
 
-impl Default for FoundationBsnPreparationBudget {
-    fn default() -> Self {
+impl FromWorld for FoundationBsnPreparationBudget {
+    fn from_world(_world: &mut World) -> Self {
+        let max_applies_per_frame = std::env::var("FOUNDATION_BSN_APPLY_BUDGET")
+            .ok()
+            .and_then(|raw_budget| raw_budget.parse::<usize>().ok())
+            .filter(|budget| *budget > 0)
+            .unwrap_or(2);
+
         Self {
-            max_applies_per_frame: 1,
+            max_applies_per_frame,
         }
     }
 }
@@ -813,25 +820,32 @@ fn insert_scene_owner_recursively_in_world(
 
 fn insert_scene_preparation_context_recursively_in_world(
     world: &mut World,
-    entity: Entity,
+    root_entity: Entity,
     source: SceneSource,
 ) {
-    let child_entities = {
+    let child_entities_by_parent = {
         let mut child_links = world.query::<(Entity, &ChildOf)>();
-        child_links
-            .iter(world)
-            .filter_map(|(child_entity, child_of)| (child_of.0 == entity).then_some(child_entity))
-            .collect::<Vec<_>>()
+        let mut child_entities_by_parent = HashMap::<Entity, Vec<Entity>>::new();
+        for (child_entity, child_of) in child_links.iter(world) {
+            child_entities_by_parent
+                .entry(child_of.0)
+                .or_default()
+                .push(child_entity);
+        }
+        child_entities_by_parent
     };
 
-    if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-        entity_mut.insert(ScenePreparationContext {
-            source: source.clone(),
-        });
-    }
+    let mut pending_entities = vec![root_entity];
+    while let Some(entity) = pending_entities.pop() {
+        if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
+            entity_mut.insert(ScenePreparationContext {
+                source: source.clone(),
+            });
+        }
 
-    for child_entity in child_entities {
-        insert_scene_preparation_context_recursively_in_world(world, child_entity, source.clone());
+        if let Some(child_entities) = child_entities_by_parent.get(&entity) {
+            pending_entities.extend(child_entities.iter().copied());
+        }
     }
 }
 

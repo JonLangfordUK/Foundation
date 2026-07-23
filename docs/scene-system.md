@@ -189,7 +189,7 @@ Activation does three things:
 
 The cached prepared root is consumed by activation; Foundation then begins refilling the cache entry in the background. Refill work is preparation work, not active-scene readiness work: it must never make the active scene unready again.
 
-`FoundationBsnPreparationBudget` limits how many ready BSN patches Foundation applies in one frame. The default is one apply per frame, which prevents a preload/refill burst from applying every prepared scene in the same gameplay frame. This does not make a single `ScenePatch::apply` call itself multi-threaded, but it keeps multiple scene dependencies from stacking into one large hitch.
+`FoundationBsnPreparationBudget` limits how many ready BSN patches Foundation applies in one frame. The default is two applies per frame and can be overridden with `FOUNDATION_BSN_APPLY_BUDGET=<count>`. This prevents a preload/refill burst from applying every prepared scene in the same gameplay frame without stretching large preload groups as aggressively as a one-apply budget. It does not make a single `ScenePatch::apply` call itself multi-threaded, but it keeps multiple scene dependencies from stacking into one large hitch.
 
 ### Scene-authored preload relationships
 
