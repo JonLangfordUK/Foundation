@@ -609,10 +609,10 @@ struct QueuedSceneCommandBatch {
 }
 
 impl QueuedSceneCommandBatch {
-    fn new(id: u64, commands: Vec<SceneCommand>) -> Self {
+    fn new(id: u64, commands: Vec<SceneCommand>, preload_registry: &ScenePreloadRegistry) -> Self {
         Self {
             id,
-            required_sources: collect_required_sources(&commands),
+            required_sources: collect_required_sources(&commands, preload_registry),
             commands,
             preload_started: false,
         }
@@ -730,6 +730,7 @@ impl<'w, 's> QueueSceneCommand for Commands<'w, 's> {
 fn process_scene_commands(
     mut commands: MessageReader<SceneCommand>,
     mut command_queue: ResMut<SceneCommandQueue>,
+    preload_registry: Res<ScenePreloadRegistry>,
     mut preparation_registry: ResMut<ScenePreparationRegistry>,
     mut preload_requested: MessageWriter<ScenePreloadRequested>,
 ) {
@@ -743,11 +744,15 @@ fn process_scene_commands(
     for scene_command in scene_commands {
         match scene_command {
             SceneCommand::Preload { source } => {
-                request_scene_preload_if_needed(
-                    source,
-                    &mut preparation_registry,
-                    &mut preload_requested,
-                );
+                for preload_source in
+                    collect_source_and_preload_dependencies(&source, &preload_registry)
+                {
+                    request_scene_preload_if_needed(
+                        preload_source,
+                        &mut preparation_registry,
+                        &mut preload_requested,
+                    );
+                }
             }
             other_scene_command => stack_mutation_commands.push(other_scene_command),
         }
@@ -763,6 +768,7 @@ fn process_scene_commands(
         .push_back(QueuedSceneCommandBatch::new(
             batch_id,
             stack_mutation_commands,
+            &preload_registry,
         ));
 }
 
@@ -1016,31 +1022,68 @@ fn request_scene_preload_if_needed(
     }
 }
 
-fn collect_required_sources(commands: &[SceneCommand]) -> Vec<SceneSource> {
+fn collect_required_sources(
+    commands: &[SceneCommand],
+    preload_registry: &ScenePreloadRegistry,
+) -> Vec<SceneSource> {
     let mut seen_sources = HashSet::new();
     let mut required_sources = Vec::new();
 
     for scene_command in commands {
         let required_source = match scene_command {
-            SceneCommand::Open { source, .. } | SceneCommand::ClearAndOpen { source, .. } => {
-                Some(source.clone())
-            }
+            SceneCommand::Open { source, .. } | SceneCommand::ClearAndOpen { source, .. } => source,
             SceneCommand::Preload { .. }
             | SceneCommand::CloseCurrent
             | SceneCommand::Close(_)
-            | SceneCommand::Clear => None,
+            | SceneCommand::Clear => continue,
         };
 
-        let Some(required_source) = required_source else {
-            continue;
-        };
-
-        if seen_sources.insert(required_source.clone()) {
-            required_sources.push(required_source);
-        }
+        collect_source_and_preload_dependencies_into(
+            required_source,
+            preload_registry,
+            &mut seen_sources,
+            &mut required_sources,
+        );
     }
 
     required_sources
+}
+
+fn collect_source_and_preload_dependencies(
+    source: &SceneSource,
+    preload_registry: &ScenePreloadRegistry,
+) -> Vec<SceneSource> {
+    let mut seen_sources = HashSet::new();
+    let mut preload_sources = Vec::new();
+    collect_source_and_preload_dependencies_into(
+        source,
+        preload_registry,
+        &mut seen_sources,
+        &mut preload_sources,
+    );
+    preload_sources
+}
+
+fn collect_source_and_preload_dependencies_into(
+    source: &SceneSource,
+    preload_registry: &ScenePreloadRegistry,
+    seen_sources: &mut HashSet<SceneSource>,
+    preload_sources: &mut Vec<SceneSource>,
+) {
+    if !seen_sources.insert(source.clone()) {
+        return;
+    }
+
+    preload_sources.push(source.clone());
+
+    for preload_target in preload_registry.preload_targets(source) {
+        collect_source_and_preload_dependencies_into(
+            preload_target,
+            preload_registry,
+            seen_sources,
+            preload_sources,
+        );
+    }
 }
 
 fn cleanup_removed_scene_entities(
@@ -1661,9 +1704,134 @@ mod tests {
     }
 
     #[test]
-    fn preload_command_marks_runtime_scene_ready_without_touching_stack() {
+    fn opening_scene_waits_for_registered_preload_targets_before_load_request() {
         let mut app = test_app();
+        app.init_resource::<LoadRequestLog>();
+        app.init_resource::<PreloadRequestLog>();
+        app.add_systems(Last, (collect_load_requests, collect_preload_requests));
+
+        let beacon_source = SceneSource::bsn_scene("beacon");
+        let dashboard_source = SceneSource::bsn_scene("dashboard");
+        let hangar_source = SceneSource::bsn_scene("hangar");
+        app.world_mut()
+            .resource_mut::<ScenePreloadRegistry>()
+            .register_preloads(
+                beacon_source.clone(),
+                [dashboard_source.clone(), hangar_source.clone()],
+            );
+
+        app.world_mut()
+            .write_message(SceneCommand::open(beacon_source.clone()));
+        app.update();
+
+        let preload_log = app.world().resource::<PreloadRequestLog>();
+        assert_eq!(
+            preload_log.0,
+            vec![
+                beacon_source.clone(),
+                dashboard_source.clone(),
+                hangar_source.clone()
+            ],
+            "the opened scene and its registered preload targets should prepare before stack activation"
+        );
+        let transition_status = app.world().resource::<SceneTransitionStatus>();
+        assert!(transition_status.transition_pending);
+        assert_eq!(
+            transition_status.pending_sources,
+            vec![
+                beacon_source.clone(),
+                dashboard_source.clone(),
+                hangar_source.clone()
+            ]
+        );
+        assert!(app.world().resource::<LoadRequestLog>().0.is_empty());
+
+        app.world_mut().write_message(ScenePreloadReady {
+            source: beacon_source.clone(),
+        });
+        app.world_mut().write_message(ScenePreloadReady {
+            source: dashboard_source.clone(),
+        });
+        app.update();
+        assert!(
+            app.world().resource::<LoadRequestLog>().0.is_empty(),
+            "parent scene should not load until every preload target is ready"
+        );
+
+        app.world_mut().write_message(ScenePreloadReady {
+            source: hangar_source.clone(),
+        });
+        app.update();
+
+        let load_log = app.world().resource::<LoadRequestLog>();
+        assert_eq!(load_log.0, vec![(SceneId(1), beacon_source)]);
+    }
+
+    #[test]
+    fn opening_scene_waits_for_transitive_registered_preload_targets() {
+        let mut app = test_app();
+        app.init_resource::<LoadRequestLog>();
+        app.init_resource::<PreloadRequestLog>();
+        app.add_systems(Last, (collect_load_requests, collect_preload_requests));
+
+        let gameplay_source = SceneSource::bsn_scene("gameplay");
+        let pause_source = SceneSource::bsn_scene("pause");
+        let options_source = SceneSource::bsn_scene("options");
+        app.world_mut()
+            .resource_mut::<ScenePreloadRegistry>()
+            .register_preloads(gameplay_source.clone(), [pause_source.clone()]);
+        app.world_mut()
+            .resource_mut::<ScenePreloadRegistry>()
+            .register_preloads(pause_source.clone(), [options_source.clone()]);
+
+        app.world_mut()
+            .write_message(SceneCommand::open(gameplay_source.clone()));
+        app.update();
+
+        let preload_log = app.world().resource::<PreloadRequestLog>();
+        assert_eq!(
+            preload_log.0,
+            vec![
+                gameplay_source.clone(),
+                pause_source.clone(),
+                options_source.clone()
+            ]
+        );
+        let transition_status = app.world().resource::<SceneTransitionStatus>();
+        assert_eq!(
+            transition_status.pending_sources,
+            vec![
+                gameplay_source.clone(),
+                pause_source.clone(),
+                options_source.clone()
+            ]
+        );
+
+        app.world_mut().write_message(ScenePreloadReady {
+            source: gameplay_source.clone(),
+        });
+        app.world_mut().write_message(ScenePreloadReady {
+            source: pause_source.clone(),
+        });
+        app.world_mut().write_message(ScenePreloadReady {
+            source: options_source,
+        });
+        app.update();
+
+        let load_log = app.world().resource::<LoadRequestLog>();
+        assert_eq!(load_log.0, vec![(SceneId(1), gameplay_source)]);
+    }
+
+    #[test]
+    fn preload_command_prepares_registered_preload_targets_without_touching_stack() {
+        let mut app = test_app();
+        app.init_resource::<PreloadRequestLog>();
+        app.add_systems(Last, collect_preload_requests);
         let runtime_scene_source = SceneSource::runtime("debug-overlay");
+        let widget_scene_source = SceneSource::bsn_scene("debug-widget");
+        app.world_mut()
+            .resource_mut::<ScenePreloadRegistry>()
+            .register_preloads(runtime_scene_source.clone(), [widget_scene_source.clone()]);
 
         app.world_mut()
             .write_message(SceneCommand::preload(runtime_scene_source.clone()));
@@ -1676,6 +1844,12 @@ mod tests {
             preparation_registry.status(&runtime_scene_source),
             Some(&ScenePreparationStatus::Ready)
         );
+        assert_eq!(
+            preparation_registry.status(&widget_scene_source),
+            Some(&ScenePreparationStatus::Requested)
+        );
+        let preload_log = app.world().resource::<PreloadRequestLog>();
+        assert_eq!(preload_log.0, vec![widget_scene_source]);
     }
 
     fn test_app() -> App {
